@@ -38,9 +38,9 @@ from backend.app.browser_v2.state import (
     check_transition,
 )
 
-__all__ = ["ApplicationQuery", "ApplicationRecord", "HitlRecord", "MemoryStore", "PostgresStore",
-           "RevisionConflict", "RulesNotFound", "SerializedConnection", "Store", "TelegramState",
-           "WorkerControl", "WorkerState", "dedup_key"]
+__all__ = ["ApplicationQuery", "ApplicationRecord", "DraftReservation", "EmailDraftRecord", "HitlRecord",
+           "MemoryStore", "PostgresStore", "RevisionConflict", "RulesNotFound", "SerializedConnection", "Store",
+           "TelegramState", "WorkerControl", "WorkerState", "dedup_key"]
 
 HITL_STATUSES = ("OPEN", "ANSWERED", "EXPIRED", "CANCELLED")
 HITL_CHANNELS = ("telegram", "dashboard", "mcp", "worker")
@@ -50,6 +50,9 @@ REF_PATTERN = re.compile(r"^[0-9a-f]{4,32}$")
 TELEGRAM_STATE_FIELDS = ("last_update_id", "polling_state", "last_poll_at", "last_error",
                          "conflict_detected_at")
 POLLING_STATES = ("unconfigured", "starting", "polling", "conflict", "error", "stopped")
+DRAFT_STATUSES = ("PENDING", "CREATED", "FAILED")
+DRAFT_CHANNELS = ("imap", "mail_app")
+BODY_PREVIEW_CHARS = 280
 
 
 PROFILE_KEYS = ("verified_experience_years", "verified_skills", "verified_roles", "projects", "preferences",
@@ -111,14 +114,59 @@ class ApplicationRecord:
     retry_after: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    draft_created_at: datetime | None = None
 
     def public(self) -> dict[str, Any]:
         return {"id": self.id, "platform": self.platform, "external_job_id": self.external_job_id,
                 "company_name": self.company_name, "role_title": self.role_title,
                 "job_url": self.job_url, "state": self.state.value, "reason": self.reason,
                 "attempts": self.attempts, "applied_at": self.applied_at,
-                "retry_after": self.retry_after, "created_at": self.created_at,
-                "updated_at": self.updated_at}
+                "retry_after": self.retry_after, "draft_created_at": self.draft_created_at,
+                "created_at": self.created_at, "updated_at": self.updated_at}
+
+
+@dataclass
+class EmailDraftRecord:
+    """One public.email_drafts row (+ the linked application's display/retry fields)."""
+    id: str
+    application_id: str | None
+    status: str
+    platform: str | None = None
+    recipient_email: str | None = None
+    subject: str | None = None
+    body_preview: str | None = None
+    channel: str | None = None
+    composer: str | None = None
+    enrichment_source: str | None = None
+    external_draft_id: str | None = None
+    last_error: str | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    company_name: str | None = None
+    role_title: str | None = None
+    application_state: str | None = None
+    retry_after: datetime | None = None
+
+    def public(self) -> dict[str, Any]:
+        return {"id": self.id, "application_id": self.application_id, "platform": self.platform,
+                "company_name": self.company_name, "role_title": self.role_title,
+                "recipient_email": self.recipient_email, "subject": self.subject,
+                "body_preview": self.body_preview, "channel": self.channel, "status": self.status,
+                "composer": self.composer, "enrichment_source": self.enrichment_source,
+                "last_error": self.last_error, "created_at": self.created_at,
+                "application_state": self.application_state, "retry_after": self.retry_after}
+
+
+@dataclass(frozen=True)
+class DraftReservation:
+    """`reserved=True`: this caller owns a fresh PENDING row and may create the draft.
+    Otherwise `existing` is the row that already blocks a second draft (never duplicate)."""
+    reserved: bool
+    draft: EmailDraftRecord | None
+
+
+def _clip(value: str | None, limit: int) -> str | None:
+    return value[:limit] if isinstance(value, str) else value
 
 
 @dataclass
@@ -291,6 +339,28 @@ class Store(Protocol):
 
     async def count_state(self, state: ApplicationState, platform: str | None = None) -> int: ...
 
+    # --- Phase 5: quota-hit drafts + next-day retry ---
+    async def due_retries(self, platform: str, now: datetime, limit: int = 20) -> list[ApplicationRecord]: ...
+
+    async def parked_since(self, platform: str, since: datetime) -> int: ...
+
+    async def reserve_email_draft(self, application_id: str, platform: str | None,
+                                  recipient_email: str | None) -> DraftReservation: ...
+
+    async def complete_email_draft(self, draft_id: str, *, channel: str, subject: str, body_preview: str,
+                                   composer: str | None, enrichment_source: str | None,
+                                   external_draft_id: str | None) -> EmailDraftRecord: ...
+
+    async def fail_email_draft(self, draft_id: str, error: str, *, ambiguous: bool = False) -> None: ...
+
+    async def get_email_draft(self, application_id: str) -> EmailDraftRecord | None: ...
+
+    async def list_email_drafts(self, platform: str | None = None, limit: int = 50,
+                                offset: int = 0) -> tuple[list[EmailDraftRecord], int]: ...
+
+    async def count_email_drafts(self, status: str = "CREATED", platform: str | None = None,
+                                 since: datetime | None = None) -> int: ...
+
     async def applied_since(self, platform: str, since: datetime) -> int: ...
 
     async def list_applications(self, query: ApplicationQuery) -> tuple[list[ApplicationRecord], int]: ...
@@ -330,6 +400,7 @@ class MemoryStore:
         self.worker = worker or WorkerControl()
         self.heartbeats: list[str] = []
         self.telegram = TelegramState()
+        self.drafts: list[dict[str, Any]] = []
 
     async def get_rules(self, platform: str) -> PortalRules:
         return self.rules.get(platform, PortalRules(platform=platform))
@@ -572,6 +643,77 @@ class MemoryStore:
         if clear_run_once:
             self.worker.run_once_requested_at = None
 
+    # --- Phase 5 -------------------------------------------------------------------
+    async def due_retries(self, platform, now, limit=20):
+        rows = [replace(r) for (p, _), r in self.records.items()
+                if p == platform and r.state == ApplicationState.DRAFTED_AND_QUEUED
+                and r.retry_after is not None and r.retry_after <= now]
+        rows.sort(key=lambda r: (r.retry_after, r.updated_at or now))
+        return rows[:limit]
+
+    async def parked_since(self, platform, since):
+        ids = {r.id for (p, _), r in self.records.items() if p == platform}
+        return sum(1 for e in self.events if e["application_id"] in ids
+                   and ApplicationState(e["to"]) == ApplicationState.QUOTA_HIT_PENDING
+                   and e["from"] != ApplicationState.QUOTA_HIT_PENDING and e["created_at"] >= since)
+
+    def _draft_record(self, row: dict[str, Any]) -> EmailDraftRecord:
+        app = next((r for r in self.records.values() if r.id == row.get("application_id")), None)
+        known = set(EmailDraftRecord.__dataclass_fields__)
+        values = {k: v for k, v in row.items() if k in known}
+        return EmailDraftRecord(**values, company_name=app.company_name if app else None,
+                                role_title=app.role_title if app else None,
+                                application_state=app.state.value if app else None,
+                                retry_after=app.retry_after if app else None)
+
+    async def reserve_email_draft(self, application_id, platform, recipient_email):
+        existing = next((d for d in self.drafts if d["application_id"] == application_id), None)
+        if existing is not None:
+            if existing["status"] != "FAILED":
+                return DraftReservation(False, self._draft_record(existing))
+            existing.update(status="PENDING", recipient_email=recipient_email, last_error=None,
+                            updated_at=_now())  # a definite failure may be retried once more
+            return DraftReservation(True, self._draft_record(existing))
+        row = {"id": str(uuid.uuid4()), "application_id": application_id, "platform": platform,
+               "recipient_email": recipient_email, "status": "PENDING", "created_at": _now(),
+               "updated_at": _now()}
+        self.drafts.append(row)
+        return DraftReservation(True, self._draft_record(row))
+
+    async def complete_email_draft(self, draft_id, *, channel, subject, body_preview, composer,
+                                   enrichment_source, external_draft_id):
+        if channel not in DRAFT_CHANNELS:
+            raise ValueError("invalid draft channel")
+        row = next(d for d in self.drafts if d["id"] == draft_id)
+        row.update(status="CREATED", channel=channel, subject=subject,
+                   body_preview=_clip(body_preview, BODY_PREVIEW_CHARS), composer=composer,
+                   enrichment_source=enrichment_source, external_draft_id=external_draft_id,
+                   last_error=None, created_at=_now(), updated_at=_now())
+        for record in self.records.values():
+            if record.id == row["application_id"] and record.draft_created_at is None:
+                record.draft_created_at = _now()
+        return self._draft_record(row)
+
+    async def fail_email_draft(self, draft_id, error, *, ambiguous=False):
+        row = next((d for d in self.drafts if d["id"] == draft_id), None)
+        if row is not None:
+            row.update(last_error=_clip(error, 200), updated_at=_now(),
+                       status="PENDING" if ambiguous else "FAILED")
+
+    async def get_email_draft(self, application_id):
+        row = next((d for d in self.drafts if d["application_id"] == application_id), None)
+        return self._draft_record(row) if row else None
+
+    async def list_email_drafts(self, platform=None, limit=50, offset=0):
+        rows = [d for d in self.drafts if platform is None or d.get("platform") == platform]
+        rows.sort(key=lambda d: d["created_at"], reverse=True)
+        return [self._draft_record(d) for d in rows[offset: offset + limit]], len(rows)
+
+    async def count_email_drafts(self, status="CREATED", platform=None, since=None):
+        return sum(1 for d in self.drafts if d["status"] == status
+                   and (platform is None or d.get("platform") == platform)
+                   and (since is None or d["created_at"] >= since))
+
     async def close(self) -> None:
         return None
 
@@ -668,13 +810,23 @@ def _record(row: Any) -> ApplicationRecord:
         company_name=data.get("company_name"), role_title=data.get("role_title"),
         job_url=data.get("job_url"), dedup_key=data.get("dedup_key"),
         applied_at=data.get("applied_at"), retry_after=data.get("retry_after"),
-        created_at=data.get("created_at"), updated_at=data.get("updated_at"))
+        created_at=data.get("created_at"), updated_at=data.get("updated_at"),
+        draft_created_at=data.get("draft_created_at"))
+
+
+def _draft(row: Any) -> EmailDraftRecord:
+    data = dict(row)
+    known = set(EmailDraftRecord.__dataclass_fields__)
+    values = {k: v for k, v in data.items() if k in known}
+    values["id"] = str(values["id"])
+    values["application_id"] = str(values["application_id"]) if values.get("application_id") else None
+    return EmailDraftRecord(**values)
 
 
 class PostgresStore:
     COLUMNS = ("id, platform, external_job_id, state, version, attempts, reason, receipt, "
                "company_name, role_title, job_url, dedup_key, applied_at, retry_after, "
-               "created_at, updated_at")
+               "created_at, updated_at, draft_created_at")
 
     def __init__(self, connection: Any, *, owns_connection: bool = True) -> None:
         self.connection = connection
@@ -973,6 +1125,92 @@ class PostgresStore:
             f"""UPDATE public.telegram_v2_state SET {assignments}updated_at=now()
                 WHERE singleton_key='primary' RETURNING *""", *[changes[c] for c in columns])
         return TelegramState.from_row(dict(row))
+
+    # --- Phase 5: quota-hit drafts + next-day retry --------------------------------------
+    async def due_retries(self, platform, now, limit=20):
+        rows = await self.connection.fetch(
+            f"""SELECT {self.COLUMNS} FROM public.applications
+                WHERE platform=$1 AND state='DRAFTED_AND_QUEUED' AND retry_after IS NOT NULL
+                  AND retry_after <= $2
+                ORDER BY retry_after, updated_at LIMIT $3""", platform, now, limit)
+        return [_record(r) for r in rows]
+
+    async def parked_since(self, platform, since):
+        return await self.connection.fetchval(
+            """SELECT count(*) FROM public.application_state_events e
+               JOIN public.applications a ON a.id = e.application_id
+               WHERE a.platform=$1 AND e.to_state='QUOTA_HIT_PENDING'
+                 AND e.from_state IS DISTINCT FROM 'QUOTA_HIT_PENDING' AND e.created_at >= $2""",
+            platform, since)
+
+    DRAFT_SELECT = ("SELECT d.id, d.application_id, d.platform, d.recipient_email, d.subject, d.body_preview, "
+                    "d.channel, d.status, d.composer, d.enrichment_source, d.external_draft_id, d.last_error, "
+                    "d.created_at, d.updated_at, a.company_name, a.role_title, a.state AS application_state, "
+                    "a.retry_after FROM public.email_drafts d "
+                    "LEFT JOIN public.applications a ON a.id = d.application_id")
+
+    async def reserve_email_draft(self, application_id, platform, recipient_email):
+        if _uuid(application_id) is None:
+            raise ValueError("invalid application id")
+        # Atomic claim: UNIQUE(application_id) means only one caller ever owns the row.
+        # A definite FAILED attempt may be re-claimed; PENDING/CREATED never are.
+        claimed = await self.connection.fetchval(
+            """INSERT INTO public.email_drafts (application_id, platform, recipient_email, status)
+               VALUES ($1::uuid, $2, $3, 'PENDING')
+               ON CONFLICT (application_id) DO UPDATE
+                   SET status='PENDING', recipient_email=EXCLUDED.recipient_email, last_error=NULL,
+                       updated_at=now()
+                   WHERE public.email_drafts.status='FAILED'
+               RETURNING id""", application_id, platform, recipient_email)
+        row = await self.connection.fetchrow(
+            f"{self.DRAFT_SELECT} WHERE d.application_id=$1::uuid", application_id)
+        return DraftReservation(claimed is not None, _draft(row) if row else None)
+
+    async def complete_email_draft(self, draft_id, *, channel, subject, body_preview, composer,
+                                   enrichment_source, external_draft_id):
+        if channel not in DRAFT_CHANNELS:
+            raise ValueError("invalid draft channel")
+        async with self.connection.transaction():
+            application_id = await self.connection.fetchval(
+                """UPDATE public.email_drafts SET status='CREATED', channel=$2, subject=$3, body_preview=$4,
+                       composer=$5, enrichment_source=$6, external_draft_id=$7, last_error=NULL,
+                       created_at=now(), updated_at=now()
+                   WHERE id=$1::uuid AND status='PENDING' RETURNING application_id""",
+                draft_id, channel, subject, _clip(body_preview, BODY_PREVIEW_CHARS), composer,
+                enrichment_source, external_draft_id)
+            if application_id is not None:
+                await self.connection.execute(
+                    """UPDATE public.applications SET draft_created_at=COALESCE(draft_created_at, now()),
+                           updated_at=now() WHERE id=$1""", application_id)
+        row = await self.connection.fetchrow(f"{self.DRAFT_SELECT} WHERE d.id=$1::uuid", draft_id)
+        return _draft(row)
+
+    async def fail_email_draft(self, draft_id, error, *, ambiguous=False):
+        await self.connection.execute(
+            """UPDATE public.email_drafts SET status=$3, last_error=$2, updated_at=now()
+               WHERE id=$1::uuid AND status='PENDING'""",
+            draft_id, _clip(error, 200), "PENDING" if ambiguous else "FAILED")
+
+    async def get_email_draft(self, application_id):
+        if _uuid(application_id) is None:
+            return None
+        row = await self.connection.fetchrow(
+            f"{self.DRAFT_SELECT} WHERE d.application_id=$1::uuid", application_id)
+        return _draft(row) if row else None
+
+    async def list_email_drafts(self, platform=None, limit=50, offset=0):
+        rows = await self.connection.fetch(
+            f"""{self.DRAFT_SELECT} WHERE ($1::text IS NULL OR d.platform=$1)
+                ORDER BY d.created_at DESC, d.id LIMIT $2 OFFSET $3""", platform, limit, offset)
+        total = await self.connection.fetchval(
+            "SELECT count(*) FROM public.email_drafts d WHERE ($1::text IS NULL OR d.platform=$1)", platform)
+        return [_draft(r) for r in rows], total
+
+    async def count_email_drafts(self, status="CREATED", platform=None, since=None):
+        return await self.connection.fetchval(
+            """SELECT count(*) FROM public.email_drafts WHERE status=$1
+                   AND ($2::text IS NULL OR platform=$2) AND ($3::timestamptz IS NULL OR created_at >= $3)""",
+            status, platform, since)
 
     # --- profile ----------------------------------------------------------------------
     async def load_profile(self):

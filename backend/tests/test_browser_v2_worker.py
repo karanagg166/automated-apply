@@ -157,8 +157,13 @@ async def test_daily_quota_marks_scored_jobs_quota_hit_pending_and_moves_on():
     report = await worker.cycle()
     by = {p.platform: p for p in report.portals}
     assert by["naukri"].skipped == "dashboard_daily_limit" and naukri.applied == []
-    assert store.records[("naukri", "naukri-9")].state is S.QUOTA_HIT_PENDING
-    assert store.records[("naukri", "naukri-9")].reason == "dashboard_daily_limit"
+    # Parked QUOTA_HIT_PENDING (reason recorded), then Phase 5 queues tomorrow's retry. With no
+    # mail/enrichment wired the retry is still scheduled (no draft is invented).
+    parked = store.records[("naukri", "naukri-9")]
+    assert [e["reason"] for e in store.events if e["application_id"] == parked.id][-2:] == [
+        "dashboard_daily_limit", "quota_hit_queued_draft_unavailable"]
+    assert parked.state is S.DRAFTED_AND_QUEUED
+    assert parked.retry_after == datetime(2026, 11, 27, 2, 30, tzinfo=UTC)  # 08:00 IST tomorrow
     assert by["instahyre"].applied == 1  # other portals keep running
 
 
@@ -188,7 +193,9 @@ async def test_portal_native_limit_records_timestamp_and_parks_jobs():
     report = await worker.cycle()
     assert report.portals[0].stopped_reason == "portal_daily_limit"
     assert store.rules["naukri"].portal_limit_hit_at is not None
-    assert store.records[("naukri", "naukri-1")].state is S.QUOTA_HIT_PENDING
+    limited = store.records[("naukri", "naukri-1")]
+    assert "portal_daily_limit" in [e["reason"] for e in store.events if e["application_id"] == limited.id]
+    assert limited.state is S.DRAFTED_AND_QUEUED and limited.retry_after is not None  # Phase 5 retry queued
     assert adapter.applied == []
     again = await worker.cycle()  # same local day: portal stays parked
     assert again.portals[0].skipped == "portal_daily_limit"

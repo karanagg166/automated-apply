@@ -93,7 +93,7 @@ def listing(i, platform="naukri", company="Acme Pvt Ltd"):
 
 async def test_rules_crud_with_revision_and_db_constraints(store):
     rules = {r.platform: r for r in await store.list_rules()}
-    assert set(rules) == {"naukri", "instahyre", "himalayas", "internshala"}
+    assert set(rules) == {"naukri", "instahyre", "internshala", "himalayas", "wellfound", "work_at_a_startup", "we_work_remotely", "hiringcafe", "greenhouse", "lever"}
     from datetime import time as clock
 
     updated = await store.update_rules("naukri", {"max_applies_per_day": 40, "active_hours_start": clock(9, 30),

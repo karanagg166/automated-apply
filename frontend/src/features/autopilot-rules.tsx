@@ -95,7 +95,8 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
     setForm(rulesToForm(rules));
   }
   const { patch: body, changed, errors } = rulesPatch(rules, form);
-  const name = readable(rules.platform);
+  const name = rules.label || readable(rules.platform);
+  const ready = rules.adapter_status === "ready";
   const save = useMutation({
     mutationFn: () =>
       patch<PortalRules>(`v2/portal-rules/${rules.platform}`, body),
@@ -133,10 +134,25 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
             {stamp(rules.updated_at, "never")}
           </p>
         </div>
-        <Badge tone={authTone(rules.auth_status)}>
-          {readable(rules.auth_status)}
-        </Badge>
+        <div className="tag-list">
+          <Badge tone={ready ? "green" : "neutral"}>
+            {ready ? "Adapter ready" : "Phase 6 adapter pending"}
+          </Badge>
+          {rules.requires_login ? (
+            <Badge tone={authTone(rules.auth_status)}>
+              {readable(rules.auth_status)}
+            </Badge>
+          ) : (
+            <Badge tone="neutral">No login needed</Badge>
+          )}
+        </div>
       </div>
+      {!ready && (
+        <p className="portal-hint">
+          Rules are saved now; this portal only runs once its adapter ships in
+          Phase 6, even if enabled.
+        </p>
+      )}
       <form
         className="panel-body stack"
         onSubmit={(event) => {
@@ -282,10 +298,10 @@ export function PortalRulesEditor() {
       <div className="section-heading">
         <h2 id="rules-heading">Portal permissions &amp; rules</h2>
         <p className="muted">
-          Caps, filters and pacing per portal. Changes apply on the worker’s
-          next cycle — no restart needed. Defaults: 50/day, 10/hour, jobs under
-          7 days old, at most 300 applicants, 45–150 s between applies,
-          08:00–23:30 IST.
+          Caps, filters and pacing for all 10 portals. Changes apply on the
+          worker’s next cycle — no restart needed. Defaults: 50/day, 10/hour,
+          jobs under 7 days old, at most 300 applicants, 45–150 s between
+          applies, 08:00–23:30 IST.
         </p>
       </div>
       {rules.isPending ? (

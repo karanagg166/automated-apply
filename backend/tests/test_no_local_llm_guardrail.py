@@ -22,7 +22,7 @@ from backend.app.ai_v2.providers import (
 from backend.app.ai_v2.router import LLMRouter
 
 ROOT = Path(__file__).resolve().parents[1] / "app"
-V2_PACKAGES = (ROOT / "ai_v2", ROOT / "browser_v2")
+V2_PACKAGES = (ROOT / "ai_v2", ROOT / "browser_v2", ROOT / "telegram_v2", ROOT / "enrichment_v2", ROOT / "mail_v2")
 LOCAL_RUNTIME_MODULES = {"ollama", "llama_cpp", "llama_cpp_python", "gpt4all", "vllm", "mlx_lm", "ctransformers",
                          "transformers", "lmstudio", "exllamav2"}
 LEGACY_AI_PREFIX = "backend.app.ai"

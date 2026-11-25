@@ -11,6 +11,11 @@
 - Phase 4: jobs the owner resolved via Telegram/dashboard (SCORED, retry_after
   <= now, unconsumed ANSWERED HITL row) run first in each portal cycle, before
   new discoveries; the Telegram poller/dispatcher runs as a sibling task.
+- Phase 5: when a daily cap is hit (dashboard or portal), passing jobs are parked
+  QUOTA_HIT_PENDING (plus a small, capped inspect-only pass over new discoveries);
+  the QuotaHitProcessor drafts ONE Gmail email per job and queues tomorrow's retry
+  (DRAFTED_AND_QUEUED). Due retries run right after HITL re-queues and before new
+  discoveries. A throttled Telegram summary (once per portal per day) is optional.
 - Stop/pause are honoured only between jobs and during sleeps, never
   mid-submission. Brave is recycled every 3 hours between jobs.
 """
@@ -18,6 +23,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import os
 import random
@@ -28,6 +34,14 @@ from typing import Any
 
 from backend.app.browser_v2.adapters.base import JobListing
 from backend.app.browser_v2.manager import RECYCLE_AFTER_SEC
+from backend.app.browser_v2.quota import (
+    QUOTA_LIMIT_REASONS,
+    Notifier,
+    QuotaHitProcessor,
+    QuotaReport,
+    fallback_daily_cap,
+    quota_summary,
+)
 from backend.app.browser_v2.rules import (
     CandidatePreferences,
     PortalRules,
@@ -55,8 +69,11 @@ DISCOVERY_LIMIT = 20
 MAX_INSPECTIONS_PER_PORTAL = 12
 INSPECTION_PAUSE_SEC = (3.0, 8.0)
 ERROR_BACKOFF_SEC = 60
-BACKLOG_STATES = (S.SCORED, S.QUOTA_HIT_PENDING, S.DRAFTED_AND_QUEUED)
+# QUOTA_HIT_PENDING / DRAFTED_AND_QUEUED are owned by the Phase 5 quota path (draft +
+# scheduled retry), never by the plain backlog.
+BACKLOG_STATES = (S.SCORED,)
 DEFAULT_QUERY = "software engineer"
+QUOTA_INSPECTIONS_PER_CYCLE = 5
 
 
 def env_forces_dry_run() -> bool:
@@ -76,7 +93,10 @@ class PortalReport:
     would_apply: int = 0
     waiting_for_user: int = 0
     requeued: int = 0
+    retried: int = 0
     quota_pending: int = 0
+    drafted: int = 0
+    queued_for_retry: int = 0
     errors: int = 0
     stopped_reason: str | None = None
     outcomes: list[dict[str, Any]] = field(default_factory=list)
@@ -102,7 +122,8 @@ class Worker:
                  rng: random.Random | None = None,
                  cycle_interval_sec: float = CYCLE_INTERVAL_SEC,
                  idle_poll_sec: float = IDLE_POLL_SEC,
-                 inspection_pause_sec: tuple[float, float] = INSPECTION_PAUSE_SEC) -> None:
+                 inspection_pause_sec: tuple[float, float] = INSPECTION_PAUSE_SEC,
+                 quota: QuotaHitProcessor | None = None, notify: Notifier | None = None) -> None:
         self.service = service
         self.store = service.store
         self.force_dry_run = force_dry_run or env_forces_dry_run()
@@ -118,6 +139,11 @@ class Worker:
         # are tracked in memory to avoid re-opening the same SCORED jobs every cycle.
         self.dry_applied: dict[str, list[datetime]] = {}
         self.inspected_only: set[tuple[str, str]] = set()
+        # Phase 5: without enrichment/mail wiring the processor still queues tomorrow's retry.
+        self.quota = quota or QuotaHitProcessor(self.store, clock=self.clock)
+        self.notify = notify
+        self.notified: set[tuple[str, str]] = set()
+        self.quota_inspections: dict[tuple[str, str], int] = {}
 
     # --- control ------------------------------------------------------------------
     async def control(self) -> WorkerControl:
@@ -217,7 +243,86 @@ class Worker:
                 logger.exception("portal %s failed", rules.platform)
                 portal.errors += 1
                 portal.skipped = f"error: {type(exc).__name__}"
+            if not dry_run:
+                await self.process_quota(rules, profile[0], portal)
         return report
+
+    # --- Phase 5: quota-hit dual action -----------------------------------------------
+    async def process_quota(self, rules: PortalRules, profile: dict[str, Any], portal: PortalReport) -> None:
+        """Draft once + queue tomorrow for parked jobs; isolated so it never breaks a cycle."""
+        try:
+            counts = await quota_counts(self.store, rules, self.clock())
+            exhausted = bool(counts["daily_limit_hit"] or counts["portal_limit_hit_today"])
+            result = await self.quota.process(rules, profile, quota_exhausted=exhausted)
+        except Exception as exc:
+            logger.exception("quota processing failed for %s", rules.platform)
+            portal.errors += 1
+            portal.outcomes.append({"quota_error": type(exc).__name__})
+            return
+        portal.drafted += result.drafted
+        portal.queued_for_retry += result.queued
+        portal.outcomes.extend(result.outcomes)
+        if exhausted:
+            await self.notify_quota(rules, result)
+
+    async def notify_quota(self, rules: PortalRules, result: QuotaReport) -> None:
+        if self.notify is None or not result.queued:
+            return
+        key = (rules.platform, day_start(rules, self.clock()).isoformat())
+        if key in self.notified:
+            return  # throttled: one summary per portal per day
+        self.notified.add(key)
+        try:
+            await self.notify(quota_summary(rules, result.drafted, result.queued, result.retry_after))
+        except Exception as exc:  # noqa: BLE001 - notifications are best-effort
+            logger.warning("quota notification failed: %s", type(exc).__name__)
+
+    async def park_new_candidates(self, rules: PortalRules, prefs: CandidatePreferences,
+                                  profile: tuple[dict[str, Any], list[tuple[str, str]]], portal: PortalReport,
+                                  reason: str, *, run_once: bool) -> None:
+        """Quota already hit: inspect (never apply) a few fresh discoveries and park the passing ones
+        for the draft + next-day retry path. Capped per portal per day (QUOTA_FALLBACK_DAILY_CAP)."""
+        platform, now = rules.platform, self.clock()
+        cap = fallback_daily_cap()
+        today = day_start(rules, now)
+        inspections_key = (platform, today.isoformat())
+        used = self.quota_inspections.get(inspections_key, 0)
+        budget = min(QUOTA_INSPECTIONS_PER_CYCLE, cap - await self.store.parked_since(platform, today),
+                     cap * 3 - used)
+        if budget <= 0:
+            return
+        listings = await self.service.discover_listings(platform, self.next_query(platform, prefs),
+                                                        DISCOVERY_LIMIT, rules)
+        portal.discovered += len(listings)
+        inspected = 0
+        for listing in listings:
+            if inspected >= budget:
+                break
+            if not await self.should_continue(run_once=run_once):
+                raise Interrupted
+            existing = await self.store.get(platform, listing.external_job_id)
+            if existing is not None and existing.state not in (S.DISCOVERED, S.FAILED):
+                continue
+            _, verdict = await self.service.prefilter(listing, rules, prefs, record_filters=True)
+            if verdict is not None:
+                portal.filtered += 1
+                continue
+            if inspected and not await self.sleep(self.rng.uniform(*self.inspection_pause_sec), run_once=run_once):
+                raise Interrupted
+            inspected += 1
+            self.quota_inspections[inspections_key] = self.quota_inspections.get(inspections_key, 0) + 1
+            try:
+                outcome = await self.service.process_job(listing, dry_run=True, rules=rules, profile=profile,
+                                                         record_filters=True, park_reason=reason)
+            except Exception as exc:  # noqa: BLE001 - isolate one job
+                portal.errors += 1
+                portal.outcomes.append({"external_job_id": listing.external_job_id,
+                                        "error": f"{type(exc).__name__}: {exc}"})
+                continue
+            if outcome.get("state") == S.QUOTA_HIT_PENDING.value:
+                portal.quota_pending += 1
+            elif outcome.get("state") == S.FILTERED_OUT.value:
+                portal.filtered += 1
 
     # --- portal -------------------------------------------------------------------
     async def run_portal(self, rules: PortalRules, prefs: CandidatePreferences,
@@ -233,6 +338,7 @@ class Worker:
                 reason = "dashboard_daily_limit" if counts["daily_limit_hit"] else "portal_daily_limit"
                 portal.quota_pending += await self.mark_quota_pending(platform, reason)
                 portal.skipped = reason
+                await self.park_new_candidates(rules, prefs, profile, portal, reason, run_once=run_once)
                 return
             if counts["hourly_limit_hit"]:
                 portal.skipped = "dashboard_hourly_limit"
@@ -256,6 +362,24 @@ class Worker:
             if stop:
                 portal.stopped_reason = stop
                 return
+        # Phase 5: yesterday's quota-hit jobs whose retry is due run before new discoveries.
+        if not dry_run:
+            for record in await self.store.due_retries(platform, self.clock(), limit=DISCOVERY_LIMIT):
+                if not await self.should_continue(run_once=run_once):
+                    raise Interrupted
+                seen.add(record.external_job_id)
+                try:
+                    record = await self.store.transition(record, S.SCORED, "quota_retry_due",
+                                                         payload={"retry_after": record.retry_after})
+                except InvalidTransition:
+                    continue
+                portal.retried += 1
+                self.inspected_only.discard((platform, record.external_job_id))
+                stop = await self.handle_listing(self.backlog_listing(record), rules, prefs, profile, portal,
+                                                 dry_run=dry_run, run_once=run_once)
+                if stop:
+                    portal.stopped_reason = stop
+                    return
         portal.query = self.next_query(platform, prefs)
         listings = await self.service.discover_listings(platform, portal.query, DISCOVERY_LIMIT, rules)
         portal.discovered = len(listings)
@@ -315,7 +439,7 @@ class Worker:
         live_apply = not dry_run and rules.auto_apply_enabled
         if not dry_run:
             blocked = await self.service.quota_block(platform, rules, self.clock())
-            if blocked in {"dashboard_daily_limit", "portal_daily_limit"}:
+            if blocked in QUOTA_LIMIT_REASONS:
                 portal.quota_pending += await self.mark_quota_pending(platform, blocked)
                 return blocked
             if blocked:
@@ -329,7 +453,7 @@ class Worker:
         try:
             # auto_apply_enabled=false: inspect + score only (stops before the Apply click).
             outcome = await self.service.process_job(listing, dry_run=not live_apply, rules=rules,
-                                                     profile=profile, record_filters=True)
+                                                     profile=profile, record_filters=True, now=self.clock())
         except Exception as exc:  # noqa: BLE001 - isolate one job; post-click errors are already SUBMISSION_UNKNOWN
             portal.errors += 1
             portal.outcomes.append({"external_job_id": listing.external_job_id,
@@ -451,7 +575,13 @@ async def run_worker(*, dry_run: bool, once: bool, env_file: str | None = None,
             loop.add_signal_handler(sig, stop.set)
         except (NotImplementedError, RuntimeError):
             pass
-    worker = Worker(service, force_dry_run=dry_run, stop_event=stop)
+    from backend.app.ai_v2.router import load_env
+    from backend.app.browser_v2.quota import build_quota_processor
+
+    env = load_env(env_file)
+    quota = await build_quota_processor(service, env)
+    notify, notify_close = quota_notifier(env) if telegram else (None, None)
+    worker = Worker(service, force_dry_run=dry_run, stop_event=stop, quota=quota, notify=notify)
     logger.info("worker store=%s dry_run=%s once=%s telegram=%s", backend, worker.force_dry_run, once, telegram)
     telegram_stop = asyncio.Event()
     telegram_task = await start_telegram(service, telegram_stop, env_file) if telegram else None
@@ -459,5 +589,24 @@ async def run_worker(*, dry_run: bool, once: bool, env_file: str | None = None,
         return await worker.run(once=once)
     finally:
         await stop_telegram(telegram_task, telegram_stop)
+        if notify_close is not None:
+            await notify_close()
         await service.manager.close()
         await service.store.close()
+
+
+def quota_notifier(env: dict[str, str]) -> tuple[Notifier | None, Callable[[], Awaitable[None]] | None]:
+    """Owner-chat summary when a portal hits its daily limit (None when Telegram is unconfigured)."""
+    from backend.app.telegram_v2.client import TelegramClient
+    from backend.app.telegram_v2.config import TelegramConfig
+
+    config = TelegramConfig.from_env(env)
+    if not config.configured or not config.token or config.owner_chat_id is None:
+        return None, None
+    client = TelegramClient(config.token)
+    chat_id: int = config.owner_chat_id
+
+    async def notify(text: str) -> None:
+        await client.send_message(chat_id, html.escape(text, quote=False))  # parse_mode=HTML
+
+    return notify, client.aclose

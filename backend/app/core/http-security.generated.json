@@ -82,6 +82,14 @@
       "methods": ["POST"]
     },
     {
+      "pattern": "^v2\\/(drafts|enrichment\\/status|mail\\/status)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/applications\\/[a-f0-9-]{36}\\/draft-now$",
+      "methods": ["POST"]
+    },
+    {
       "pattern": "^startups\\/discovery\\/runs\\/[a-f0-9-]{36}\\/complete$",
       "methods": ["POST"]
     },

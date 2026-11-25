@@ -8,6 +8,8 @@ from datetime import UTC, date, datetime, time
 from enum import StrEnum
 from typing import Any
 
+from backend.app.browser_v2.portals import PORTALS
+
 
 class ApplicantPolicy(StrEnum):
     ALLOW_LOWER_BOUND = "allow_lower_bound"
@@ -69,12 +71,9 @@ def within_active_hours(rules: PortalRules, now: datetime) -> bool:
     return local >= start or local < end
 
 
-DEFAULT_RULES = {
-    "naukri": PortalRules(platform="naukri", enabled=True),
-    "instahyre": PortalRules(platform="instahyre"),
-    "himalayas": PortalRules(platform="himalayas"),
-    "internshala": PortalRules(platform="internshala"),
-}
+# Mirrors the migration 004 seed: all 10 portals, only naukri enabled by default.
+DEFAULT_RULES = {name: PortalRules(platform=name, enabled=info.default_enabled)
+                 for name, info in PORTALS.items()}
 
 
 @dataclass(frozen=True)

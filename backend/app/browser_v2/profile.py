@@ -9,6 +9,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.app.browser_v2.portals import PORTALS
+
 PROFILE_DIR_VARIABLE = "AUTOMATED_APPLY_BRAVE_PROFILE_DIR"
 EXECUTABLE_VARIABLE = "AUTOMATED_APPLY_BRAVE_EXECUTABLE"
 DEFAULT_PROFILE_DIR = Path.home() / "Library/Application Support/automated-apply/brave"
@@ -16,12 +18,8 @@ DEFAULT_RUNTIME_DIR = DEFAULT_PROFILE_DIR.parent
 DEFAULT_EXECUTABLE = Path("/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")
 FORBIDDEN_ROOTS = (Path.home() / "Desktop", Path.home() / "Documents", Path.home() / "Downloads")
 
-LOGIN_URLS = {
-    "naukri": "https://www.naukri.com/nlogin/login",
-    "instahyre": "https://www.instahyre.com/login/",
-    "himalayas": "https://himalayas.app/login",
-    "internshala": "https://internshala.com/login/user",
-}
+# The 8 browser portals (Greenhouse/Lever are public ATS APIs: no login).
+LOGIN_URLS = {name: info.login_url for name, info in PORTALS.items() if info.login_url}
 
 
 class ProfileError(RuntimeError):

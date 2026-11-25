@@ -11,6 +11,7 @@ from backend.app.browser_v2.adapters.base import JobListing, PortalAdapter
 from backend.app.browser_v2.adapters.naukri import NaukriAdapter, external_job_id
 from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.manager import BraveBrowserManager
+from backend.app.browser_v2.quota import contact_hints
 from backend.app.browser_v2.rules import (
     UNKNOWN_APPLICANTS,
     CandidatePreferences,
@@ -209,11 +210,14 @@ class BrowserService:
     async def process_job(self, listing: JobListing, *, dry_run: bool,
                           rules: PortalRules | None = None,
                           profile: tuple[dict[str, Any], list[tuple[str, str]]] | None = None,
-                          record_filters: bool | None = None) -> dict[str, Any]:
+                          record_filters: bool | None = None, park_reason: str | None = None,
+                          now: datetime | None = None) -> dict[str, Any]:
         """Inspect -> dedup -> filter pipeline -> (dry-run stop | reserve APPLYING -> apply).
 
         Live mode reserves APPLYING before clicking; any exception after the
         reservation becomes SUBMISSION_UNKNOWN (never replayed).
+        Phase 5: `park_reason` (daily quota already hit) inspects and filters only, then
+        parks a passing job as QUOTA_HIT_PENDING for the Gmail-draft + next-day retry path.
         """
         platform, job_id = listing.platform, listing.external_job_id
         record_filters = (not dry_run) if record_filters is None else record_filters
@@ -225,7 +229,7 @@ class BrowserService:
             return {"external_job_id": job_id, "refused": str(exc)}
         rules = rules or await self.store.get_rules(platform)
         if not dry_run:
-            blocked = await self.quota_block(platform, rules)
+            blocked = await self.quota_block(platform, rules, now)
             if blocked:
                 return {"external_job_id": job_id, "state": S.QUOTA_HIT_PENDING.value, "reason": blocked,
                         "quota_blocked": True}
@@ -275,16 +279,25 @@ class BrowserService:
                 reason = format_reason(verdict)
                 await self.filter_out(record, reason, record_filters=record_filters)
                 return summary | {"state": S.FILTERED_OUT.value, "reason": reason}
+            hints = contact_hints(detail)
             if record_filters and record.state in {S.DISCOVERED, S.FAILED}:
                 record = await self.store.transition(record, S.SCORED, "passed_filters",
-                                                     payload={"reasons": list(verdict.reasons)})
+                                                     payload={"reasons": list(verdict.reasons),
+                                                              "contact_hints": hints})
             if detail.portal_limit:
                 await self.store.record_portal_limit(platform)
                 if record_filters and record.state == S.SCORED:
                     await self.store.transition(record, S.QUOTA_HIT_PENDING, "portal_daily_limit",
-                                                payload={"limit_text": detail.portal_limit})
+                                                payload={"limit_text": detail.portal_limit,
+                                                         "contact_hints": hints})
                 return summary | {"state": S.QUOTA_HIT_PENDING.value, "reason": "portal_daily_limit",
                                   "portal_limit": True}
+            if park_reason is not None:
+                if record_filters and record.state == S.SCORED:
+                    await self.store.transition(record, S.QUOTA_HIT_PENDING, park_reason,
+                                                payload={"contact_hints": hints})
+                    return summary | {"state": S.QUOTA_HIT_PENDING.value, "reason": park_reason, "parked": True}
+                return summary | {"state": record.state.value, "reason": "not_parked"}
             if dry_run:
                 result = await adapter.apply_job(page, detail, facts, dry_run=True,
                                                  existing_state=record.state.value,

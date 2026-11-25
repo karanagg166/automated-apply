@@ -910,6 +910,86 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/v2/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List Email Drafts
+     * @description Gmail drafts created by the quota fallback (newest first) with each job's retry status.
+     */
+    get: operations["list_email_drafts_api_v1_v2_drafts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/enrichment/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Enrichment Status
+     * @description Apollo / Apify / SignalHire config state, today's credits vs free cap, cached domains. No keys.
+     */
+    get: operations["enrichment_status_api_v1_v2_enrichment_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/mail/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Mail Status
+     * @description IMAP / Mail.app draft bridge config (no network, no Automation prompt). Never returns secrets.
+     */
+    get: operations["mail_status_api_v1_v2_mail_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/applications/{application_id}/draft-now": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Draft Now
+     * @description Enrichment + exactly one Gmail draft for this job (idempotent; never changes its state).
+     */
+    post: operations["draft_now_api_v1_v2_applications__application_id__draft_now_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/local-agent/profile-confirmation": {
     parameters: {
       query?: never;
@@ -4487,6 +4567,8 @@ export interface components {
       applied_at?: string | null;
       /** Retry After */
       retry_after?: string | null;
+      /** Draft Created At */
+      draft_created_at?: string | null;
       /** Created At */
       created_at?: string | null;
       /** Updated At */
@@ -5596,6 +5678,30 @@ export interface components {
       /** Recipient Email */
       recipient_email?: string | null;
     };
+    /** DraftNowRead */
+    DraftNowRead: {
+      /** Ok */
+      ok: boolean;
+      /**
+       * Code
+       * @enum {string}
+       */
+      code:
+        | "drafted"
+        | "already_drafted"
+        | "no_email_found"
+        | "draft_failed"
+        | "mail_unconfigured";
+      /** Message */
+      message: string;
+      /** Channel */
+      channel?: ("imap" | "mail_app") | null;
+      /** Enrichment Status */
+      enrichment_status?: string | null;
+      /** Enrichment Source */
+      enrichment_source?: string | null;
+      draft?: components["schemas"]["EmailDraftRead"] | null;
+    };
     /** DraftRead */
     DraftRead: {
       /**
@@ -5685,6 +5791,61 @@ export interface components {
       /** Graduation Year */
       graduation_year?: number | null;
     };
+    /** EmailDraftPage */
+    EmailDraftPage: {
+      /** Items */
+      items: components["schemas"]["EmailDraftRead"][];
+      /** Total */
+      total: number;
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+    };
+    /** EmailDraftRead */
+    EmailDraftRead: {
+      /** Id */
+      id: string;
+      /** Application Id */
+      application_id: string | null;
+      /** Platform */
+      platform: string | null;
+      /** Company Name */
+      company_name: string | null;
+      /** Role Title */
+      role_title: string | null;
+      /** Recipient Email */
+      recipient_email: string | null;
+      /** Subject */
+      subject: string | null;
+      /** Body Preview */
+      body_preview: string | null;
+      /** Channel */
+      channel: ("imap" | "mail_app") | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "PENDING" | "CREATED" | "FAILED";
+      /** Composer */
+      composer: ("llm" | "template") | null;
+      /** Enrichment Source */
+      enrichment_source: string | null;
+      /** Last Error */
+      last_error: string | null;
+      /** Created At */
+      created_at: string | null;
+      /**
+       * Application State
+       * @description Current application state (retry status)
+       */
+      application_state: string | null;
+      /**
+       * Retry After
+       * @description Next portal retry (DRAFTED_AND_QUEUED)
+       */
+      retry_after: string | null;
+    };
     /**
      * EmailVerificationStatus
      * @enum {string}
@@ -5719,6 +5880,55 @@ export interface components {
       include_candidates: boolean;
       /** Idempotency Key */
       idempotency_key?: string | null;
+    };
+    /** EnrichmentProviderRead */
+    EnrichmentProviderRead: {
+      /**
+       * Provider
+       * @enum {string}
+       */
+      provider: "apollo" | "apify" | "signalhire";
+      /** Configured */
+      configured: boolean;
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "unconfigured" | "available" | "cooldown" | "cap_reached";
+      /** Daily Cap */
+      daily_cap: number;
+      /** Used Today */
+      used_today: number;
+      /**
+       * Period Key
+       * @description YYYY-MM-DD in Asia/Kolkata
+       */
+      period_key: string;
+      /** Cooldown Until */
+      cooldown_until: string | null;
+      /** Last Error */
+      last_error: string | null;
+      /**
+       * Key Env
+       * @description Env var that configures the provider (value never returned)
+       */
+      key_env: string;
+    };
+    /** EnrichmentStatusRead */
+    EnrichmentStatusRead: {
+      /**
+       * Backend
+       * @enum {string}
+       */
+      backend: "postgres" | "memory";
+      /** Disabled */
+      disabled: boolean;
+      /** Fetch Pages */
+      fetch_pages: boolean;
+      /** Providers */
+      providers: components["schemas"]["EnrichmentProviderRead"][];
+      /** Cached Domains */
+      cached_domains: number;
     };
     /** EvidenceList */
     EvidenceList: {
@@ -7052,6 +7262,47 @@ export interface components {
       /** Reviewed Job Evidence */
       reviewed_job_evidence: boolean;
     };
+    /** MailStatusRead */
+    MailStatusRead: {
+      /**
+       * Permission
+       * @default READ_AND_DRAFT_ONLY
+       * @constant
+       */
+      permission: "READ_AND_DRAFT_ONLY";
+      /**
+       * Permission Label
+       * @default Gmail Permission: Read + Draft Only (Sending Disabled)
+       */
+      permission_label: string;
+      /** Disabled */
+      disabled: boolean;
+      /**
+       * Channel Mode
+       * @enum {string}
+       */
+      channel_mode: "auto" | "imap" | "mail_app";
+      /**
+       * Active Channel
+       * @enum {string}
+       */
+      active_channel: "imap" | "mail_app" | "unconfigured";
+      /** Imap Configured */
+      imap_configured: boolean;
+      /**
+       * Imap Email
+       * @description Masked address, e.g. ka•••@gmail.com
+       */
+      imap_email: string | null;
+      /** Imap Host */
+      imap_host: string;
+      /** Mail App Available */
+      mail_app_available: boolean;
+      /** Mail App Disabled */
+      mail_app_disabled: boolean;
+      /** Resume Attachment Configured */
+      resume_attachment_configured: boolean;
+    };
     /**
      * ManualControl
      * @description Bounded explanation only; existing values and frame contents stay in Chrome.
@@ -8197,6 +8448,25 @@ export interface components {
       revision: number;
       /** Updated At */
       updated_at?: string | null;
+      /**
+       * Label
+       * @description Display name for the portal
+       * @default
+       */
+      label: string;
+      /**
+       * Adapter Status
+       * @description ready = a live adapter exists; pending_phase6 = rules only
+       * @default pending_phase6
+       * @enum {string}
+       */
+      adapter_status: "ready" | "pending_phase6";
+      /**
+       * Requires Login
+       * @description False for public ATS boards (Greenhouse, Lever)
+       * @default true
+       */
+      requires_login: boolean;
     };
     /** PortalStatus */
     PortalStatus: {
@@ -12825,6 +13095,131 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
         };
+      };
+    };
+  };
+  list_email_drafts_api_v1_v2_drafts_get: {
+    parameters: {
+      query?: {
+        platform?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmailDraftPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  enrichment_status_api_v1_v2_enrichment_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EnrichmentStatusRead"];
+        };
+      };
+    };
+  };
+  mail_status_api_v1_v2_mail_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailStatusRead"];
+        };
+      };
+    };
+  };
+  draft_now_api_v1_v2_applications__application_id__draft_now_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DraftNowRead"];
+        };
+      };
+      /** @description Application not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Application is mid-submission (APPLYING) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Mail bridge not configured */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

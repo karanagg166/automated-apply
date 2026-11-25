@@ -20,6 +20,7 @@ from backend.app.schemas.candidate_profile import JobSearchPreferences
 
 ApplicantPolicyName = Literal["allow_lower_bound", "allow", "skip", "needs_review"]
 WorkerStateName = Literal["RUNNING", "PAUSED", "STOPPED"]
+AdapterStatusName = Literal["ready", "pending_phase6"]
 
 
 def hhmm(value: time | None) -> str | None:
@@ -45,10 +46,19 @@ class PortalRulesRead(BaseModel):
     portal_limit_hit_at: datetime | None = None
     revision: int
     updated_at: datetime | None = None
+    label: str = Field(default="", description="Display name for the portal")
+    adapter_status: AdapterStatusName = Field(
+        default="pending_phase6", description="ready = a live adapter exists; pending_phase6 = rules only")
+    requires_login: bool = Field(default=True, description="False for public ATS boards (Greenhouse, Lever)")
 
     @classmethod
     def from_rules(cls, rules: Any) -> PortalRulesRead:
+        from backend.app.browser_v2.portals import PORTALS, adapter_status, portal_label
+
+        info = PORTALS.get(rules.platform)
         return cls(
+            label=portal_label(rules.platform), adapter_status=adapter_status(rules.platform),
+            requires_login=info.requires_login if info is not None else True,
             platform=rules.platform, enabled=rules.enabled, auto_apply_enabled=rules.auto_apply_enabled,
             max_applies_per_day=rules.max_applies_per_day, max_applies_per_hour=rules.max_applies_per_hour,
             max_job_age_days=rules.max_job_age_days, max_applicants=rules.max_applicants,
@@ -170,6 +180,7 @@ class ApplicationRead(BaseModel):
     attempts: int = 0
     applied_at: datetime | None = None
     retry_after: datetime | None = None
+    draft_created_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -308,3 +319,79 @@ class ResumeAuthRead(BaseModel):
     message: str
     auth_status: str | None
     resolved_auth_requests: int
+
+
+# --- Phase 5: quota-hit Gmail drafts, enrichment and the mail bridge ----------------------
+DraftChannelName = Literal["imap", "mail_app"]
+DraftStatusName = Literal["PENDING", "CREATED", "FAILED"]
+GMAIL_PERMISSION_LABEL = "Gmail Permission: Read + Draft Only (Sending Disabled)"
+
+
+class EmailDraftRead(BaseModel):
+    id: str
+    application_id: str | None
+    platform: str | None
+    company_name: str | None
+    role_title: str | None
+    recipient_email: str | None
+    subject: str | None
+    body_preview: str | None
+    channel: DraftChannelName | None
+    status: DraftStatusName
+    composer: Literal["llm", "template"] | None
+    enrichment_source: str | None
+    last_error: str | None
+    created_at: datetime | None
+    application_state: str | None = Field(description="Current application state (retry status)")
+    retry_after: datetime | None = Field(description="Next portal retry (DRAFTED_AND_QUEUED)")
+
+
+class EmailDraftPage(BaseModel):
+    items: list[EmailDraftRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class EnrichmentProviderRead(BaseModel):
+    provider: Literal["apollo", "apify", "signalhire"]
+    configured: bool
+    state: Literal["unconfigured", "available", "cooldown", "cap_reached"]
+    daily_cap: int
+    used_today: int
+    period_key: str = Field(description="YYYY-MM-DD in Asia/Kolkata")
+    cooldown_until: datetime | None
+    last_error: str | None
+    key_env: str = Field(description="Env var that configures the provider (value never returned)")
+
+
+class EnrichmentStatusRead(BaseModel):
+    backend: Literal["postgres", "memory"]
+    disabled: bool
+    fetch_pages: bool
+    providers: list[EnrichmentProviderRead]
+    cached_domains: int
+
+
+class MailStatusRead(BaseModel):
+    permission: Literal["READ_AND_DRAFT_ONLY"] = "READ_AND_DRAFT_ONLY"
+    permission_label: str = GMAIL_PERMISSION_LABEL
+    disabled: bool
+    channel_mode: Literal["auto", "imap", "mail_app"]
+    active_channel: Literal["imap", "mail_app", "unconfigured"]
+    imap_configured: bool
+    imap_email: str | None = Field(description="Masked address, e.g. ka•••@gmail.com")
+    imap_host: str
+    mail_app_available: bool
+    mail_app_disabled: bool
+    resume_attachment_configured: bool
+
+
+class DraftNowRead(BaseModel):
+    ok: bool
+    code: Literal["drafted", "already_drafted", "no_email_found", "draft_failed", "mail_unconfigured"]
+    message: str
+    channel: DraftChannelName | None = None
+    enrichment_status: str | None = None
+    enrichment_source: str | None = None
+    draft: EmailDraftRead | None = None
