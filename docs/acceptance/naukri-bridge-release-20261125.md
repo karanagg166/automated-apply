@@ -25,6 +25,15 @@ check. The overlap between the first and third snapshots shows two recurring
 Chrome window sets. Their cause remains unconfirmed. The next installation
 attempt requires a desktop session stable through the final smoke check.
 
+A passive baseline collected 13 unlocked desktop snapshots with the
+installer idle. It observed five transitions across three distinct
+snapshots. Three samples matched the first attempt's final window census
+exactly. A second 31-sample observation recorded one visible-window change,
+four changes in the all-window inventory, and zero Space-change
+notifications. These samples show the window census can vary outside an
+installation. The same desktop rollback check remains active.
+[Apple window census options](https://developer.apple.com/documentation/coregraphics/window-list-option-constants)
+
 ## Prepared application continuation cutover
 
 Combined run `20261124T235750Z-6697db7e6f57426688ffb70c5084b74a` passed

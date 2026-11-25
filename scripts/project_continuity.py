@@ -6,6 +6,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import stat
@@ -133,30 +134,56 @@ def verify(destination):
     for directory in (destination, destination / "objects", destination / "snapshots"):
         if not directory.is_dir() or directory.is_symlink():
             raise ValueError("snapshot_store_unavailable")
+    chunk_digest = re.compile(r"[0-9a-f]{64}")
+    versions = {}
     verified = 0
     for manifest in (destination / "snapshots").glob("*.json"):
+        if manifest.is_symlink():
+            raise ValueError("snapshot_manifest_corrupt")
         raw = manifest.read_bytes()
         if hashlib.sha256(raw).hexdigest() != manifest.stem:
             raise ValueError("snapshot_manifest_corrupt")
         for row in json.loads(raw)["threads"]:
             if row.get("transcript_status") != "saved":
                 continue
-            full = hashlib.sha256()
-            size = 0
-            for digest in row["chunks"]:
-                if len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
-                    raise ValueError("snapshot_object_invalid")
-                target = destination / "objects" / (digest + ".chunk")
-                if target.is_symlink():
-                    raise ValueError("snapshot_object_corrupt")
-                raw = target.read_bytes()
-                if hashlib.sha256(raw).hexdigest() != digest:
-                    raise ValueError("snapshot_object_corrupt")
-                size += len(raw)
-                full.update(raw)
-            if full.hexdigest() != row["sha256"] or size != row["bytes"]:
+            if not isinstance(row["chunks"], list) or any(
+                not isinstance(digest, str) or not chunk_digest.fullmatch(digest)
+                for digest in row["chunks"]
+            ):
+                raise ValueError("snapshot_object_invalid")
+            chunks = tuple(row["chunks"])
+            expected = (row["bytes"], row["sha256"])
+            if versions.setdefault(chunks, expected) != expected:
                 raise ValueError("snapshot_transcript_corrupt")
             verified += 1
+
+    # Sorted sequences put common prefixes next to each other. Keep the SHA
+    # state and byte count of the preceding verified path, without caching
+    # private transcript bytes or trusting metadata for a newly read suffix.
+    previous = ()
+    prefixes = [(0, hashlib.sha256())]
+    for chunks in sorted(versions):
+        shared = 0
+        for prior_digest, digest in zip(previous, chunks):
+            if prior_digest != digest:
+                break
+            shared += 1
+        del prefixes[shared + 1:]
+        size, prefix = prefixes[-1]
+        full = prefix.copy()
+        for digest in chunks[shared:]:
+            target = destination / "objects" / (digest + ".chunk")
+            if target.is_symlink():
+                raise ValueError("snapshot_object_corrupt")
+            raw = target.read_bytes()
+            if hashlib.sha256(raw).hexdigest() != digest:
+                raise ValueError("snapshot_object_corrupt")
+            full.update(raw)
+            size += len(raw)
+            prefixes.append((size, full.copy()))
+        if (size, full.hexdigest()) != versions[chunks]:
+            raise ValueError("snapshot_transcript_corrupt")
+        previous = chunks
     return {"status": "verified", "transcript_references": verified}
 
 

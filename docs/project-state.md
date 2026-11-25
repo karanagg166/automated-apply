@@ -14,6 +14,12 @@ both back. The installed runtime is healthy at queue STOP revision 178.
 A stable desktop session is needed for the next cutover.
 [Recovery acceptance](acceptance/naukri-bridge-release-20261125.md#recovery-after-an-interrupted-application-status-read)
 
+The continuity verifier now reuses SHA-256 states for shared transcript
+prefixes across private snapshots. It still checks every manifest and counts
+every saved reference. Eleven continuity fixture tests passed. The full
+local archive verified 8,220 references in 7.49 seconds. The latest snapshot
+contained 20 saved local transcripts and 98 entries recorded as missing.
+
 The transport-timeout release `7e12fc66c400b24a901af29e3710e5288083c29d`
 passed all 37 combined stages and ran under `rust-plan-aypdoz7f`.
 After the first runner exited, the release build and artifact inventory were

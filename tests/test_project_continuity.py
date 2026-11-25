@@ -7,6 +7,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.project_continuity import CHUNK_BYTES, recover, snapshot, verify
 
@@ -48,13 +49,32 @@ class ContinuityTests(unittest.TestCase):
         with self.transcript.open("a") as handle:
             for _ in range(3):
                 handle.write(json.dumps({"text": "x" * CHUNK_BYTES}) + "\n")
-        self.save()
+        first = self.save()
+        manifest = self.destination / "snapshots" / (first["snapshot"] + ".json")
+        common_digest = json.loads(manifest.read_bytes())["threads"][0]["chunks"][0]
+        self.connection.execute("UPDATE threads SET updated_at=2")
+        self.connection.commit()
+        self.assertNotEqual(self.save()["snapshot"], first["snapshot"])
         before = set((self.destination / "objects").iterdir())
         with self.transcript.open("a") as handle:
             handle.write('{"text":"complete"}\n{"unfinished":')
         self.save()
         self.assertEqual(len(set((self.destination / "objects").iterdir()) - before), 1)
-        self.assertEqual(verify(self.destination)["transcript_references"], 2)
+        read_bytes = Path.read_bytes
+        with patch.object(Path, "read_bytes", autospec=True, side_effect=read_bytes) as reads:
+            self.assertEqual(verify(self.destination)["transcript_references"], 3)
+        common_chunk = self.destination / "objects" / (common_digest + ".chunk")
+        self.assertEqual(sum(call.args == (common_chunk,) for call in reads.call_args_list), 1)
+
+    def test_duplicate_chunk_order_cannot_hide_a_conflicting_transcript_digest(self):
+        first = self.save()
+        directory = self.destination / "snapshots"
+        original = json.loads((directory / (first["snapshot"] + ".json")).read_bytes())
+        original["threads"][0]["sha256"] = "0" * 64
+        raw = json.dumps(original).encode()
+        (directory / (hashlib.sha256(raw).hexdigest() + ".json")).write_bytes(raw)
+        with self.assertRaisesRegex(ValueError, "snapshot_transcript_corrupt"):
+            verify(self.destination)
 
     def test_idempotent_private_snapshots_exclude_other_projects_and_auth(self):
         self.connection.execute("INSERT INTO threads VALUES ('foreign','/missing','/other','secret','','',1,1,0)")
