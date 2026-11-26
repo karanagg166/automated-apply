@@ -307,9 +307,22 @@ class NaukriAdapter:
             return set()
         return {c.get("name") for c in cookies}
 
+    async def _wait_for_auth_markers(self, page: Any, timeout_ms: int = 12_000) -> None:
+        """Live 2026-11-27 (launchd worker, cold Brave): the logged-in header renders after
+        DOMContentLoaded, so an early probe said UNKNOWN and the whole portal was skipped."""
+        try:
+            await page.wait_for_function(
+                "() => !!document.querySelector('.nI-gNb-drawer__icon,.nI-gNb-icon-img,.nI-gNb-info,.nI-gNb-drawer,"
+                "a[href*=\"/mnjuser/profile\"],.view-profile-wrapper,input[type=password],#usernameField,"
+                "input[autocomplete=\"one-time-code\"]') || /nlogin|login/i.test(location.pathname)",
+                timeout=timeout_ms)
+        except Exception:  # noqa: BLE001, S110 - classify whatever rendered
+            pass
+
     async def check_session(self, page: Any) -> SessionCheck:
         """Logged-in check that lets nauk_rt renew an expired nauk_at before failing."""
         await self._goto(page, HOME_URL)
+        await self._wait_for_auth_markers(page)
         first = classify_auth(await self._probe(page))
         if first == "ok":
             return SessionCheck(AuthStatus.OK)
@@ -318,6 +331,7 @@ class NaukriAdapter:
         await page.reload(wait_until="domcontentloaded")
         await page.wait_for_timeout(self.refresh_wait_ms)
         await self._goto(page, HOME_URL)
+        await self._wait_for_auth_markers(page)
         second = classify_auth(await self._probe(page))
         cookies = await self._cookie_names(page)
         details = {"first": first, "second": second,

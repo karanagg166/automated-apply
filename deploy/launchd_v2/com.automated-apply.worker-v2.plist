@@ -44,8 +44,10 @@
 	<integer>30</integer>
 	<key>ExitTimeOut</key>
 	<integer>90</integer>
+	<!-- Interactive (live 2026-11-27): "Background" applies macOS CPU/IO/GPU throttling that Brave
+	     inherits; Naukri's React pages then never left their loading skeleton (session UNKNOWN). -->
 	<key>ProcessType</key>
-	<string>Background</string>
+	<string>Interactive</string>
 	<key>Umask</key>
 	<integer>63</integer>
 	<key>StandardOutPath</key>

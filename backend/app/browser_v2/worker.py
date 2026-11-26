@@ -545,6 +545,9 @@ class Worker:
     async def session_ok(self, platform: str, portal: PortalReport) -> bool:
         session = await self.service.check_portal_session(platform)
         status = session.get("status")
+        if status != "OK":
+            logger.warning("session %s %s reason=%s details=%s screenshot=%s", platform, status, session.get("reason"),
+                           session.get("details"), session.get("screenshot"))
         if status == "OK":
             await self.store.cancel_open_hitl(platform, "AUTH")
             return True

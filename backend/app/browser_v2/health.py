@@ -74,10 +74,19 @@ def parse_pmset_assertions(text: str) -> dict[str, Any]:
             if match:
                 holders.append({"pid": int(match.group(1)), "process": match.group(2), "type": match.group(3),
                                 "name": match.group(4)[:120]})
+            behalf = _ON_BEHALF.search(line)
+            if behalf and holders:  # "caffeinate asserting on behalf of '<python>' (pid N)"
+                holders[-1]["on_behalf_of"] = int(behalf.group(1))
     idle = [h for h in holders if h["type"] == "PreventUserIdleSystemSleep"]
     return {"prevent_user_idle_system_sleep": system.get("PreventUserIdleSystemSleep", 0),
             "caffeinate_pids": sorted({h["pid"] for h in idle if h["process"] == "caffeinate"}),
+            "caffeinate_on_behalf_of": sorted({h["on_behalf_of"] for h in idle if h["process"] == "caffeinate"
+                                               and h.get("on_behalf_of")}),
             "holders": idle}
+
+
+# Live 2026-11-27: launchd's worker-v2 pid is the python child; caffeinate reports it here.
+_ON_BEHALF = re.compile(r"asserting on behalf of .*\(pid (\d+)\)")
 
 
 def parse_launchctl_list(text: str) -> dict[str, dict[str, Any]]:
@@ -102,7 +111,8 @@ def evaluate_sleep(assertions: Mapping[str, Any], services: Mapping[str, Mapping
     if worker is None:
         return Check("sleep_prevention", WARN, "worker-v2 is not loaded under launchd (caffeinate -i inactive); "
                      "run backend/scripts/cutover_v2.py apply", data)
-    if worker.get("pid") and worker["pid"] in caffeinate:
+    owners = set(caffeinate) | set(assertions.get("caffeinate_on_behalf_of") or [])
+    if worker.get("pid") and worker["pid"] in owners:
         return Check("sleep_prevention", OK, "worker-v2 holds PreventUserIdleSystemSleep via caffeinate -i", data)
     if count and caffeinate:
         return Check("sleep_prevention", WARN, "a caffeinate assertion is active but not owned by worker-v2", data)

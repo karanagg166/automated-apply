@@ -724,3 +724,16 @@ async def test_naukri_last_answer_navigating_to_save_apply_is_a_confirmation(web
                                      hitl_answers={"Are you willing to relocate to Pune?": "Yes"})
     assert result.state is S.APPLIED and result.receipt is not None
     assert result.receipt["source"] == "save_apply_page"
+
+
+async def test_naukri_session_check_waits_for_a_late_logged_in_header(web, tmp_path):
+    """Live 2026-11-27: the launchd worker's cold Brave read the homepage before the logged-in
+    header rendered -> UNKNOWN -> Naukri skipped for the whole cycle."""
+    page, site = web
+    site.add("https://www.naukri.com/mnjuser/homepage", html(
+        "<div id='nav'></div><script>setTimeout(() => { document.getElementById('nav').innerHTML ="
+        " '<div class=\"nI-gNb-drawer\"><img class=\"nI-gNb-icon-img\"><a href=\"/mnjuser/profile\">Profile</a></div>';"
+        " }, 700);</script>"))
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    session = await adapter.check_session(page)
+    assert session.status.value == "OK" and not session.refreshed

@@ -129,6 +129,8 @@ def test_rendered_plists_are_valid_and_wire_caffeinate_loopback_and_v2_backend(w
     assert worker["ProgramArguments"][:3] == ["/usr/bin/caffeinate", "-i", "--"]
     assert worker["ProgramArguments"][3:] == [str(paths.python), "-m", "backend.app.browser_v2.cli", "worker"]
     assert worker["ThrottleInterval"] == 30 and worker["KeepAlive"] == {"SuccessfulExit": False, "Crashed": True}
+    # Live 2026-11-27: a "Background" worker throttled Brave until Naukri never rendered (session UNKNOWN).
+    assert worker["ProcessType"] == "Interactive"
     api = rendered["com.automated-apply.api-v2"]
     assert api["ProgramArguments"] == [str(paths.python), "-m", "backend.app.browser_v2.api_launcher"]
     assert api["ThrottleInterval"] == 15 and api["ProcessType"] == "Background"

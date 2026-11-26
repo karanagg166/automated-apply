@@ -69,3 +69,14 @@ def test_db_checks_include_fences_and_sessions():
     names = {c.name: c.status for c in db_checks(snapshot)}
     assert names["never_replay_fences"] == OK and names["portal_sessions"] == OK
     assert db_checks(None, "OSError")[0].status == FAIL
+
+
+def test_sleep_assertion_held_by_caffeinate_on_behalf_of_the_worker_pid():
+    from backend.app.browser_v2.health import evaluate_sleep, parse_pmset_assertions
+
+    text = ("Assertion status system-wide:\n   PreventUserIdleSystemSleep     1\nListed by owning process:\n"
+            '   pid 37020(caffeinate): [0x1] 00:00:48 PreventUserIdleSystemSleep named: "caffeinate command-line tool"\n'
+            "\tDetails: caffeinate asserting on behalf of '/x/venv/bin/python' (pid 37017)\n")
+    assertions = parse_pmset_assertions(text)
+    assert evaluate_sleep(assertions, {"com.automated-apply.worker-v2": {"pid": 37017}}).status == OK
+    assert evaluate_sleep(assertions, {"com.automated-apply.worker-v2": {"pid": 99}}).status == WARN

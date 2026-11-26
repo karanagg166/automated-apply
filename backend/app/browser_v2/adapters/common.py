@@ -986,14 +986,26 @@ class InteractivePortalAdapter:
             return "login"
         return "unknown"
 
+    async def _wait_for_auth_markers(self, page: Any, timeout_ms: int = 12_000) -> None:
+        """Cold SPA loads render the logged-in nav late (live: YC/Naukri flipped OK <-> UNKNOWN)."""
+        try:
+            await page.wait_for_function(
+                "([a, b]) => { try { return !!(document.querySelector(a) || document.querySelector(b)); }"
+                " catch (e) { return true; } }", arg=[self.config.logged_in, self.config.login_form],
+                timeout=timeout_ms)
+        except Exception:  # noqa: BLE001, S110 - classify whatever rendered
+            pass
+
     async def check_session(self, page: Any) -> SessionCheck:
         await self._goto(page, self.config.home_url)
+        await self._wait_for_auth_markers(page)
         first = self.classify_auth(await self._probe(page))
         if first == "ok":
             return SessionCheck(AuthStatus.OK)
         await page.reload(wait_until="domcontentloaded")
         await page.wait_for_timeout(self.refresh_wait_ms)
         await self._goto(page, self.config.home_url)
+        await self._wait_for_auth_markers(page)
         second = self.classify_auth(await self._probe(page))
         details = {"first": first, "second": second}
         if second == "ok":

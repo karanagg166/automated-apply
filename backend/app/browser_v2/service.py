@@ -211,10 +211,24 @@ class BrowserService:
 
     async def check_portal_session(self, platform: str) -> dict[str, Any]:
         adapter = self.adapter(platform)
+        shot = None
         async with self.manager.job() as page:
             result = await adapter.check_session(page)
+            if result.status.value != "OK":  # Phase 8b: evidence for UNKNOWN / AUTH_REQUIRED
+                shot = await self._session_screenshot(page, platform)
         await self.store.record_auth(platform, result.status.value)
-        return plain(result)
+        output = plain(result)
+        if shot:
+            output["screenshot"] = shot
+        return output
+
+    async def _session_screenshot(self, page: Any, platform: str) -> str | None:
+        try:
+            from backend.app.browser_v2.receipts import capture
+
+            return await capture(page, platform, "session", f"session-{datetime.now(UTC):%H%M%S}")
+        except Exception:  # noqa: BLE001 - diagnostics never change the outcome
+            return None
 
     async def attempt_auto_login(self, platform: str) -> dict[str, Any]:
         """One bounded auto re-login (30-min cooldown per portal) before the AUTH HITL."""
