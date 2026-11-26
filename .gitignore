@@ -120,3 +120,6 @@ backend/screenshots/
 # Local uploads and document storage (owner data, never committed).
 /uploads/
 /data/storage/
+
+# graphify knowledge-graph output (generated locally by a git hook)
+graphify-out/
