@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fixtureExecutable } from "../../extension/tests/browser-fixture-engine.mjs";
+import { fixtureExecutable } from "../tests/browser-fixture-engine.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const profile = mkdtempSync(join(tmpdir(), "automated-apply-form-permission-"));
 let context;

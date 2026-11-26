@@ -4,6 +4,9 @@
 30-minute cache. Each job's `applicationLink` is classified: Greenhouse/Lever links are
 filled by the shared hosted-form filler; other employer sites are classified
 `external_unsupported_ats:<host>` (FILTERED_OUT), never guessed at.
+Live 2026-11-26: the API's `applicationLink` now points back at the himalayas.app job page
+(`?utm_source=api`), which sits behind Cloudflare. The employer link is resolved from that
+page in the worker tab; a challenge fails closed to a CAPTCHA HITL (not FILTERED_OUT).
 """
 
 from __future__ import annotations
@@ -15,11 +18,16 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from backend.app.browser_v2.adapters.common import html_to_text
-from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob
+from backend.app.browser_v2.adapters.feeds import (
+    FeedAdapter,
+    FeedJob,
+    external_apply_link,
+)
 
 SEARCH_URL = "https://himalayas.app/jobs/api/search"
 LIST_URL = "https://himalayas.app/jobs/api"
 MAX_BYTES = 8 * 1024 * 1024
+ORIGIN_HOSTS = frozenset({"himalayas.app", "www.himalayas.app"})
 
 
 def job_id(guid: str | None, title: str | None, company: str | None) -> str:
@@ -89,3 +97,11 @@ class HimalayasAdapter(FeedAdapter):
             return parse_jobs(await self._get(LIST_URL, {"limit": 100, "offset": 0}))
 
         return list(await self.get_cached(f"himalayas:{query.lower()}", load))[:max(limit, 1)]
+
+    async def resolve_apply_url(self, page: Any, job: FeedJob) -> str | None:
+        link = job.apply_url
+        if not link or (urlsplit(link).hostname or "") not in ORIGIN_HOSTS:
+            return link  # already an employer / ATS URL
+        if page is None:
+            return None
+        return await external_apply_link(page, link, ORIGIN_HOSTS, settle_ms=self.applier.settle_ms)

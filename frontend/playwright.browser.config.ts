@@ -1,7 +1,7 @@
 import {
   fixtureExecutable,
   fixtureEngine,
-} from "../extension/tests/browser-fixture-engine.mjs";
+} from "./tests/browser-fixture-engine.mjs";
 import { defineConfig } from "@playwright/test";
 import { scryptSync } from "node:crypto";
 

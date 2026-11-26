@@ -251,9 +251,9 @@ class UpstashRedisBus(_RemoteBus):
 def build_event_bus(env: Mapping[str, str] | None = None, *, connection: Any = None,
                     transport: httpx.AsyncBaseTransport | None = None) -> EventBus:
     """EVENT_BUS_BACKEND=postgres|cloudamqp|upstash_redis; unconfigured remote -> postgres."""
-    import os
+    from backend.app.browser_v2.env_loader import load_env
 
-    values = env if env is not None else os.environ
+    values = env if env is not None else load_env()
     choice = (values.get("EVENT_BUS_BACKEND") or "postgres").strip().lower()
     try:
         if choice == "cloudamqp" and (values.get("CLOUDAMQP_URL") or "").strip():
@@ -269,9 +269,9 @@ def build_event_bus(env: Mapping[str, str] | None = None, *, connection: Any = N
 
 
 async def bus_status(bus: EventBus | None, env: Mapping[str, str] | None = None) -> dict[str, Any]:
-    import os
+    from backend.app.browser_v2.env_loader import load_env
 
-    values = env if env is not None else os.environ
+    values = env if env is not None else load_env()
     requested = (values.get("EVENT_BUS_BACKEND") or "postgres").strip().lower()
     status = await bus.status() if bus is not None else {"backend": "postgres", "healthy": True, "published": 0,
                                                           "handler_errors": 0, "subscribers": {}, "remote": None}

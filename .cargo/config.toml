@@ -1,3 +1,0 @@
-# Bound compiler contention on the owner's Mac. Runtime tasks have their own limits.
-[build]
-jobs = 2

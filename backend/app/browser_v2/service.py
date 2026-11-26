@@ -110,7 +110,16 @@ def job_id_from_url(platform: str, url: str) -> str | None:
     if platform == "naukri":
         return external_job_id(url)
     if platform == "greenhouse":
-        return segments[2] if len(segments) >= 3 and segments[1] == "jobs" and segments[2].isdigit() else None
+        if len(segments) >= 3 and segments[1] == "jobs" and segments[2].isdigit():
+            return segments[2]
+        # Live 2026-11-26: custom career sites (stripe.com/jobs/search?gh_jid=<id>) and the
+        # hosted embed form (job-boards.greenhouse.io/embed/job_app?for=<board>&token=<id>).
+        from urllib.parse import parse_qs
+
+        query = parse_qs(parts.query)
+        candidate = (query.get("gh_jid") or (query.get("token") if "embed/job_app" in parts.path else None)
+                     or [""])[0]
+        return candidate if re.fullmatch(r"\d{1,20}", candidate) else None
     if platform == "lever":
         return segments[1] if len(segments) >= 2 and re.fullmatch(r"[0-9a-f-]{8,64}", segments[1]) else None
     if platform == "we_work_remotely":

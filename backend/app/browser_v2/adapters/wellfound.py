@@ -25,6 +25,9 @@ class WellfoundAdapter(InteractivePortalAdapter):
         job_path=r"^/jobs/(\d{3,12})-[A-Za-z0-9-]*/?$",
         logged_in='a[href*="/jobs/applications"], a[href="/profile"], a[href*="/u/"], [data-test*="ProfileMenu" i], '
                   'a[href*="/logout"]',
+        # Live 2026-11-26: logged-out /jobs is public (Apply buttons visible) with a nav "Log in" -> /login.
+        login_form='input[type=password], form[action*="login" i], [class*="login-form" i], '
+                   'a[href="/login"], a[href^="/login?"]',
         apply_text=r"^(?:apply|apply now)$",
         applied_text=r"^(?:applied|application sent)$",
         confirm_text=r"application sent|applied successfully|your application (?:has been|was) (?:sent|submitted)|"

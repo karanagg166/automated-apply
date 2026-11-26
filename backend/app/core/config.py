@@ -486,20 +486,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def separate_owner_authority(self):
-        from backend.app.browser.asset_policy import asset_origin
-        from backend.app.browser.company_source_policy import source_url
+        from backend.app.core.origin_policy import asset_origin, source_url
 
         self.BROWSER_ASSET_ORIGINS = sorted(
-            set(
+            {
                 asset_origin(value, testing=self.ENVIRONMENT == "testing")
                 for value in self.BROWSER_ASSET_ORIGINS
-            )
+            }
         )
         self.COMPANY_SOURCE_URLS = sorted(
-            set(
+            {
                 source_url(value, testing=self.ENVIRONMENT == "testing")
                 for value in self.COMPANY_SOURCE_URLS
-            )
+            }
         )
         if (
             self.BROWSER_OWNER_APPROVAL_KEY
@@ -538,7 +537,7 @@ def configure_operator(settings: Settings) -> None:
     get_settings.cache_clear()
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Return a cached singleton instance of Settings."""
     return _operator_settings or Settings()

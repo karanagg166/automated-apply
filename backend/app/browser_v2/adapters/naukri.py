@@ -1,8 +1,8 @@
 """Deterministic Naukri adapter for the persistent Brave context.
 
-DOM knowledge ported from extension/naukri-{execution,chatbot,observation}.js
-and backend/app/execution/naukri_questionnaires.py. Actions use real Playwright
-input (trusted events) in the single worker tab.
+DOM knowledge ported from the frozen v1 extension content scripts and the v1
+Naukri questionnaire handler; nothing from v1 is imported at runtime. Actions
+use real Playwright input (trusted events) in the single worker tab.
 
 Naukri has no separate final Submit: clicking "Apply" either submits at once or
 opens the chatbot, whose last answer submits. Dry-run therefore stops before
@@ -29,6 +29,7 @@ from backend.app.browser_v2.adapters.base import (
     JobListing,
     SessionCheck,
 )
+from backend.app.browser_v2.adapters.challenge import CHALLENGE_HELPERS_JS
 from backend.app.browser_v2.answers import (
     CandidateFacts,
     ScreeningResolver,
@@ -64,13 +65,12 @@ VISIBLE_JS = """const visible = (el) => !!el && el.isConnected && el.getClientRe
   getComputedStyle(el).visibility !== "hidden";
 const text = (el) => (el && el.innerText || "").replace(/\\s+/g, " ").trim();"""
 
-AUTH_PROBE_JS = "() => {" + VISIBLE_JS + r"""
+AUTH_PROBE_JS = "() => {" + VISIBLE_JS + "\n" + CHALLENGE_HELPERS_JS + r"""
   const body = (document.body && document.body.innerText || "").slice(0, 20000);
   const any = (sel) => [...document.querySelectorAll(sel)].some(visible);
   return {
     url: location.href,
-    challenge: /captcha|verify (?:that )?you are human|unusual traffic|access denied|too many requests/i.test(body)
-      || any('iframe[src*="captcha"],[data-sitekey]'),
+    challenge: challengeText(body) || challengeNodes(),
     otp: any('input[autocomplete="one-time-code"],input[name*="otp" i],input[id*="otp" i]'),
     loginForm: any('input[type=password],#usernameField,form[name="login-form"],#loginForm,[class*="loginForm"]'),
     loggedIn: any('.nI-gNb-drawer__icon,.nI-gNb-icon-img,.nI-gNb-info,.nI-gNb-drawer,a[href*="/mnjuser/profile"],.view-profile-wrapper'),

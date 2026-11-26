@@ -16,6 +16,9 @@ Three independent opt-in groups:
 `archive/pre-v2-cleanup-*` resolves to a commit. Extra refusals: group A while the legacy
 Rust/frontend agents (which run from .local releases) are loaded; group B while any kept
 file still imports a group-B module, or when the tag does not contain the path.
+2026-11-26 (owner-approved batch): rust/, extension/, Cargo.*, .cargo/, rust-ci.yml,
+backend/app/mcp_server.py and the extension-era screenshots were removed from the working tree
+(recoverable from tag archive/pre-v2-cleanup-20261126); group B now plans only what remains.
 Never targeted (checked on the resolved path of every target): ~/Library/Application
 Support/automated-apply/ (Brave profile, receipts), phase1.private.env, frontend.private.env,
 plist-backups/, reports/v2-migration/ and .git/. Note that
@@ -208,10 +211,11 @@ def group_b(repo: Path, run_git: Git, *, check_references: bool = True) -> Group
     shots = [p for p in tracked_files(GROUP_B_SCREENSHOT_DIRS, run_git) if p.endswith((".png", ".jpg", ".jpeg"))]
     targets = []
     for relative in paths + shots:
-        tracked = tracked_files([relative], run_git)
+        # Already removed from the working tree (deletion pending the owner's commit): nothing to plan.
+        tracked = [f for f in tracked_files([relative], run_git) if (repo / f).exists() or (repo / f).is_symlink()]
         if not tracked:
             continue
-        size = sum((repo / f).lstat().st_blocks * 512 for f in tracked if (repo / f).exists())
+        size = sum((repo / f).lstat().st_blocks * 512 for f in tracked)
         target = Target("B", relative, True, len(tracked), size)
         if check_references:
             target.referenced_by = references(relative, paths + shots, run_git)[:20]

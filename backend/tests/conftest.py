@@ -29,6 +29,8 @@ for name in ("GMAIL_IMAP_EMAIL", "GMAIL_IMAP_APP_PASSWORD", "MAIL_DRAFT_RESUME_P
              "APIFY_CONTACT_ACTOR_ID", "MAIL_DRAFT_CHANNEL"):
     os.environ[name] = ""
 os.environ["MAIL_APP_FALLBACK_DISABLED"] = "true"
+# Shared v2 env loader: never layer the repository backend/.env or root .env into tests.
+os.environ["AUTOMATED_APPLY_ENV_REPO_FILES"] = "0"
 os.environ["ENRICHMENT_FETCH_CAREERS_PAGE"] = "false"
 
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"

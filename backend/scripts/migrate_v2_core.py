@@ -21,7 +21,7 @@ import os
 import re
 import sys
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from backend.app.browser_v2.store import dedup_key
@@ -39,7 +39,7 @@ SUBMITTED_REASON = "migrated_historical_submitted_never_replay"
 RECEIPT_REASON = "migrated_receipt_fence_never_replay"
 RECEIPT_PREFIXES = ("naukri_receipt:", "naukri_worker_receipt:")
 REQUISITION = re.compile(r"^[0-9]{10,20}$")
-PGVECTOR_BLOCK = re.compile(r"-- BEGIN pgvector\n.*?-- END pgvector\n", re.S)
+PGVECTOR_BLOCK = re.compile(r"-- BEGIN pgvector\n.*?-- END pgvector\n", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -231,12 +231,12 @@ async def apply(settings, expected_fences: int, admin_password: str) -> dict:
     lost = {t: (before["counts"][t], after["counts"][t]) for t in PRESERVED_TABLES
             if before["counts"][t] is not None
             and (after["counts"][t] or 0) < before["counts"][t]}
-    report = {"applied_at": datetime.now(timezone.utc).isoformat(), "before": before,
+    report = {"applied_at": datetime.now(UTC).isoformat(), "before": before,
               "after": after, "fences_written": written, "data_loss": lost,
               "fences": [asdict(f) | {"company_name": None, "role_title": None, "job_url": None}
                          for f in fences]}
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
-    path = EVIDENCE_DIR / f"apply-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.private.json"
+    path = EVIDENCE_DIR / f"apply-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.private.json"
     path.write_text(json.dumps(report, indent=2, default=str) + "\n")
     os.chmod(path, 0o600)
     if lost:

@@ -7,7 +7,7 @@ permissions:
 jobs:
   connections:
     runs-on: ubuntu-latest
-    # Includes the retained native lifecycle plus 25 real Chrome form cases.
+    # 25 real Chrome form cases (extension/native lifecycle retired 2026-11-26).
     timeout-minutes: 20
     services:
       postgres:
@@ -48,22 +48,17 @@ jobs:
       - run: uv pip install --system -r backend/requirements.txt ruff bandit
       - name: Offline contracts and security
         run: python -m pytest backend/tests/test_phase1_local_agent.py backend/tests/test_telegram_pairing.py backend/tests/test_phase1_installation.py backend/tests/test_phase1_conversation.py backend/tests/test_phase1_conversational_agent.py backend/tests/test_phase1_agy_diagnostics.py backend/tests/test_phase1_account_setup.py backend/tests/test_phase1_connection_acceptance.py -q
-      - name: Extension build and event tests
-        run: |
-          node extension/build.mjs
-          node --test extension/tests/*.test.mjs
       - name: Public migration and role restrictions on disposable PostgreSQL
         run: python backend/scripts/phase1/verify_public.py --bootstrap
       - name: Preserve pinned Supabase RLS event trigger and reject changed grants or definitions
         env:
           PHASE1_DISPOSABLE_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5433/candidate_profile_test
         run: python backend/scripts/phase1/verify_public.py --bootstrap --with-supabase-managed-function
-      - name: Actual native framing, FastAPI, PostgreSQL and restart lifecycle
+      - name: Install frontend + Playwright Chromium (Chrome form cases)
         run: |
           pnpm -C frontend install --frozen-lockfile
           pnpm -C frontend exec playwright install --with-deps chromium
           python backend/scripts/phase1/prepare_disposable.py
-          python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension
       - name: Chrome form lint
         run: >-
           ruff check --isolated --select E9,F,I backend/app/browser

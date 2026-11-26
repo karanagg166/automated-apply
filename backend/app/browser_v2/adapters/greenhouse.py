@@ -11,13 +11,27 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
-from backend.app.browser_v2.adapters.common import html_to_text
-from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob
+from backend.app.browser_v2.adapters.common import classify_ats, html_to_text
+from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
 
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 MAX_BOARDS = 25
+EMBED_FORM = "https://job-boards.greenhouse.io/embed/job_app?for={token}&token={job_id}"
+
+
+def hosted_apply_url(token: str, job_id: str, absolute_url: str | None) -> str:
+    """The Greenhouse-hosted form for a posting.
+
+    Live 2026-11-26: boards with their own career site (stripe -> stripe.com/jobs/search?gh_jid=)
+    report that as `absolute_url`, and job-boards.greenhouse.io/<token>/jobs/<id> 302s there too;
+    the embed form always renders on greenhouse.io, so it is used whenever `absolute_url` is not
+    already a hosted Greenhouse URL.
+    """
+    if classify_ats(absolute_url) == "greenhouse":
+        return str(absolute_url)
+    return EMBED_FORM.format(token=quote(token, safe=""), job_id=quote(str(job_id), safe=""))
 
 
 def board_map(value: Any) -> dict[str, str | None]:
@@ -65,16 +79,19 @@ class GreenhouseAdapter(FeedAdapter):
         )
 
         async def load() -> list[FeedJob]:
-            client = self.client()
+            client = self.memo_client()
             try:
                 source = Source(board_token=token, http_client=client, company_name=company)
-                jobs = await source.fetch_jobs(board_token=token, limit=100)
+                jobs = await fetch_all_pages(
+                    source, lambda limit, page: source.fetch_jobs(board_token=token, limit=limit, page=page))
             finally:
                 if self.http_client is None:
                     await client.aclose()
             return [FeedJob(external_job_id=str(job.source_job_id), url=job.original_url, title=job.title,
-                            company=job.company_name or company or token, apply_url=job.application_url
-                            or job.original_url, description=html_to_text(job.description),
+                            company=job.company_name or company or token,
+                            apply_url=hosted_apply_url(token, str(job.source_job_id),
+                                                       job.application_url or job.original_url),
+                            description=html_to_text(job.description),
                             posted_at=job.date_posted, location=job.location,
                             work_mode=None if job.remote_type == "unknown" else job.remote_type)
                     for job in jobs if job.source_job_id]
@@ -88,8 +105,8 @@ class GreenhouseAdapter(FeedAdapter):
                 jobs.extend(await self.fetch_board(token, company))
             except Exception:  # noqa: BLE001, S112 - one broken/renamed board must not stop the others
                 continue
-            if len(jobs) >= limit:
-                break
+            # Never stop after the first big board (live: stripe's 772 jobs starved gitlab);
+            # every board is read (30-min cache) and query/age filters run afterwards.
         return jobs
 
     async def lookup(self, listing: Any) -> FeedJob | None:

@@ -100,7 +100,7 @@ async def test_pipeline_g_auto_otp_login_recovery_then_live_instahyre_apply(web,
     site.add("https://www.instahyre.com/login", login_page)
     site.add("https://www.instahyre.com/job-283941-python-developer-at-acme-bangalore", instahyre_job())
     imap = FakeIMAP([rfc822("Instahyre <noreply@instahyre.com>", "Your login code", "Your OTP is 482913",
-                            minutes_ago=0)])
+                            minutes_ago=0, at=now)])
     imap_config = MailConfig(imap_email="owner@example.com", imap_password="TEST_FAKE_TOKEN_ONLY")
     reader = MailReadService(imap_config, imap=ImapReadClient(imap_config, factory=imap), clock=lambda: now)
     store = MemoryStore(rules={"instahyre": PortalRules("instahyre", enabled=True, auto_apply_enabled=True,

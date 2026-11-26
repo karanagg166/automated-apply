@@ -75,7 +75,7 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
                      rpm=30, rpd=1_000, tpd=1_000_000),
         ProviderSpec("openrouter", "OpenRouter (:free models)", "openai",
                      "https://openrouter.ai/api/v1/chat/completions",
-                     "meta-llama/llama-3.3-70b-instruct:free", ("OPENROUTER_API_KEY",), "OPENROUTER_MODEL",
+                     "google/gemma-4-31b-it:free", ("OPENROUTER_API_KEY",), "OPENROUTER_MODEL",
                      rpm=15, rpd=45, tpd=None, json_mode=False, free_model_suffix=":free"),
         ProviderSpec("cloudflare", "Cloudflare Workers AI", "cloudflare",
                      "https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}",

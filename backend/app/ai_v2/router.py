@@ -90,17 +90,10 @@ def estimate_tokens(text: str) -> int:
 
 
 def load_env(env_file: str | os.PathLike[str] | None = None) -> dict[str, str]:
-    """Private env file (if present) overlaid by the process environment."""
-    from backend.app.browser_v2.config import env_file as resolve_env_file
+    """Shared v2 loader: process env > private env file > backend/.env > root .env (+ key aliases)."""
+    from backend.app.browser_v2.env_loader import load_env as shared_load_env
 
-    values: dict[str, str] = {}
-    path = resolve_env_file(env_file)
-    if path is not None:
-        from dotenv import dotenv_values
-
-        values.update({k: v for k, v in dotenv_values(path).items() if isinstance(v, str)})
-    values.update(os.environ)
-    return values
+    return shared_load_env(env_file)
 
 
 class LLMRouter:

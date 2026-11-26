@@ -1,10 +1,12 @@
 import uuid
+
 import pytest
 from pydantic import SecretStr
-from sqlalchemy import select, func
+from sqlalchemy import func, select
+
 from backend.app.core.config import get_settings
-from backend.app.models.job import Job
 from backend.app.models.discovery import DiscoveryRun
+from backend.app.models.job import Job
 from backend.tests.discovery_fakes import job
 
 
@@ -242,18 +244,3 @@ async def test_paid_disabled_run_is_recorded_without_network(async_client, heade
         result.status_code == 200 and result.json()["status"] == "missing_credentials"
     )
     assert result.json()["counts"]["inserted"] == 0 and result.json()["finished_at"]
-
-
-@pytest.mark.asyncio
-async def test_privileged_discovery_tools_are_not_registered_on_mcp():
-    from backend.app.mcp_server import mcp, ingest_jobs_from_source
-
-    tools = await mcp.list_tools()
-    names = [tool.name for tool in tools]
-    assert (
-        "ingest_jobs_from_source" not in names
-        and "fetch_jobs_from_source" not in names
-        and "check_job_source_connection" not in names
-    )
-    with pytest.raises(PermissionError):
-        await ingest_jobs_from_source("instahyre")

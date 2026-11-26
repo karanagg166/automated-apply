@@ -1,7 +1,7 @@
 import {
   fixtureExecutable,
   fixtureEngine,
-} from "../extension/tests/browser-fixture-engine.mjs";
+} from "./tests/browser-fixture-engine.mjs";
 import { defineConfig } from "@playwright/test";
 import { scryptSync } from "node:crypto";
 const salt = "0123456789abcdef0123456789abcdef"; // pragma: allowlist secret — fixed test salt

@@ -31,10 +31,11 @@ NOW = datetime(2026, 11, 26, 10, 0, tzinfo=UTC)
 IMAP_CONFIG = MailConfig(imap_email="owner@example.com", imap_password="TEST_FAKE_TOKEN_ONLY")
 
 
-def rfc822(sender, subject, body, *, minutes_ago=1, message_id=None, html=False):
+def rfc822(sender, subject, body, *, minutes_ago=1, message_id=None, html=False, at=None):
+    """`at` anchors the Date header to a caller clock (real-time e2e tests); default fixed NOW."""
     message = EmailMessage()
     message["From"], message["To"], message["Subject"] = sender, "owner@example.com", subject
-    message["Date"] = format_datetime(NOW - timedelta(minutes=minutes_ago))
+    message["Date"] = format_datetime((at or NOW) - timedelta(minutes=minutes_ago))
     message["Message-ID"] = message_id or f"<{abs(hash((sender, subject)))}@example.com>"
     message.set_content(body, subtype="html" if html else "plain")
     return bytes(message)

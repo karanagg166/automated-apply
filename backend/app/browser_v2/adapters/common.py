@@ -38,6 +38,7 @@ from backend.app.browser_v2.adapters.base import (
     JobListing,
     SessionCheck,
 )
+from backend.app.browser_v2.adapters.challenge import CHALLENGE_HELPERS_JS
 from backend.app.browser_v2.answers import (
     CandidateFacts,
     ScreeningResolver,
@@ -232,6 +233,7 @@ SCAN_JS = r"""
 
 FORM_STATE_JS = r"""
 ({root, submitRe, confirmRe}) => {
+""" + CHALLENGE_HELPERS_JS + r"""
   const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
   const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
   const body = (document.body && document.body.innerText || "").slice(0, 20000);
@@ -243,8 +245,7 @@ FORM_STATE_JS = r"""
     .filter(b => sub.test((text(b) || b.value || "").trim())).length;
   return {url: location.href, body, errors, submits,
           confirmed: new RegExp(confirmRe, "i").test(body),
-          challenge: [...document.querySelectorAll("iframe[src*='hcaptcha'], iframe[src*='recaptcha/api2/bframe'], iframe[title*='challenge' i], [data-sitekey]")]
-            .some(visible) || /verify (?:that )?you are (?:a )?human|unusual traffic|press and hold/i.test(body)};
+          challenge: challengeNodes() || challengeTitle() || /verify (?:that )?you are (?:a )?human|unusual traffic|press and hold/i.test(body)};
 }
 """
 
@@ -270,7 +271,9 @@ COVER_FILE = re.compile(r"cover\s*letter", re.IGNORECASE)
 
 
 def clean_label(label: str | None) -> str:
-    return re.sub(r"\s*\*\s*$", "", " ".join((label or "").split())).strip()
+    """Drop trailing required markers: "*" (Greenhouse), "✱" (Lever, live 2026-11-26), "(required)"."""
+    return re.sub(r"(?:\s*(?:[*✱✳＊]|\(required\)))+\s*$", "", " ".join((label or "").split()),
+                  flags=re.IGNORECASE).strip()
 
 
 def identity_key(field: dict[str, Any]) -> str | None:
@@ -593,13 +596,13 @@ class HostedAtsApplier:
 # --- config-driven interactive portal adapter -------------------------------------------------
 PROBE_JS = r"""
 ({loggedIn, loginForm}) => {
+""" + CHALLENGE_HELPERS_JS + r"""
   const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
   const body = (document.body && document.body.innerText || "").slice(0, 20000);
   const any = (sel) => { try { return [...document.querySelectorAll(sel)].some(visible); } catch (e) { return false; } };
   return {
     url: location.href,
-    challenge: /captcha|verify (?:that )?you are (?:a )?human|unusual traffic|access denied|too many requests|press and hold/i.test(body)
-      || any('iframe[src*="captcha"],iframe[src*="challenges.cloudflare"],[data-sitekey]'),
+    challenge: challengeText(body) || challengeNodes(),
     otp: any('input[autocomplete="one-time-code"],input[name*="otp" i],input[id*="otp" i]'),
     loginForm: any(loginForm),
     loggedIn: any(loggedIn),
@@ -607,25 +610,53 @@ PROBE_JS = r"""
 }
 """
 
+# Hiring badges rendered inside company-name elements (live internshala: "UV Farms Active").
+COMPANY_BADGE = re.compile(r"\s+(?:actively hiring|active|hiring|verified)$", re.IGNORECASE)
 CARDS_JS = r"""
 ({pattern, limit, hosts}) => {
   const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
   const re = new RegExp(pattern);
   const out = [], seen = new Set();
+  const postingIds = (el) => {
+    const ids = new Set();
+    for (const x of el.querySelectorAll("a[href]")) {
+      try { const v = new URL(x.href, location.href); const mm = hosts.includes(v.hostname) && v.pathname.match(re);
+            if (mm) ids.add(mm[1]); } catch (e) { /* ignore */ }
+      if (ids.size > 1) break;
+    }
+    return ids.size;
+  };
   for (const a of document.querySelectorAll("a[href]")) {
     let u; try { u = new URL(a.href, location.href); } catch (e) { continue; }
     if (!hosts.includes(u.hostname)) continue;
     const m = u.pathname.match(re);
     if (!m || seen.has(m[1])) continue;
     seen.add(m[1]);
-    const card = a.closest("article, li, [class*='card' i], [class*='tuple' i], [class*='listing' i], [class*='job' i]") || a.parentElement;
+    // Live 2026-11-26: class-name heuristics picked the anchor itself (internshala a.job-title-href) or a
+    // bare row (wellfound), losing company/age. The card is the LARGEST ancestor holding only this posting.
+    let card = a;
+    for (let i = 0; i < 10 && card.parentElement && card.parentElement !== document.body
+         && postingIds(card.parentElement) <= 1; i++) card = card.parentElement;
     const pick = (sel) => { const el = card && card.querySelector(sel); return el ? text(el) : null; };
     const ctext = text(card).slice(0, 1500);
+    // Company blocks listing several roles (wellfound): use the group's single company link.
+    const groupCompany = () => {
+      let group = card.parentElement;
+      for (let i = 0; i < 6 && group && group !== document.body; i++, group = group.parentElement) {
+        const names = new Set([...group.querySelectorAll("a[href*='/company/'], a[href*='/companies/']")]
+          .map(text).filter(t => t && t.length < 120));
+        if (names.size === 1) return [...names][0];
+        if (names.size > 1) return null;  // reached a list of several companies: never guess
+      }
+      return null;
+    };
     const posted = (ctext.match(/(?:posted\s*:?\s*)?(?:just now|today|yesterday|few hours ago|\d+\+?\s*(?:minute|hour|day|week|month)s?\s+ago)/i) || [null])[0];
     const applicants = (ctext.match(/(?:less than\s+)?\d[\d,]*\+?\s+applicants?/i) || [null])[0];
     const heading = pick("h2, h3, h4, [class*='title' i]");
     out.push({id: m[1], url: u.origin + u.pathname, title: (a.getAttribute("title") || text(a) || heading || "").slice(0, 200) || null,
-              company: pick("[class*='company' i], [class*='employer' i], [class*='org' i]"), posted, applicants});
+              company: pick(".company-name, .company_name, [class*='company-name' i], [class*='company_name' i], "
+                            + "a[href*='/company/'], [class*='employer' i], p[class*='company' i], [class*='company' i]:not(div:has(a[href]))")
+                       || groupCompany(), posted, applicants});
     if (out.length >= limit) break;
   }
   return out;
@@ -717,6 +748,7 @@ class InteractivePortalAdapter:
         self.receipts_root = receipts_root
         self.confirm_timeout_s = confirm_timeout_s
         self.composer = composer
+        self.last_discovery_blocked: str | None = None
         self._answerer = answerer
         self.filler = HostedFormFiller(answerer=answerer, composer=composer, jitter=(0, 0) if jitter[1] == 0
                                        else (0.2, 0.6))
@@ -784,14 +816,21 @@ class InteractivePortalAdapter:
     async def discover_jobs(self, page: Any, *, query: str, limit: int = 20,
                             job_age_days: int | None = None) -> list[JobListing]:
         await self._goto(page, self.search_url(query, job_age_days))
+        if (await self._probe(page)).get("challenge"):
+            # Live 2026-11-26 (hiringcafe.com behind Cloudflare): never parse cards off an interstitial;
+            # the next session check isolates the portal (AUTH_REQUIRED/challenge).
+            self.last_discovery_blocked = "challenge"
+            return []
+        self.last_discovery_blocked = None
         items = await page.evaluate(CARDS_JS, {"pattern": self.config.job_path, "limit": max(1, min(limit, 50)),
                                                "hosts": list(self.config.hosts)})
         listings = []
         for item in items:
             posted = item.get("posted")
+            company = COMPANY_BADGE.sub("", item.get("company") or "").strip() or None
             listings.append(JobListing(
                 platform=self.platform, external_job_id=str(item["id"]), url=item["url"],
-                title=item.get("title"), company=item.get("company"), posted_text=posted,
+                title=item.get("title"), company=company, posted_text=posted,
                 posted_age_days=parse_posted_age_days(posted), age_is_lower_bound=bool(posted and "+" in posted),
                 applicants=parse_applicants(item.get("applicants")) if item.get("applicants") else None))
         return listings

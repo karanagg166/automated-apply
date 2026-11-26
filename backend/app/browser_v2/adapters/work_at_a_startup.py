@@ -26,6 +26,10 @@ class WorkAtAStartupAdapter(InteractivePortalAdapter):
         logged_in='a[href*="/application"], a[href*="/logout"], a[href*="/users/sign_out"], '
                   '[class*="avatar" i], a[href*="/profile"]',
         login_hosts=("account.ycombinator.com",),
+        # Live 2026-11-26: /application -> account.ycombinator.com (#ycid-input + "Continue");
+        # the public homepage links "Log in" to account.ycombinator.com/magic.
+        login_form='input[type=password], #ycid-input, form[action*="login" i], '
+                   'a[href*="account.ycombinator.com/magic"], a[href*="account.ycombinator.com/authenticate"]',
         apply_text=r"^(?:apply|apply now|apply to (?:this )?(?:job|role))$",
         applied_text=r"^(?:applied|application sent)$",
         confirm_text=r"application sent|applied successfully|you(?:'ve| have) applied|your application (?:has been|was) sent")

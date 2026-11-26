@@ -8,6 +8,7 @@ Run from the repository root:
     backend/venv/bin/python -m backend.app.browser_v2.cli worker --dry-run --once
     backend/venv/bin/python -m backend.app.browser_v2.cli mcp
     backend/venv/bin/python -m backend.app.browser_v2.cli ai-status [--load-embedder]
+    backend/venv/bin/python -m backend.app.browser_v2.cli ai-test [--provider groq]
     backend/venv/bin/python -m backend.app.browser_v2.cli seed-cache
     backend/venv/bin/python -m backend.app.browser_v2.cli test-qa --question "..." [--option Yes --option No]
     backend/venv/bin/python -m backend.app.browser_v2.cli worker --dry-run [--no-telegram]
@@ -112,24 +113,73 @@ async def default_query(service: Any) -> str:
     return roles[0] if roles else "software engineer"
 
 
+SYNTHETIC_PDF = b"%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n"
+
+
+def synthetic_profile() -> dict[str, Any]:
+    """Fictional identity for dry-run form calibration only (example.com, placeholder PDF, never submitted)."""
+    folder = brave_profile.runtime_dir() / "receipts" / "diagnostics"
+    folder.mkdir(parents=True, exist_ok=True, mode=0o700)
+    resume = folder / "synthetic-resume.pdf"
+    resume.write_bytes(SYNTHETIC_PDF)
+    return {"full_name": "Test Candidate", "email": "candidate@example.com", "phone": "+910000000000",
+            "linkedin_url": "https://www.linkedin.com/in/example", "verified_skills": ["Python", "FastAPI"],
+            "preferences": {"current_location": "Bengaluru", "total_experience_years": 2, "notice_period_days": 30,
+                            "willing_to_relocate": True, "resume_files": {"backend": str(resume)},
+                            "target_roles": ["software engineer", "backend engineer", "engineer"]}}
+
+
 async def test_apply(portal: str, live: bool, limit: int, query: str | None, url: str | None,
-                     assume_yes: bool, boards: list[str] | None = None, debug_selectors: bool = False) -> int:
+                     assume_yes: bool, boards: list[str] | None = None, debug_selectors: bool = False,
+                     synthetic: bool = False) -> int:
     from backend.app.browser_v2.service import build_service
     from backend.app.browser_v2.state import NEVER_REPLAY
 
     if live and debug_selectors:
         emit({"error": "--debug-selectors is allowed only with --dry-run (never on a live submit)"})
         return 2
+    if live and synthetic:
+        emit({"error": "--synthetic-profile is allowed only with --dry-run"})
+        return 2
     if live and limit > PHASE1_LIVE_LIMIT:
         emit({"error": f"Phase 1 allows at most {PHASE1_LIVE_LIMIT} watched live apply per run"})
         return 2
     service, backend = await build_service(require_db=live)
     results: list[dict[str, Any]] = []
+    calibration: str | None = None
     try:
+        from backend.app.browser_v2.store import MemoryStore
+
+        memory = service.store if isinstance(service.store, MemoryStore) else None
+        if debug_selectors and not live and memory is not None:
+            # Pre-migration calibration only: the throwaway MemoryStore seeds just Naukri as enabled.
+            # Enable the target portal IN MEMORY so a dry-run reaches the form (never Postgres, never live).
+            from dataclasses import replace as dc_replace
+
+            current = await memory.get_rules(portal)
+            if not current.enabled:
+                memory.rules[portal] = dc_replace(current, enabled=True, auto_apply_enabled=True,
+                                                         active_hours_start=None, active_hours_end=None)
+                calibration = "memory-only: portal enabled for this dry-run calibration (DB rules untouched)"
+        if synthetic:
+            if memory is None or live:
+                emit({"error": "--synthetic-profile needs the pre-migration memory store and --dry-run"})
+                return 2
+            memory.profile = synthetic_profile()
+            calibration = (calibration or "memory-only") + "; synthetic example.com profile (never submitted)"
         await service.configure_adapters()
         adapter = service.adapters.get(portal)
         if boards and adapter is not None and hasattr(adapter, "boards"):
             adapter.boards.update({board: None for board in boards})
+        session = await service.check_portal_session(portal)
+        if session.get("status") != "OK":
+            # Fail closed before discovery: never parse a login wall / challenge page as job cards.
+            result: dict[str, Any] = {"store": backend, "mode": "live" if live else "dry_run", "session": session,
+                                      "results": [], "stopped": "session_not_ok"}
+            if debug_selectors:
+                result["diagnostics"] = [await debug_bundle(service, portal)]
+            emit(result)
+            return 1
         if url:
             targets = [url]
         else:
@@ -154,7 +204,8 @@ async def test_apply(portal: str, live: bool, limit: int, query: str | None, url
                 applied += 1
             if applied >= limit:
                 break
-        emit({"store": backend, "mode": "live" if live else "dry_run", "results": results})
+        emit({"store": backend, "mode": "live" if live else "dry_run",
+              **({"calibration_rules": calibration} if calibration else {}), "results": results})
         return 0
     finally:
         await service.manager.close()
@@ -302,13 +353,34 @@ async def ai_status_command(load_embedder: bool) -> int:
             vector = await embedder.embed("warm up the local embedding model")
             embed_info |= {"loaded": embedder.ready, "dimensions": len(vector)}
         status = await ai.status()
+        from backend.app.browser_v2.env_loader import key_sources
+
+        key_names = sorted({k for config in ai.router.providers.values()
+                            for k in (*config.spec.key_envs, *config.spec.required_envs)})
         emit({"store": backend, "cache_backend": ai.cache.store.backend, "usage_backend": ai.router.usage.backend,
+              "key_sources": key_sources(key_names),
               "embedding": embed_info,
               "configured_failover": {task: ai.router.configured_chain(task) for task in ai.router.chains},
               **status})
         return 0
     finally:
         await store.close()
+
+
+async def ai_test_command(only: list[str]) -> int:
+    """Live 1-request JSON health probe per configured free provider (zero PII, ~20 tokens each)."""
+    from backend.app.ai_v2.probe import probe_all
+    from backend.app.ai_v2.router import LLMRouter
+    from backend.app.browser_v2.env_loader import env_layers, key_sources, load_env
+
+    layers = env_layers()
+    router = LLMRouter(env=load_env())
+    names = sorted({k for config in router.providers.values()
+                    for k in (*config.spec.key_envs, *config.spec.required_envs)})
+    report = await probe_all(router.providers, only=only)
+    emit({"env_layers": [layer.label + (f" ({layer.path.name})" if layer.path else "") for layer in layers],
+          "key_sources": key_sources(names, layers=layers), **report})
+    return 0 if report["configured"] == 0 or report["passed"] == report["configured"] else 1
 
 
 async def seed_cache_command() -> int:
@@ -505,6 +577,8 @@ def main(argv: list[str] | None = None) -> int:
     apply.add_argument("--query", help="search keywords (default: first preferences.target_roles)")
     apply.add_argument("--url", help="apply to this exact job URL instead of searching")
     apply.add_argument("--yes", action="store_true", help="skip the typed live confirmation")
+    apply.add_argument("--synthetic-profile", action="store_true",
+                       help="dry-run + memory store only: fictional example.com identity to calibrate form filling")
     apply.add_argument("--debug-selectors", action="store_true",
                        help="dry-run only: save PII-scrubbed DOM probe bundles (max 3) under receipts/diagnostics/")
     worker = commands.add_parser("worker", help="24/7 loop driven by public.worker_control")
@@ -521,6 +595,8 @@ def main(argv: list[str] | None = None) -> int:
     status = commands.add_parser("ai-status", help="free LLM providers, failover order, embedding model")
     status.add_argument("--load-embedder", action="store_true",
                         help="load (and on first use download, ~80 MB) the local ONNX embedding model")
+    ai_test = commands.add_parser("ai-test", help="live 1-request JSON probe of each configured free LLM provider")
+    ai_test.add_argument("--provider", action="append", default=[], help="limit to this provider (repeatable)")
     commands.add_parser("seed-cache", help="seed semantic_cache from reviewed application_answer_drafts")
     qa = commands.add_parser("test-qa", help="run the 4-tier screening answer pipeline for one question")
     qa.add_argument("--question", required=True)
@@ -586,7 +662,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "test-apply":
             return asyncio.run(test_apply(args.portal, args.live, max(1, args.limit), args.query,
                                           args.url, args.yes, boards=args.board,
-                                          debug_selectors=args.debug_selectors))
+                                          debug_selectors=args.debug_selectors,
+                                          synthetic=args.synthetic_profile))
         if args.command == "worker":
             return asyncio.run(run_worker_command(args.dry_run, args.once, telegram=not args.no_telegram))
         if args.command == "telegram-status":
@@ -595,6 +672,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(telegram_test_command())
         if args.command == "ai-status":
             return asyncio.run(ai_status_command(args.load_embedder))
+        if args.command == "ai-test":
+            return asyncio.run(ai_test_command(args.provider))
         if args.command == "seed-cache":
             return asyncio.run(seed_cache_command())
         if args.command == "test-qa":

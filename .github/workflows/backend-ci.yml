@@ -84,7 +84,7 @@ jobs:
           backend/app/services/contact_read.py backend/app/api/v1/integrations.py
           backend/app/api/v1/outreach.py backend/app/models/connected_account.py
           backend/app/schemas/outreach.py backend/app/core/config.py backend/app/main.py
-          backend/app/models/outreach.py backend/app/mcp_server.py
+          backend/app/models/outreach.py
           backend/scripts/setup_gmail_oauth.py
           backend/tests/phase4a_fakes.py backend/tests/test_mcp_auth.py
           backend/tests/test_mcp_tool_permissions.py backend/tests/test_mcp_transport.py
@@ -196,12 +196,14 @@ jobs:
           backend/scripts/migrate_v2_core.py backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
           backend/tests/test_phase6b_ops.py backend/tests/test_gmail_no_send_guardrail.py
           backend/tests/test_no_local_llm_guardrail.py
+          backend/app/core/origin_policy.py backend/tests/test_v2_isolation.py
       - name: Python v2 type check (mypy 1.18.2)
         run: |
           uv pip install --system mypy==1.18.2
           mypy --ignore-missing-imports --follow-imports=silent --check-untyped-defs --warn-unused-ignores \
             --explicit-package-bases backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2 \
             backend/app/enrichment_v2 backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2 \
+            backend/app/api/v1/automation_v2.py backend/app/core/origin_policy.py \
             backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
       - name: Hard guardrails (Gmail read+draft only, no local generative LLM)
         run: >-
@@ -211,7 +213,7 @@ jobs:
         timeout-minutes: 10
         run: >-
           python -m pytest -q -p no:cacheprovider
-          backend/tests/test_phase6b_ops.py backend/tests/test_adapters_phase6.py
+          backend/tests/test_phase6b_ops.py backend/tests/test_v2_isolation.py backend/tests/test_adapters_phase6.py
           backend/tests/test_agent_v2_control_graph.py backend/tests/test_ai_v2_api.py backend/tests/test_ai_v2_pii.py
           backend/tests/test_ai_v2_pipeline.py backend/tests/test_ai_v2_router.py
           backend/tests/test_ai_v2_semantic_cache.py backend/tests/test_automation_v2_api.py

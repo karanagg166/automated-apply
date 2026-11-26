@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from backend.app.browser_v2.adapters.common import html_to_text
-from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob
+from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
 from backend.app.browser_v2.adapters.greenhouse import MAX_BOARDS, board_map
 
 
@@ -54,11 +54,11 @@ class LeverAdapter(FeedAdapter):
         from backend.app.services.job_sources.public_ats import LeverAdapter as Source
 
         async def load() -> list[FeedJob]:
-            client = self.client()
+            client = self.memo_client()
             try:
                 source = Source(http_client=client)
                 source.boards = {board: company or board}
-                jobs = await source.fetch_jobs(limit=100)
+                jobs = await fetch_all_pages(source, lambda limit, page: source.fetch_jobs(limit=limit, page=page))
             finally:
                 if self.http_client is None:
                     await client.aclose()
@@ -80,8 +80,7 @@ class LeverAdapter(FeedAdapter):
                 jobs.extend(await self.fetch_board(board, company))
             except Exception:  # noqa: BLE001, S112 - one broken board must not stop the others
                 continue
-            if len(jobs) >= limit:
-                break
+            # Read every board (30-min cache); never let the first big board starve the rest.
         return jobs
 
     async def lookup(self, listing: Any) -> FeedJob | None:

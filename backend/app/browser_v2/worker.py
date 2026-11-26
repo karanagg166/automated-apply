@@ -33,6 +33,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from backend.app.browser_v2.adapters.base import JobListing
+from backend.app.browser_v2.adapters.feeds import PortalWallActive
 from backend.app.browser_v2.manager import RECYCLE_AFTER_SEC
 from backend.app.browser_v2.quota import (
     QUOTA_LIMIT_REASONS,
@@ -528,6 +529,10 @@ class Worker:
             # auto_apply_enabled=false: inspect + score only (stops before the Apply click).
             outcome = await self.service.process_job(listing, dry_run=not live_apply, rules=rules,
                                                      profile=profile, record_filters=True, now=self.clock())
+        except PortalWallActive:
+            # A feed portal hit its login/challenge wall this cycle: stop it, jobs stay in the backlog.
+            portal.outcomes.append({"external_job_id": listing.external_job_id, "stopped": "portal_wall"})
+            return "portal_wall"
         except Exception as exc:  # noqa: BLE001 - isolate one job; post-click errors are already SUBMISSION_UNKNOWN
             portal.errors += 1
             portal.outcomes.append({"external_job_id": listing.external_job_id,

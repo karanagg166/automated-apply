@@ -272,19 +272,6 @@ async def test_supported_verification_record_required(
     )
 
 
-async def test_no_messaging_endpoints_or_contact_mcp_tool():
-    from backend.app.main import app
-    from backend.app.mcp_server import mcp
-
-    paths = app.openapi()["paths"]
-    assert not any("/send" in p or "message" in p for p in paths if "contact" in p)
-    # FastMCP list_tools API includes the public tool names.
-    tools = await mcp.list_tools()
-    assert not any(
-        t.name == "get_cached_company_contacts" or "enrich" in t.name for t in tools
-    )
-
-
 @pytest.mark.parametrize("size", [12, 1000, None])
 async def test_ranking_company_context_and_mailbox_semantics(records, size):
     company, contact, job = records

@@ -24,6 +24,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from backend.app.ai_v2.pii import scrub_pii
+from backend.app.browser_v2.adapters.challenge import CHALLENGE_SELECTOR
 
 MAX_PROBE_BYTES = 30 * 1024
 MAX_TEXT = 100
@@ -39,7 +40,7 @@ NAUKRI_SELECTORS = {
                  "a[href*=\"/mnjuser/profile\"],.view-profile-wrapper",
     "login_form": "input[type=password],#usernameField,form[name=\"login-form\"],#loginForm,[class*=\"loginForm\"]",
     "otp": "input[autocomplete=\"one-time-code\"],input[name*=\"otp\" i],input[id*=\"otp\" i]",
-    "captcha": "iframe[src*=\"captcha\"],[data-sitekey]",
+    "captcha": CHALLENGE_SELECTOR,
     "apply_button": "#apply-button,button[id*=\"apply\" i],[class*=\"apply-button\" i]",
     "chatbot_drawer": "[class*=\"chatbot\" i],[class*=\"_chatBotContainer\" i]",
 }

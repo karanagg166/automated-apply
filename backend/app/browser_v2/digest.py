@@ -8,7 +8,6 @@ turns it off; DIGEST_HOUR_IST (0-23, default 21) moves it.
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from datetime import datetime, time, timedelta
 from typing import Any
@@ -22,7 +21,9 @@ DEFAULT_HOUR = 21
 
 
 def digest_hour(env: Mapping[str, str] | None = None) -> int | None:
-    values = env if env is not None else os.environ
+    from backend.app.browser_v2.env_loader import load_env
+
+    values = env if env is not None else load_env()
     if (values.get("DIGEST_DISABLED") or "").strip().lower() in {"1", "true", "yes", "on"}:
         return None
     try:
