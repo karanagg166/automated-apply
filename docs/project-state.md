@@ -1,3 +1,25 @@
+## Python v2 Phase 6B (working tree, uncommitted), 2026-11-26
+
+Phase 6A is merged (`aa31d2a`). Phase 6B adds the 24/7 operations kit, built with
+nothing applied to the live machine:
+
+- `deploy/launchd_v2/`: templates for three agents:
+  - `api-v2`, which runs `browser_v2/api_launcher.py` (uvicorn on 127.0.0.1:8000, `--env-file`);
+  - `worker-v2`, which runs `caffeinate -i -- cli worker`;
+  - `frontend-v2`, which runs `frontend/run-local-python-v2.mjs` and proxies only to :8000.
+- `backend/scripts/cutover_v2.py`: `plan`, `apply`, `rollback` and `status`. `plan` is read-only. `apply` asks for a typed confirmation, snapshots the agents, then retires `com.automated-apply.rust` and the old `frontend` agent.
+- `browser_v2/health.py`, run as `cli health-check`: sleep assertions, HTTP checks, DB budget and heartbeat, Brave, the Telegram 409 / legacy Rust check, AI, mail and disk.
+- `browser_v2/diagnostics.py`, run with `--debug-selectors`: dry-run only, PII-scrubbed, at most 30 KB per bundle.
+- `browser_v2/logrotate.py`: rotates at 10 MB and keeps 3 backups.
+- `backend/scripts/cleanup_legacy_v1.py`: plan by default. Executing requires a verified `archive/pre-v2-cleanup-*` tag.
+- Synced `.mcp.json`, `.vscode/mcp.json`, `backend-ci.yml`, `rust-ci.yml` (now frozen), `docker-compose.yml` and `README.md`.
+
+Two cautions for the owner:
+- `~/Library/Application Support/Automated Apply` is a symlink to `.local/runtime-support`.
+- `browser_v2/adapters/naukri.py` still imports `backend.app.execution`, so cleanup group B is blocked.
+
+Migration 004 and the Brave `login-setup` are still pending. Details are in `LATEST_REPORT.md`.
+
 ## Python v2 Phase 6A (working tree, uncommitted), 2026-11-26
 
 All 10 portals now have v2 adapters (`backend/app/browser_v2/adapters/`): Greenhouse and

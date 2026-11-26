@@ -4,6 +4,54 @@ Use [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python env
 
 The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. It can capture employer-page evidence for reviewed company-specific answers. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
 
+## Python v2 Quickstart (24/7 MacBook Air M1)
+
+The live runtime is the Python v2 orchestrator (`backend/app/*_v2`). It uses Playwright with one dedicated, persistent Brave profile, a free-tier LLM fallback router, Telegram HITL, and Gmail **read + draft only** (it never sends). Three launchd agents keep it running around the clock on a plugged-in MacBook with the lid open and the screen locked:
+
+| Agent | What it runs |
+| :--- | :--- |
+| `com.automated-apply.api-v2` | FastAPI on `127.0.0.1:8000` |
+| `com.automated-apply.worker-v2` | the worker under `caffeinate -i`, so the Mac does not idle-sleep |
+| `com.automated-apply.frontend-v2` | the Next.js dashboard on `127.0.0.1:3000`, which proxies only to `:8000` |
+
+`rust/`, `extension/` and the native host are frozen legacy code.
+
+Run every command from the repository root. `PY` is shorthand for `backend/venv/bin/python`.
+
+```sh
+PY=backend/venv/bin/python
+
+# 1. Back up, then apply migration 004 (run the read-only check first)
+git tag archive/pre-v2-cleanup-$(date +%Y%m%d)
+$PY -m backend.scripts.migrate_v2_core check
+$PY -m backend.scripts.migrate_v2_core apply --expected-fences 4
+
+# 2. One-time login in plain Brave, then confirm the session
+$PY -m backend.app.browser_v2.cli login-setup --all
+$PY -m backend.app.browser_v2.cli check-session --portal naukri --restart
+$PY -m backend.app.browser_v2.cli set-portal-cred --portal instahyre   # optional: Keychain auto re-login
+
+# 3. Dry runs that never submit, with PII-scrubbed selector diagnostics
+$PY -m backend.app.browser_v2.cli test-apply --portal naukri --dry-run --debug-selectors
+
+# 4. Cut over to launchd (plan is read-only; apply asks you to type CUTOVER), then check health
+pnpm -C frontend build
+$PY -m backend.scripts.cutover_v2 plan
+$PY -m backend.scripts.cutover_v2 apply
+$PY -m backend.app.browser_v2.cli health-check
+
+# Roll back to the snapshot printed by apply
+$PY -m backend.scripts.cutover_v2 rollback "<backup-dir printed by apply>"
+```
+
+Then open the dashboard's `/autopilot` page on `localhost:3000`, enable `auto_apply_enabled` for a portal, and press **Start live**. The worker's desired state lives in `public.worker_control`, so a restart or reboot does not change it.
+
+Logs go to `~/Library/Logs/automated-apply/` and are rotated above 10 MB, keeping 3 backups.
+
+`backend/scripts/cleanup_legacy_v1.py` plans the legacy cleanup and is read-only by default. Deletion needs `--execute --group X --i-tagged-backup` and an existing `archive/pre-v2-cleanup-*` tag.
+
+To run the API, dashboard and CI checks in Docker instead, see `docker-compose.yml`. The worker always runs on the macOS host.
+
 ## Persistent database requirement
 
 All genuine application data uses owner-approved online Supabase PostgreSQL in

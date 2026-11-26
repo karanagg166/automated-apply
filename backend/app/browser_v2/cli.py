@@ -22,6 +22,8 @@ Run from the repository root:
     backend/venv/bin/python -m backend.app.browser_v2.cli set-portal-cred --portal instahyre
     backend/venv/bin/python -m backend.app.browser_v2.cli export-sft-dataset --out ~/sft.jsonl
     backend/venv/bin/python -m backend.app.browser_v2.cli agent-chat "how many applied today?"
+    backend/venv/bin/python -m backend.app.browser_v2.cli health-check [--json] [--no-db]
+    backend/venv/bin/python -m backend.app.browser_v2.cli test-apply --portal instahyre --dry-run --debug-selectors
 
 Gmail is READ + DRAFT ONLY: no command here can deliver an email.
 """
@@ -40,6 +42,7 @@ from backend.app.browser_v2.portals import PORTALS
 
 PHASE1_LIVE_LIMIT = 1
 MAX_INSPECTIONS_PER_APPLY = 10
+MAX_DEBUG_BUNDLES = 3
 
 
 def emit(payload: Any) -> None:
@@ -69,13 +72,29 @@ def login_setup(portals: list[str]) -> int:
     return 0 if exit_type == "Normal" else 1
 
 
-async def check_session(portal: str, restart: bool) -> int:
+async def debug_bundle(service: Any, portal: str) -> dict[str, Any]:
+    """Phase 6B --debug-selectors: scrubbed DOM probe + screenshot of the current worker tab."""
+    from backend.app.browser_v2.diagnostics import capture_bundle
+
+    if not service.manager.running:
+        return {"skipped": "browser_not_running (API/feed-only path)"}
+    try:
+        profile, _ = await service.store.load_profile()
+        return await capture_bundle(await service.manager.page(), portal, service.adapters.get(portal),
+                                    dry_run=True, profile=profile)
+    except Exception as exc:  # noqa: BLE001 - diagnostics never break the run
+        return {"error": type(exc).__name__}
+
+
+async def check_session(portal: str, restart: bool, debug_selectors: bool = False) -> int:
     from backend.app.browser_v2.service import build_service
 
     service, backend = await build_service(require_db=False)
     try:
         first = await service.check_portal_session(portal)
         result: dict[str, Any] = {"store": backend, "first": first}
+        if debug_selectors:
+            result["diagnostics"] = [await debug_bundle(service, portal)]
         if restart:
             await service.manager.close()
             result["after_restart"] = await service.check_portal_session(portal)
@@ -94,10 +113,13 @@ async def default_query(service: Any) -> str:
 
 
 async def test_apply(portal: str, live: bool, limit: int, query: str | None, url: str | None,
-                     assume_yes: bool, boards: list[str] | None = None) -> int:
+                     assume_yes: bool, boards: list[str] | None = None, debug_selectors: bool = False) -> int:
     from backend.app.browser_v2.service import build_service
     from backend.app.browser_v2.state import NEVER_REPLAY
 
+    if live and debug_selectors:
+        emit({"error": "--debug-selectors is allowed only with --dry-run (never on a live submit)"})
+        return 2
     if live and limit > PHASE1_LIVE_LIMIT:
         emit({"error": f"Phase 1 allows at most {PHASE1_LIVE_LIMIT} watched live apply per run"})
         return 2
@@ -122,6 +144,8 @@ async def test_apply(portal: str, live: bool, limit: int, query: str | None, url
         applied = 0
         for target in targets[: limit * MAX_INSPECTIONS_PER_APPLY]:
             outcome = await service.apply_to_job(portal, target, dry_run=not live)
+            if debug_selectors and len(results) < MAX_DEBUG_BUNDLES:
+                outcome = dict(outcome) | {"diagnostics": await debug_bundle(service, portal)}
             results.append(outcome)
             reached_apply = outcome.get("reason") in {"dry_run_stopped_before_apply_click",
                                                       "dry_run_stopped_before_submit"} or outcome.get("clicked_apply")
@@ -238,13 +262,24 @@ async def live_smoke_command(checks: list[str], mail_app: bool, llm_ping: bool, 
 async def run_worker_command(dry_run: bool, once: bool, telegram: bool = True) -> int:
     import logging
 
+    from backend.app.browser_v2.logrotate import (
+        rotate_periodically,
+        rotate_service_logs,
+    )
     from backend.app.browser_v2.service import plain
     from backend.app.browser_v2.worker import run_worker
     from backend.app.telegram_v2.client import install_log_redaction
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     install_log_redaction()  # httpx logs request URLs at INFO; the Telegram URL contains the token
-    reports = await run_worker(dry_run=dry_run, once=once, telegram=telegram)
+    rotate_service_logs("worker-v2")  # Phase 6B: <= 10 MB x 3 backups (launchd log files)
+    rotation_stop = asyncio.Event()
+    rotation = asyncio.create_task(rotate_periodically("worker-v2", rotation_stop))
+    try:
+        reports = await run_worker(dry_run=dry_run, once=once, telegram=telegram)
+    finally:
+        rotation_stop.set()
+        await rotation
     if once:
         emit([plain(report) for report in reports])
     return 0
@@ -439,6 +474,14 @@ async def telegram_test_command() -> int:
         await bot.client.aclose()
 
 
+async def health_check_command(as_json: bool, include_db: bool) -> int:
+    from backend.app.browser_v2.health import render_text, run_health
+
+    report = await run_health(include_db=include_db)
+    print(json.dumps(report, indent=2, default=str) if as_json else render_text(report))
+    return 0 if report["ok"] else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="browser_v2", description="Dedicated Brave profile tools")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -449,6 +492,8 @@ def main(argv: list[str] | None = None) -> int:
     check = commands.add_parser("check-session", help="verify the persistent login")
     check.add_argument("--portal", default="naukri", choices=sorted(PORTALS))
     check.add_argument("--restart", action="store_true", help="also verify after a browser restart")
+    check.add_argument("--debug-selectors", action="store_true",
+                       help="save a PII-scrubbed DOM probe + screenshot under receipts/diagnostics/")
     apply = commands.add_parser("test-apply", help="discover and apply (dry-run or one live)")
     apply.add_argument("--portal", default="naukri", choices=sorted(PORTALS))
     apply.add_argument("--board", action="append", default=[],
@@ -460,6 +505,8 @@ def main(argv: list[str] | None = None) -> int:
     apply.add_argument("--query", help="search keywords (default: first preferences.target_roles)")
     apply.add_argument("--url", help="apply to this exact job URL instead of searching")
     apply.add_argument("--yes", action="store_true", help="skip the typed live confirmation")
+    apply.add_argument("--debug-selectors", action="store_true",
+                       help="dry-run only: save PII-scrubbed DOM probe bundles (max 3) under receipts/diagnostics/")
     worker = commands.add_parser("worker", help="24/7 loop driven by public.worker_control")
     worker.add_argument("--dry-run", action="store_true",
                         help="never click Apply (also forced by DRY_RUN=true)")
@@ -506,6 +553,9 @@ def main(argv: list[str] | None = None) -> int:
     sft.add_argument("--out", required=True, help="output .jsonl path (written 0600)")
     chat = commands.add_parser("agent-chat", help="one message to the LangGraph control agent")
     chat.add_argument("text")
+    health = commands.add_parser("health-check", help="non-destructive 24/7 watchdog report (Phase 6B)")
+    health.add_argument("--json", action="store_true", help="machine-readable JSON")
+    health.add_argument("--no-db", action="store_true", help="skip the single read-only DB probe")
     args = parser.parse_args(argv)
     try:
         if args.command == "set-portal-cred":
@@ -514,6 +564,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(export_sft_command(args.out))
         if args.command == "agent-chat":
             return asyncio.run(agent_chat_command(args.text))
+        if args.command == "health-check":
+            return asyncio.run(health_check_command(args.json, not args.no_db))
         if args.command == "login-setup":
             from backend.app.browser_v2.portals import LOGIN_PORTALS
 
@@ -530,10 +582,11 @@ def main(argv: list[str] | None = None) -> int:
             checks = args.check or ["db", "ai", "telegram", "mail", "enrichment"]
             return asyncio.run(live_smoke_command(checks, args.mail_app, not args.no_llm_ping, args.portal))
         if args.command == "check-session":
-            return asyncio.run(check_session(args.portal, args.restart))
+            return asyncio.run(check_session(args.portal, args.restart, args.debug_selectors))
         if args.command == "test-apply":
             return asyncio.run(test_apply(args.portal, args.live, max(1, args.limit), args.query,
-                                          args.url, args.yes, boards=args.board))
+                                          args.url, args.yes, boards=args.board,
+                                          debug_selectors=args.debug_selectors))
         if args.command == "worker":
             return asyncio.run(run_worker_command(args.dry_run, args.once, telegram=not args.no_telegram))
         if args.command == "telegram-status":

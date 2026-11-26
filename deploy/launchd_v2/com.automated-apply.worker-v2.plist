@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Python v2 24/7 worker under `caffeinate -i` (holds PreventUserIdleSystemSleep while the
+     screen is locked; lid open, plugged in). caffeinate forwards SIGTERM to the worker,
+     which finishes the current step and reports OFFLINE; worker_control.desired_state is
+     never changed by a restart, so RUNNING survives reboots. Rendered by cutover_v2.py. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.automated-apply.worker-v2</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/bin/caffeinate</string>
+		<string>-i</string>
+		<string>--</string>
+		<string>__PYTHON__</string>
+		<string>-m</string>
+		<string>backend.app.browser_v2.cli</string>
+		<string>worker</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__REPO__</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+		<key>AUTOMATED_APPLY_ENV_FILE</key>
+		<string>__ENV_FILE__</string>
+		<key>AUTOMATED_APPLY_LOG_DIR</key>
+		<string>__LOG_DIR__</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+		<key>Crashed</key>
+		<true/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>30</integer>
+	<key>ExitTimeOut</key>
+	<integer>90</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/worker-v2.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/worker-v2.err.log</string>
+</dict>
+</plist>

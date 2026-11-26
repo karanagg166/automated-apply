@@ -1,0 +1,91 @@
+# Python v2 containers: FastAPI API + Next.js dashboard (+ an opt-in CI runner).
+#
+#   docker compose up --build api frontend              # 127.0.0.1:8000 and 127.0.0.1:3000
+#   docker compose --profile ci run --rm ci             # ruff + mypy + v2/guardrail pytest
+#
+# The 24/7 worker does NOT run here: headful Brave (persistent profile), Mail.app drafts and
+# `caffeinate -i` need the native macOS host, so `com.automated-apply.worker-v2` runs under
+# launchd (deploy/launchd_v2/, backend/scripts/cutover_v2.py). Run either this compose API or
+# the launchd api-v2 agent, never both: each binds 127.0.0.1:8000.
+#
+# Supabase runtime role cap = 5 connections: API pool 2 + overflow 1, worker 1, 1 spare.
+# Secrets come only from the private env files below (mode 0600, outside git).
+name: automated-apply
+
+x-hardening: &hardening
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  restart: unless-stopped
+
+services:
+  api:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: ${AUTOMATED_APPLY_ENV_FILE:-${HOME}/Library/Application Support/Automated Apply/phase1.private.env}
+        required: false
+    environment:
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "1"
+      GMAIL_SENDING_ENABLED: "false"
+    ports:
+      # The dashboard shares this network namespace (its proxy only trusts loopback backends).
+      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:3000:3000"
+    stop_grace_period: 30s
+
+  frontend:
+    <<: *hardening
+    build:
+      context: ./frontend
+    network_mode: "service:api"
+    depends_on: [api]
+    env_file:
+      - path: ${AUTOMATED_APPLY_FRONTEND_ENV_FILE:-${HOME}/Library/Application Support/Automated Apply/frontend.private.env}
+        required: false
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+      BACKEND_ORIGIN: http://127.0.0.1:8000
+      RUST_AGENT_URL: http://127.0.0.1:8000
+    tmpfs: [/tmp, /app/.next/cache]
+
+  ci:
+    profiles: [ci]
+    build:
+      context: .
+      dockerfile: deploy/ci.Dockerfile
+    volumes:
+      - .:/src:ro
+    environment:
+      ENVIRONMENT: testing
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      DATABASE_SCHEMA: job_agent
+      SECRET_KEY: ci-dummy-secret-key-not-for-production
+      JOB_AGENT_API_TOKEN: ci-dummy-token-not-for-production
+      GMAIL_SENDING_ENABLED: "false"
+      AUTOMATION_EXECUTION_ENABLED: "false"
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "1"
+    command:
+      - sh
+      - -c
+      - >-
+        ruff check --isolated --select E9,F,I backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2
+        backend/app/enrichment_v2 backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2
+        backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py backend/scripts/migrate_v2_core.py
+        backend/tests/test_phase6b_ops.py
+        && mypy --ignore-missing-imports --follow-imports=silent --check-untyped-defs --warn-unused-ignores
+        --explicit-package-bases backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2
+        backend/app/enrichment_v2 backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2
+        backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
+        && python -m pytest -q -p no:cacheprovider backend/tests/test_gmail_no_send_guardrail.py
+        backend/tests/test_no_local_llm_guardrail.py backend/tests/test_phase6b_ops.py
+        backend/tests/test_adapters_phase6.py backend/tests/test_agent_v2_control_graph.py
+        backend/tests/test_ai_v2_pii.py backend/tests/test_ai_v2_router.py backend/tests/test_ai_v2_pipeline.py
+        backend/tests/test_browser_v2_state.py backend/tests/test_browser_v2_rules.py
+        backend/tests/test_browser_v2_worker.py backend/tests/test_mail_v2.py backend/tests/test_telegram_v2_bot.py
