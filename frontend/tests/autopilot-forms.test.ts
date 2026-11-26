@@ -34,6 +34,8 @@ const rules: PortalRules = {
   label: "Naukri",
   adapter_status: "ready",
   requires_login: true,
+  quota_fallback_daily_cap: 10,
+  quota_drafts_per_cycle: 5,
 };
 
 const profile: ScreeningProfile = {

@@ -38,6 +38,10 @@ class PortalRules:
     auth_checked_at: datetime | None = None
     portal_limit_hit_at: datetime | None = None
     updated_at: datetime | None = None
+    # Phase 6A (dashboard-editable). None = a pre-6A row: env/default caps apply.
+    quota_fallback_daily_cap: int | None = None
+    quota_drafts_per_cycle: int | None = None
+    paused_until: datetime | None = None  # temporary owner pause (agent / dashboard)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> PortalRules:
@@ -53,7 +57,14 @@ EDITABLE_RULE_FIELDS = (
     "enabled", "auto_apply_enabled", "max_applies_per_day", "max_applies_per_hour",
     "max_job_age_days", "max_applicants", "unknown_applicants_policy", "min_delay_sec",
     "max_delay_sec", "active_hours_start", "active_hours_end", "timezone",
+    "quota_fallback_daily_cap", "quota_drafts_per_cycle", "paused_until",
 )
+DEFAULT_QUOTA_FALLBACK_DAILY_CAP = 10
+DEFAULT_QUOTA_DRAFTS_PER_CYCLE = 5
+
+
+def paused(rules: PortalRules, now: datetime) -> bool:
+    return rules.paused_until is not None and rules.paused_until > now
 
 
 def within_active_hours(rules: PortalRules, now: datetime) -> bool:

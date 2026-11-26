@@ -36,6 +36,8 @@ const NUMBER_INPUTS: ReadonlyArray<
       | "max_applicants"
       | "min_delay_sec"
       | "max_delay_sec"
+      | "quota_fallback_daily_cap"
+      | "quota_drafts_per_cycle"
     >,
     string,
     string,
@@ -79,6 +81,20 @@ const NUMBER_INPUTS: ReadonlyArray<
     5,
     undefined,
   ],
+  [
+    "quota_fallback_daily_cap",
+    "Quota fallback: jobs drafted per day",
+    "0–100. After the daily cap, this many extra jobs get a Gmail draft + tomorrow’s retry.",
+    0,
+    100,
+  ],
+  [
+    "quota_drafts_per_cycle",
+    "Quota fallback: drafts per cycle",
+    "0–50 Gmail drafts per worker cycle (drafts are never sent).",
+    0,
+    50,
+  ],
 ];
 
 type Feedback = { tone: "ok" | "error"; text: string } | null;
@@ -97,6 +113,10 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
   const { patch: body, changed, errors } = rulesPatch(rules, form);
   const name = rules.label || readable(rules.platform);
   const ready = rules.adapter_status === "ready";
+  const pausedUntil =
+    rules.paused_until && new Date(rules.paused_until).getTime() > Date.now()
+      ? rules.paused_until
+      : null;
   const save = useMutation({
     mutationFn: () =>
       patch<PortalRules>(`v2/portal-rules/${rules.platform}`, body),
@@ -138,6 +158,9 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
           <Badge tone={ready ? "green" : "neutral"}>
             {ready ? "Adapter ready" : "Phase 6 adapter pending"}
           </Badge>
+          {pausedUntil && (
+            <Badge tone="amber">Paused until {stamp(pausedUntil)}</Badge>
+          )}
           {rules.requires_login ? (
             <Badge tone={authTone(rules.auth_status)}>
               {readable(rules.auth_status)}
@@ -149,8 +172,8 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
       </div>
       {!ready && (
         <p className="portal-hint">
-          Rules are saved now; this portal only runs once its adapter ships in
-          Phase 6, even if enabled.
+          Rules are saved now; this portal only runs once its adapter is
+          available, even if enabled.
         </p>
       )}
       <form
@@ -298,10 +321,12 @@ export function PortalRulesEditor() {
       <div className="section-heading">
         <h2 id="rules-heading">Portal permissions &amp; rules</h2>
         <p className="muted">
-          Caps, filters and pacing for all 10 portals. Changes apply on the
+          Caps, filters and pacing for all 10 portals (every adapter is ready;
+          new portals stay off until you enable them). Changes apply on the
           worker’s next cycle — no restart needed. Defaults: 50/day, 10/hour,
           jobs under 7 days old, at most 300 applicants, 45–150 s between
-          applies, 08:00–23:30 IST.
+          applies, 08:00–23:30 IST, quota fallback 10 jobs/day and 5 drafts per
+          cycle.
         </p>
       </div>
       {rules.isPending ? (

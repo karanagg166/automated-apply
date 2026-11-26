@@ -141,7 +141,7 @@ async def test_exhausted_or_unconfigured_router_falls_back_to_hitl():
     ai, llm = runtime(LLM(status=503))
     result = await ai.answerer.resolve("Are you comfortable with on-call rotations?", ("Yes", "No"), FACTS)
     assert (result.tier, result.reason) == (3, "llm_exhausted") and len(llm.bodies) == 2
-    assert result.llm_chain[:2] == ("groq:http_503", "gemini:http_503")
+    assert result.llm_chain[:3] == ("groq:http_503", "cerebras:unconfigured", "gemini:http_503")
     bare, bare_llm = runtime(env={})
     result = await bare.answerer.resolve("Are you comfortable with on-call rotations?", ("Yes", "No"), FACTS)
     assert (result.tier, result.reason) == (3, "llm_unconfigured") and bare_llm.bodies == []

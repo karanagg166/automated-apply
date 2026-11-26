@@ -11,15 +11,18 @@ Never blocks the application loop:
 - OPEN hitl_requests without telegram_msg_id are sent (<= 1 msg/s) and the
   message id is saved immediately so a restart never double-sends.
 
-Inbound matching order: inline button callback -> slash command ->
-swipe-reply (reply_to_message.message_id == telegram_msg_id) -> plain text
-(only when exactly one QUESTION/OTP is open; never guesses between several).
+Inbound matching order: inline button callback -> slash command (/ask <text> goes to
+the control agent) -> swipe-reply (reply_to_message.message_id == telegram_msg_id) ->
+plain text that resolves the ONLY open QUESTION/OTP (when it is not clearly a control
+command) -> Phase 6A LangGraph control agent (free chat). The agent runs as a background
+task: polling continues and the browser's in-flight application is never touched.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import html
 import logging
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -68,10 +71,15 @@ class TelegramBot:
                  transport: httpx.AsyncBaseTransport | None = None,
                  clock: Callable[[], datetime] | None = None,
                  poll_timeout: int = POLL_TIMEOUT_SEC, dispatch_interval: float = DISPATCH_INTERVAL_SEC,
-                 conflict_backoff: float = CONFLICT_BACKOFF_SEC, min_send_interval: float = 1.0) -> None:
+                 conflict_backoff: float = CONFLICT_BACKOFF_SEC, min_send_interval: float = 1.0,
+                 agent: Any = None, event_bus: Any = None, mail_events: Any = None) -> None:
         self.config = config
         self.store = store
         self.ai = ai
+        self.event_bus = event_bus
+        self.mail_events = mail_events
+        self._agent = agent
+        self._agent_tasks: set[asyncio.Task[None]] = set()
         self.clock = clock or (lambda: datetime.now(UTC))
         self.resolver = HITLResolutionService(store, cache if cache is not None else (ai.cache if ai else None),
                                               clock=self.clock)
@@ -105,9 +113,9 @@ class TelegramBot:
         try:
             await asyncio.wait([*tasks, stopper], return_when=asyncio.FIRST_COMPLETED)
         finally:
-            for task in (*tasks, stopper):
+            for task in (*tasks, stopper, *self._agent_tasks):
                 task.cancel()
-            await asyncio.gather(*tasks, stopper, return_exceptions=True)
+            await asyncio.gather(*tasks, stopper, *self._agent_tasks, return_exceptions=True)
             with contextlib.suppress(Exception):
                 await self._set_state("stopped")
             await self.client.aclose()
@@ -202,6 +210,10 @@ class TelegramBot:
         text = (message.get("text") or "").strip()
         message_id = message.get("message_id")
         if text.startswith("/"):
+            head = text.split(maxsplit=1)[0].split("@")[0].lower()
+            if head == "/ask":
+                self.dispatch_agent(text[len(text.split(maxsplit=1)[0]):].strip(), message_id)
+                return
             await self.reply(await self.handle_command(text), message_id)
             return
         reply_to = message.get("reply_to_message")
@@ -210,7 +222,64 @@ class TelegramBot:
             if hitl is not None:
                 await self.reply(await self.handle_reply(hitl, text), message_id)
                 return
-        await self.reply(await self.handle_plain(text), message_id)
+        await self.route_plain(text, message_id)
+
+    # --- Phase 6A: free chat -> LangGraph control agent (non-blocking) -------------------------
+    @property
+    def agent(self) -> Any:
+        if self._agent is None:
+            from backend.app.agent_v2.control_graph import ControlAgent
+
+            self._agent = ControlAgent(self.store, ai=self.ai, mail_events=self.mail_events,
+                                       event_bus=self.event_bus, clock=self.clock)
+        return self._agent
+
+    @staticmethod
+    def is_control_command(text: str) -> bool:
+        from backend.app.agent_v2.intent import parse
+
+        intent = parse(text)
+        return intent is not None and intent.tool != "help"
+
+    async def route_plain(self, text: str, message_id: int | None) -> None:
+        if not text:
+            await self.reply("Send the answer as text. /help", message_id)
+            return
+        rows, _ = await self.store.list_hitl("OPEN", limit=50)
+        candidates = [row for row in rows if row.kind in PLAIN_TEXT_KINDS]
+        command = self.is_control_command(text)
+        if len(candidates) == 1 and not command:
+            await self.reply(await self.handle_plain(text), message_id)
+            return
+        hint = None
+        if len(candidates) > 1 and not command:
+            hint = await self.handle_plain(text)  # "N questions are open, so I won't guess" + refs
+        self.dispatch_agent(text, message_id, fallback=hint)
+
+    def dispatch_agent(self, text: str, message_id: int | None, *, fallback: str | None = None) -> asyncio.Task[None]:
+        task = asyncio.create_task(self._agent_reply(text, message_id, fallback), name="telegram-agent")
+        self._agent_tasks.add(task)
+        task.add_done_callback(self._agent_tasks.discard)
+        return task
+
+    async def _agent_reply(self, text: str, message_id: int | None, fallback: str | None) -> None:
+        try:
+            if not text.strip():
+                await self.reply("Usage: <code>/ask &lt;text&gt;</code>", message_id)
+                return
+            result = await self.agent.run(text)
+            if fallback is not None and result.get("verdict") == "help":
+                await self.reply(fallback, message_id)
+                return
+            await self.reply("🤖 " + html.escape(str(result.get("reply") or ""), quote=False), message_id)
+        except Exception as exc:  # noqa: BLE001 - the agent must never break polling
+            logger.warning("telegram_v2 agent failed: %s", type(exc).__name__)
+            with contextlib.suppress(Exception):
+                await self.reply("⚠️ The control agent hit an error; nothing was changed.", message_id)
+
+    async def drain_agent(self) -> None:
+        if self._agent_tasks:
+            await asyncio.gather(*list(self._agent_tasks), return_exceptions=True)
 
     async def reply(self, text: str, reply_to: int | None = None) -> None:
         assert self.client is not None
@@ -388,6 +457,11 @@ class TelegramBot:
 
     # --- message edits after resolution -----------------------------------------------
     async def _after_resolution(self, result: Resolution) -> None:
+        if result.ok and result.hitl is not None and self.event_bus is not None:
+            with contextlib.suppress(Exception):
+                await self.event_bus.publish("hitl.resolved", {"ref": result.hitl.ref, "kind": result.hitl.kind,
+                                                               "platform": result.hitl.platform,
+                                                               "outcome": result.code})
         if result.ok and result.hitl is not None:
             if result.code == "answered":
                 label = f"Answered: {result.answer}" if result.hitl.kind == "QUESTION" else "Answered"

@@ -2,6 +2,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { GmailPermissionBadge, PageTitle } from "@/components/ui";
+import {
+  AgentControlChat,
+  RecruiterRepliesFeed,
+} from "@/features/autopilot-agent";
 import { AIRouterPanel, SemanticCacheTable } from "@/features/autopilot-ai";
 import { type PortalRules } from "@/features/autopilot-forms";
 import { HitlInbox } from "@/features/autopilot-hitl";
@@ -26,6 +30,8 @@ export function Autopilot() {
       />
       <WorkerStatusPanel />
       <HitlInbox />
+      <AgentControlChat />
+      <RecruiterRepliesFeed />
       <QuotaFallbackPanel />
       <PortalRulesEditor />
       <ScreeningProfileEditor />

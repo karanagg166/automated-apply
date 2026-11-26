@@ -72,6 +72,29 @@ def normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9+#.]+", " ", text.lower()).strip()
 
 
+IDENTITY_KEYS = ("full_name", "email", "phone", "linkedin_url", "github_url", "portfolio_url",
+                 "personal_website")
+
+
+def identity_fields(profile: dict[str, Any]) -> dict[str, str]:
+    """Stored identity values only (first/last name split from full_name); never invented."""
+    values = {key: profile[key].strip() for key in IDENTITY_KEYS
+              if isinstance(profile.get(key), str) and profile[key].strip()}
+    prefs = profile.get("preferences") or {}
+    location = prefs.get("current_location") if isinstance(prefs, dict) else None
+    if isinstance(location, str) and location.strip():
+        values["current_location"] = location.strip()
+    name = values.get("full_name", "")
+    if name:
+        first, _, last = name.partition(" ")
+        values["first_name"] = first
+        if last.strip():
+            values["last_name"] = last.strip()
+    if "portfolio_url" not in values and "personal_website" in values:
+        values["portfolio_url"] = values["personal_website"]
+    return values
+
+
 @dataclass
 class CandidateFacts:
     experience_years: float | None = None
@@ -83,6 +106,10 @@ class CandidateFacts:
     current_location: str | None = None
     willing_to_relocate: bool | None = None
     saved_answers: dict[str, str] = field(default_factory=dict)
+    # Phase 6A: identity fields typed deterministically into hosted ATS forms (never sent
+    # to an LLM) and the owner's local resume PDFs (preferences.resume_files).
+    identity: dict[str, str] = field(default_factory=dict)
+    resume_files: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_profile(cls, profile: dict[str, Any],
@@ -111,6 +138,9 @@ class CandidateFacts:
             willing_to_relocate=prefs.get("willing_to_relocate")
             if isinstance(prefs.get("willing_to_relocate"), bool) else None,
             saved_answers={normalize(q): a for q, a in reviewed_answers or []},
+            identity=identity_fields(profile),
+            resume_files=dict(prefs.get("resume_files") or {}) if isinstance(prefs.get("resume_files"), dict)
+            else {},
         )
 
     def has_skill(self, skill: str) -> bool:

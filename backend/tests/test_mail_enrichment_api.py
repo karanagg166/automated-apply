@@ -168,8 +168,10 @@ async def test_portal_rules_expose_ten_portals_with_adapter_badges(async_client,
     rows = (await async_client.get(f"{BASE}/portal-rules", headers=phase2_auth)).json()
     by = {row["platform"]: row for row in rows}
     assert len(by) == 10 and by["naukri"]["adapter_status"] == "ready" and by["naukri"]["enabled"]
-    assert all(row["adapter_status"] == "pending_phase6" and not row["enabled"]
+    # Phase 6A: every portal has an adapter; the nine new ones stay disabled until the owner opts in.
+    assert all(row["adapter_status"] == "ready" and not row["enabled"]
                for name, row in by.items() if name != "naukri")
+    assert all(row["quota_fallback_daily_cap"] == 10 and row["quota_drafts_per_cycle"] == 5 for row in rows)
     assert by["greenhouse"]["requires_login"] is False and by["work_at_a_startup"]["label"] == "YC Work at a Startup"
 
 
@@ -185,5 +187,7 @@ def test_openapi_has_no_delivery_route():
     paths = app.openapi()["paths"]
     phase5 = [p for p in paths if p.startswith(BASE) and ("draft" in p or "mail" in p or "enrichment" in p)]
     assert sorted(phase5) == sorted([f"{BASE}/drafts", f"{BASE}/enrichment/status", f"{BASE}/mail/status",
-                                     f"{BASE}/applications/{{application_id}}/draft-now"])
+                                     f"{BASE}/applications/{{application_id}}/draft-now",
+                                     f"{BASE}/mail/replies"])  # Phase 6A: READ-ONLY reply feed (GET only)
+    assert set(paths[f"{BASE}/mail/replies"]) == {"get"}
     assert "send" not in json.dumps({p: paths[p] for p in phase5}).lower().replace("sending disabled", "")

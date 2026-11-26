@@ -50,6 +50,10 @@ class PortalRulesRead(BaseModel):
     adapter_status: AdapterStatusName = Field(
         default="pending_phase6", description="ready = a live adapter exists; pending_phase6 = rules only")
     requires_login: bool = Field(default=True, description="False for public ATS boards (Greenhouse, Lever)")
+    quota_fallback_daily_cap: int = Field(default=10, description="Max new jobs drafted+queued per day once the "
+                                                                    "daily quota is hit")
+    quota_drafts_per_cycle: int = Field(default=5, description="Max Gmail drafts created per worker cycle")
+    paused_until: datetime | None = Field(default=None, description="Portal skipped until this time (temporary pause)")
 
     @classmethod
     def from_rules(cls, rules: Any) -> PortalRulesRead:
@@ -67,10 +71,25 @@ class PortalRulesRead(BaseModel):
             active_hours_start=hhmm(rules.active_hours_start), active_hours_end=hhmm(rules.active_hours_end),
             timezone=rules.timezone, auth_status=rules.auth_status,
             auth_checked_at=rules.auth_checked_at, portal_limit_hit_at=rules.portal_limit_hit_at,
-            revision=rules.revision, updated_at=rules.updated_at)
+            revision=rules.revision, updated_at=rules.updated_at,
+            quota_fallback_daily_cap=_effective_cap(rules), quota_drafts_per_cycle=_effective_drafts(rules),
+            paused_until=getattr(rules, "paused_until", None))
 
 
-NULLABLE_RULE_FIELDS = frozenset({"active_hours_start", "active_hours_end"})
+def _effective_cap(rules: Any) -> int:
+    from backend.app.browser_v2.quota import fallback_daily_cap
+
+    return fallback_daily_cap(rules)
+
+
+def _effective_drafts(rules: Any) -> int:
+    from backend.app.browser_v2.rules import DEFAULT_QUOTA_DRAFTS_PER_CYCLE
+
+    value = getattr(rules, "quota_drafts_per_cycle", None)
+    return DEFAULT_QUOTA_DRAFTS_PER_CYCLE if value is None else int(value)
+
+
+NULLABLE_RULE_FIELDS = frozenset({"active_hours_start", "active_hours_end", "paused_until"})
 
 
 class PortalRulesPatch(BaseModel):
@@ -91,6 +110,16 @@ class PortalRulesPatch(BaseModel):
     active_hours_start: time | None = None
     active_hours_end: time | None = None
     timezone: str | None = Field(default=None, max_length=64)
+    quota_fallback_daily_cap: int | None = Field(default=None, ge=0, le=100)
+    quota_drafts_per_cycle: int | None = Field(default=None, ge=0, le=50)
+    paused_until: datetime | None = Field(default=None, description="null = resume now")
+
+    @field_validator("paused_until")
+    @classmethod
+    def aware_pause(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            raise ValueError("paused_until must include a timezone offset")
+        return value
 
     @field_validator("timezone")
     @classmethod
@@ -395,3 +424,51 @@ class DraftNowRead(BaseModel):
     enrichment_status: str | None = None
     enrichment_source: str | None = None
     draft: EmailDraftRead | None = None
+
+
+# --- Phase 6A: control agent, event bus, read-only recruiter replies ----------------------
+class AgentChatInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    text: str = Field(min_length=1, max_length=2000, description="Owner message, e.g. 'pause Internshala for 3 hours'")
+
+
+class AgentChatRead(BaseModel):
+    reply: str
+    tool: str | None = None
+    source: str | None = Field(default=None, description="deterministic | llm")
+    verdict: str | None = Field(default=None, description="ok | rejected | confirm | help")
+    ok: bool
+
+
+class EventBusStatusRead(BaseModel):
+    backend: Literal["postgres", "cloudamqp", "upstash_redis", "in_process"]
+    requested_backend: str
+    fell_back: bool
+    healthy: bool
+    published: int = 0
+    handler_errors: int = 0
+    topics: list[str]
+    remote: dict[str, Any] | None = None
+    process_note: str = "The worker process owns the live bus; this shows the configured backend."
+
+
+class MailEventRead(BaseModel):
+    id: str | None = None
+    kind: Literal["RECRUITER_REPLY", "INTERVIEW", "JOB_ALERT"]
+    source: str
+    platform: str | None = None
+    company_name: str | None = None
+    sender: str | None = None
+    subject: str | None = None
+    snippet: str | None = None
+    application_id: str | None = None
+    received_at: datetime | None = None
+    alerted_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class MailReplyPage(BaseModel):
+    permission: Literal["READ_ONLY"] = "READ_ONLY"
+    configured: bool
+    tiers: dict[str, bool]
+    items: list[MailEventRead]

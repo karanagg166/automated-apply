@@ -1,9 +1,9 @@
-"""The 10-portal roster (Phase 5): labels, login URLs and adapter readiness.
+"""The 10-portal roster: labels, login URLs and adapter readiness.
 
-Only portals listed in `ADAPTER_READY` have a live Playwright adapter today; the
-rest are seeded disabled in public.portal_rules so the dashboard can manage them
-before Phase 6 wires their adapters. Direct ATS boards (Greenhouse, Lever) are
-public read APIs and never need a browser login.
+Phase 6A: every portal has an adapter. Only naukri is seeded enabled in
+public.portal_rules; the other nine stay disabled until the owner toggles them on.
+Direct ATS boards (Greenhouse, Lever) and the public feeds (Himalayas, We Work
+Remotely, HiringCafe search) never need a browser login for discovery or apply.
 """
 
 from __future__ import annotations
@@ -16,30 +16,33 @@ from typing import Literal
 class PortalInfo:
     platform: str
     label: str
-    tier: str  # interactive | ats
+    tier: str  # interactive | feed | ats
     login_url: str | None
     default_enabled: bool = False
+    needs_login: bool | None = None  # None = login_url is not None
 
     @property
     def requires_login(self) -> bool:
-        return self.login_url is not None
+        return self.login_url is not None if self.needs_login is None else self.needs_login
 
 
 PORTALS: dict[str, PortalInfo] = {p.platform: p for p in (
     PortalInfo("naukri", "Naukri", "interactive", "https://www.naukri.com/nlogin/login", default_enabled=True),
     PortalInfo("instahyre", "Instahyre", "interactive", "https://www.instahyre.com/login/"),
     PortalInfo("internshala", "Internshala", "interactive", "https://internshala.com/login/user"),
-    PortalInfo("himalayas", "Himalayas", "interactive", "https://himalayas.app/login"),
+    PortalInfo("himalayas", "Himalayas", "feed", "https://himalayas.app/login", needs_login=False),
     PortalInfo("wellfound", "Wellfound", "interactive", "https://wellfound.com/login"),
     PortalInfo("work_at_a_startup", "YC Work at a Startup", "interactive", "https://www.workatastartup.com"),
-    PortalInfo("we_work_remotely", "We Work Remotely", "interactive", "https://weworkremotely.com/"),
-    PortalInfo("hiringcafe", "HiringCafe", "interactive", "https://hiringcafe.com/"),
+    PortalInfo("we_work_remotely", "We Work Remotely", "feed", "https://weworkremotely.com/", needs_login=False),
+    PortalInfo("hiringcafe", "HiringCafe", "feed", "https://hiring.cafe/", needs_login=False),
     PortalInfo("greenhouse", "Greenhouse (direct ATS)", "ats", None),
     PortalInfo("lever", "Lever (direct ATS)", "ats", None),
 )}
 
-# Portals whose adapter is implemented and may run live (Phase 6 extends this set).
-ADAPTER_READY = frozenset({"naukri"})
+# Portals whose adapter is implemented and may run live (all 10 since Phase 6A).
+ADAPTER_READY = frozenset(PORTALS)
+# Portals whose session lives in the dedicated Brave profile (login-setup targets).
+LOGIN_PORTALS = frozenset(name for name, info in PORTALS.items() if info.requires_login)
 
 
 def adapter_status(platform: str) -> Literal["ready", "pending_phase6"]:

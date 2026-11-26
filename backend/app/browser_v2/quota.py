@@ -48,8 +48,15 @@ DAILY_CAP_ENV = "QUOTA_FALLBACK_DAILY_CAP"
 DEFAULT_DAILY_CAP = 10
 
 
-def fallback_daily_cap() -> int:
-    """Max new jobs parked (and so drafted) per portal per day while its quota is hit."""
+def fallback_daily_cap(rules: PortalRules | None = None) -> int:
+    """Max new jobs parked (and so drafted) per portal per day while its quota is hit.
+
+    Phase 6A: the live dashboard column portal_rules.quota_fallback_daily_cap wins; the
+    QUOTA_FALLBACK_DAILY_CAP env var is only the fallback for rows without it.
+    """
+    configured = getattr(rules, "quota_fallback_daily_cap", None) if rules is not None else None
+    if configured is not None:
+        return min(max(int(configured), 0), 100)
     try:
         value = int(os.environ.get(DAILY_CAP_ENV, DEFAULT_DAILY_CAP))
     except ValueError:
@@ -130,7 +137,9 @@ class QuotaHitProcessor:
             # Overdue retries cannot run today either: push them to the next reset (no new draft).
             for record in await self.store.due_retries(platform, now, limit=200):
                 await self._requeue(record, rules, retry_at, "quota_hit_rescheduled", {}, report, now)
-        pending = await self.store.list_by_state(platform, (S.QUOTA_HIT_PENDING,), limit=self.drafts_per_cycle)
+        per_cycle = getattr(rules, "quota_drafts_per_cycle", None)
+        limit = min(max(int(per_cycle), 0), 50) if per_cycle is not None else self.drafts_per_cycle
+        pending = await self.store.list_by_state(platform, (S.QUOTA_HIT_PENDING,), limit=limit) if limit else []
         if pending and self.ai is not None:
             self.ai.bind_profile(profile)  # owner identifiers are scrubbed from the draft prompt
         for record in pending:
@@ -183,7 +192,15 @@ class QuotaHitProcessor:
             return "quota_hit_queued_no_email", {"draft_reason": "quota_hit_no_recruiter_email",
                                                  "enrichment": enrichment}
         composer = self.composer or DraftComposer(self.ai.router if self.ai is not None else None)
-        attachment, _ = resume_attachment(self.mail.config.resume_path)
+        # Phase 6A: attach the same best-matching resume the portal form would upload.
+        from backend.app.browser_v2.resume import pick_resume
+
+        raw_prefs = profile.get("preferences")
+        prefs: Mapping[str, Any] = raw_prefs if isinstance(raw_prefs, Mapping) else {}
+        files = prefs.get("resume_files")
+        choice = pick_resume(files if isinstance(files, Mapping) else None,
+                             title=record.role_title, description=jd_text, fallback_path=self.mail.config.resume_path)
+        attachment, _ = resume_attachment(choice.path)
         content = await composer.compose(
             DraftJob(role_title=record.role_title, company_name=record.company_name, platform=record.platform,
                      job_url=record.job_url, jd_text=jd_text, recipient_first_name=found.first_name),
@@ -191,9 +208,9 @@ class QuotaHitProcessor:
         full_name = profile.get("full_name")
         outcome = await self.mail.create_application_draft(
             record, found.email, content, sender_name=full_name if isinstance(full_name, str) else None,
-            enrichment_source=found.source)
+            enrichment_source=found.source, attachment_path=choice.path)
         details = {"enrichment": enrichment, "channel": outcome.channel, "fell_back": outcome.fell_back,
-                   "composer": content.composer, "attachment": outcome.attachment}
+                   "composer": content.composer, "attachment": outcome.attachment, "resume_variant": choice.label}
         if outcome.created:
             return "quota_hit_drafted_and_queued", {"draft_reason": "drafted", **details}
         if outcome.already_drafted:

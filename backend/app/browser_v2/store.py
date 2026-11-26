@@ -20,7 +20,7 @@ import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any, Protocol
 
@@ -38,9 +38,25 @@ from backend.app.browser_v2.state import (
     check_transition,
 )
 
-__all__ = ["ApplicationQuery", "ApplicationRecord", "DraftReservation", "EmailDraftRecord", "HitlRecord",
-           "MemoryStore", "PostgresStore", "RevisionConflict", "RulesNotFound", "SerializedConnection", "Store",
-           "TelegramState", "WorkerControl", "WorkerState", "dedup_key"]
+__all__ = [
+    "ApplicationQuery",
+    "ApplicationRecord",
+    "DraftReservation",
+    "EmailDraftRecord",
+    "HitlRecord",
+    "MemoryStore",
+    "PostgresStore",
+    "ProfileMissing",
+    "RevisionConflict",
+    "RulesNotFound",
+    "SerializedConnection",
+    "Store",
+    "TelegramState",
+    "WorkerControl",
+    "WorkerState",
+    "dedup_key",
+    "validate_preferences",
+]
 
 HITL_STATUSES = ("OPEN", "ANSWERED", "EXPIRED", "CANCELLED")
 HITL_CHANNELS = ("telegram", "dashboard", "mcp", "worker")
@@ -48,7 +64,7 @@ HITL_CHANNELS = ("telegram", "dashboard", "mcp", "worker")
 ANSWER_KINDS = ("QUESTION", "OTP", "CAPTCHA")
 REF_PATTERN = re.compile(r"^[0-9a-f]{4,32}$")
 TELEGRAM_STATE_FIELDS = ("last_update_id", "polling_state", "last_poll_at", "last_error",
-                         "conflict_detected_at")
+                         "conflict_detected_at", "last_digest_on")
 POLLING_STATES = ("unconfigured", "starting", "polling", "conflict", "error", "stopped")
 DRAFT_STATUSES = ("PENDING", "CREATED", "FAILED")
 DRAFT_CHANNELS = ("imap", "mail_app")
@@ -61,6 +77,24 @@ PROFILE_KEYS = ("verified_experience_years", "verified_skills", "verified_roles"
 
 class RulesNotFound(LookupError):
     pass
+
+
+class ProfileMissing(LookupError):
+    pass
+
+
+def validate_preferences(merged: dict[str, Any]) -> dict[str, Any]:
+    """Same validation as the dashboard (JobSearchPreferences); raises ValueError when invalid."""
+    from pydantic import ValidationError
+
+    from backend.app.schemas.candidate_profile import JobSearchPreferences
+
+    try:
+        JobSearchPreferences.model_validate(merged)
+    except ValidationError as exc:
+        raise ValueError("invalid_preferences: " + "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()[:3])) from None
+    return merged
 
 
 class RevisionConflict(RuntimeError):
@@ -244,6 +278,7 @@ class TelegramState:
     last_error: str | None = None
     conflict_detected_at: datetime | None = None
     updated_at: datetime | None = None
+    last_digest_on: date | None = None  # Phase 6A: nightly digest sent for this local date
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> TelegramState:
@@ -368,6 +403,8 @@ class Store(Protocol):
     async def application_events(self, application_id: str) -> list[dict[str, Any]] | None: ...
 
     async def load_profile(self) -> tuple[dict[str, Any], list[tuple[str, str]]]: ...
+
+    async def update_preferences(self, changes: dict[str, Any]) -> dict[str, Any]: ...
 
     async def get_worker_control(self) -> WorkerControl: ...
 
@@ -616,6 +653,13 @@ class MemoryStore:
 
     async def load_profile(self):
         return self.profile, []
+
+    async def update_preferences(self, changes):
+        if not self.profile:
+            raise ProfileMissing("no_candidate_profile")
+        merged = validate_preferences(dict(self.profile.get("preferences") or {}) | dict(changes))
+        self.profile["preferences"] = merged
+        return dict(merged)
 
     async def get_worker_control(self) -> WorkerControl:
         return replace(self.worker)
@@ -1228,6 +1272,22 @@ class PostgresStore:
             "SELECT question, answer FROM public.application_answer_drafts "
             "WHERE candidate_profile_id=$1 AND review_status='reviewed'", row["id"])
         return profile, [(a["question"], a["answer"]) for a in answers if normalize(a["question"])]
+
+    async def update_preferences(self, changes):
+        """Merge validated keys into candidate_profiles.preferences (version-checked, one statement)."""
+        for _ in range(3):
+            row = await self.connection.fetchrow(
+                "SELECT version, preferences::text AS prefs FROM public.candidate_profiles WHERE singleton_key='primary'")
+            if row is None:
+                raise ProfileMissing("no_candidate_profile")
+            merged = validate_preferences(json.loads(row["prefs"] or "{}") | dict(changes))
+            updated = await self.connection.fetchrow(
+                """UPDATE public.candidate_profiles SET preferences=$1::jsonb, version=version + 1, updated_at=now()
+                   WHERE singleton_key='primary' AND version=$2 RETURNING preferences::text AS prefs""",
+                json.dumps(merged), row["version"])
+            if updated is not None:
+                return json.loads(updated["prefs"])
+        raise RevisionConflict(-1)
 
     # --- worker control ---------------------------------------------------------------
     async def get_worker_control(self) -> WorkerControl:

@@ -135,6 +135,8 @@ export type PortalRulesForm = {
   active_hours_start: string;
   active_hours_end: string;
   timezone: string;
+  quota_fallback_daily_cap: string;
+  quota_drafts_per_cycle: string;
 };
 
 const timeValue = (value?: string | null) => (value ? value.slice(0, 5) : "");
@@ -153,6 +155,8 @@ export function rulesToForm(rules: PortalRules): PortalRulesForm {
     active_hours_start: timeValue(rules.active_hours_start),
     active_hours_end: timeValue(rules.active_hours_end),
     timezone: rules.timezone,
+    quota_fallback_daily_cap: String(rules.quota_fallback_daily_cap ?? 10),
+    quota_drafts_per_cycle: String(rules.quota_drafts_per_cycle ?? 5),
   };
 }
 
@@ -162,7 +166,9 @@ type IntegerKey =
   | "max_job_age_days"
   | "max_applicants"
   | "min_delay_sec"
-  | "max_delay_sec";
+  | "max_delay_sec"
+  | "quota_fallback_daily_cap"
+  | "quota_drafts_per_cycle";
 
 const INTEGER_RULES: ReadonlyArray<[IntegerKey, string, number, number?]> = [
   ["max_applies_per_day", "Daily cap", 1, 500],
@@ -171,7 +177,15 @@ const INTEGER_RULES: ReadonlyArray<[IntegerKey, string, number, number?]> = [
   ["max_applicants", "Maximum applicants", 1],
   ["min_delay_sec", "Minimum delay", 5],
   ["max_delay_sec", "Maximum delay", 5],
+  ["quota_fallback_daily_cap", "Quota fallback daily cap", 0, 100],
+  ["quota_drafts_per_cycle", "Drafts per cycle", 0, 50],
 ];
+
+// Rows saved before migration 004's Phase 6A columns report the effective defaults.
+const QUOTA_DEFAULTS: Partial<Record<IntegerKey, number>> = {
+  quota_fallback_daily_cap: 10,
+  quota_drafts_per_cycle: 5,
+};
 
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -237,7 +251,8 @@ export function rulesPatch(
   if (form.auto_apply_enabled !== rules.auto_apply_enabled)
     set("auto_apply_enabled", form.auto_apply_enabled);
   for (const [key] of INTEGER_RULES) {
-    if (numbers[key] !== undefined && numbers[key] !== rules[key])
+    const current = rules[key] ?? QUOTA_DEFAULTS[key];
+    if (numbers[key] !== undefined && numbers[key] !== current)
       set(key, numbers[key]);
   }
   if (form.unknown_applicants_policy !== rules.unknown_applicants_policy)

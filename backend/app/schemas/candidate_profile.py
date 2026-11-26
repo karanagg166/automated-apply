@@ -146,6 +146,18 @@ class CountryAuthorization(ProfileSchema):
     requires_sponsorship_now_or_future: StrictBool | None = None
 
 
+class ResumeFileSpec(ProfileSchema):
+    """Phase 6A multi-resume picker entry: a local PDF plus optional matching keywords."""
+
+    path: Annotated[str, Field(min_length=1, max_length=500)]
+    keywords: StringList = Field(default_factory=list)
+    primary: StrictBool = False
+
+
+LocalPath = Annotated[str, Field(min_length=1, max_length=500)]
+BoardToken = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")]
+
+
 class JobSearchPreferences(ProfileSchema):
     current_compensation: CompensationFact | None = None
     expected_compensation: CompensationFact | None = None
@@ -196,6 +208,10 @@ class JobSearchPreferences(ProfileSchema):
     skill_years: dict[ShortText, Annotated[float, Field(ge=0, le=60, allow_inf_nan=False)]] = Field(
         default_factory=dict, max_length=100
     )
+    # Phase 6A: local resume PDFs per variant and public ATS board tokens (no secrets).
+    resume_files: dict[ShortText, ResumeFileSpec | LocalPath] = Field(default_factory=dict, max_length=10)
+    greenhouse_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
+    lever_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
 
     @model_validator(mode="after")
     def unique_authorization_countries(self):

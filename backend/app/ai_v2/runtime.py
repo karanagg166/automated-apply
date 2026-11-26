@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from backend.app.ai_v2.embeddings import Embedder, FastEmbedder
+from backend.app.ai_v2.intro import IntroComposer
 from backend.app.ai_v2.jd_scoring import JDScorer
 from backend.app.ai_v2.pii import build_safe_llm_profile, profile_secrets
 from backend.app.ai_v2.router import LLMRouter
@@ -55,12 +56,15 @@ class AIRuntime:
     router: LLMRouter
     answerer: ScreeningAnswerer
     jd_scorer: JDScorer
+    intro: IntroComposer | None = None
 
     def bind_profile(self, profile: Mapping[str, Any]) -> None:
         """Refresh the PII-free LLM context and the owner identifiers scrubbed from prompts."""
         safe = build_safe_llm_profile(profile)
         self.router.register_secrets(profile_secrets(profile))
         self.answerer.bind_profile(safe)
+        if self.intro is not None:
+            self.intro.bind_profile(safe)
         prefs = profile.get("preferences") or {}
         min_score = prefs.get("min_match_score") if isinstance(prefs, Mapping) else None
         self.jd_scorer.bind_profile(safe, float(min_score) if isinstance(min_score, (int, float))
@@ -80,7 +84,7 @@ class AIRuntime:
         cache = SemanticCache(cache_store, embedder or shared_embedder(), threshold=cache_threshold(router.env))
         return cls(cache=cache, router=router,
                    answerer=ScreeningAnswerer(cache, router, save_llm_answers=save_llm_answers),
-                   jd_scorer=JDScorer(router, cache))
+                   jd_scorer=JDScorer(router, cache), intro=IntroComposer(router))
 
     @classmethod
     async def for_store(cls, store: Any, *, embedder: Embedder | None = None,

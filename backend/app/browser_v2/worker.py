@@ -45,6 +45,7 @@ from backend.app.browser_v2.quota import (
 from backend.app.browser_v2.rules import (
     CandidatePreferences,
     PortalRules,
+    paused,
     within_active_hours,
 )
 from backend.app.browser_v2.service import (
@@ -74,6 +75,8 @@ ERROR_BACKOFF_SEC = 60
 BACKLOG_STATES = (S.SCORED,)
 DEFAULT_QUERY = "software engineer"
 QUOTA_INSPECTIONS_PER_CYCLE = 5
+MAIL_SCAN_INTERVAL_SEC = 15 * 60
+ALERT_BACKLOG_PER_CYCLE = 5  # DISCOVERED jobs (e.g. from job-alert emails) processed per portal cycle
 
 
 def env_forces_dry_run() -> bool:
@@ -123,7 +126,9 @@ class Worker:
                  cycle_interval_sec: float = CYCLE_INTERVAL_SEC,
                  idle_poll_sec: float = IDLE_POLL_SEC,
                  inspection_pause_sec: tuple[float, float] = INSPECTION_PAUSE_SEC,
-                 quota: QuotaHitProcessor | None = None, notify: Notifier | None = None) -> None:
+                 quota: QuotaHitProcessor | None = None, notify: Notifier | None = None,
+                 mail_reader: Any = None, digest: Any = None,
+                 mail_scan_interval_sec: float = MAIL_SCAN_INTERVAL_SEC) -> None:
         self.service = service
         self.store = service.store
         self.force_dry_run = force_dry_run or env_forces_dry_run()
@@ -144,6 +149,12 @@ class Worker:
         self.notify = notify
         self.notified: set[tuple[str, str]] = set()
         self.quota_inspections: dict[tuple[str, str], int] = {}
+        # Phase 6A: read-only mail watchers + nightly digest (both best effort, between jobs only).
+        self.mail_reader = mail_reader
+        self.digest = digest
+        self.mail_scan_interval_sec = mail_scan_interval_sec
+        self.last_mail_scan: datetime | None = None
+        self.housekeeping_log: list[dict[str, Any]] = []
 
     # --- control ------------------------------------------------------------------
     async def control(self) -> WorkerControl:
@@ -189,6 +200,7 @@ class Worker:
                 try:
                     report = await self.cycle(control, run_once=run_once)
                     reports.append(report)
+                    await self.housekeeping()
                     await self.store.worker_heartbeat(
                         "SLEEPING" if not once else "IDLE", cycle_completed=True,
                         clear_run_once=control.run_once_requested_at is not None)
@@ -207,6 +219,7 @@ class Worker:
             if control.desired_state is WorkerState.STOPPED and self.service.manager.running:
                 await self.service.manager.close()  # STOP frees Brave RAM; PAUSE keeps it warm
             await self.store.worker_heartbeat(control.desired_state.value)
+            await self.housekeeping()  # digest + mail watchers still run while paused
             await self.sleep(self.idle_poll_sec, run_once=True)
         await self.store.worker_heartbeat("OFFLINE")
         return reports
@@ -222,6 +235,9 @@ class Worker:
         all_rules = await self.store.list_rules()
         profile = await self.store.load_profile()
         prefs = CandidatePreferences.from_profile(profile[0])
+        configure = getattr(self.service, "configure_adapters", None)
+        if configure is not None:
+            await configure(profile[0])  # Phase 6A: board lists etc. re-read every cycle
         for rules in all_rules:
             portal = PortalReport(platform=rules.platform)
             report.portals.append(portal)
@@ -230,6 +246,9 @@ class Worker:
                 continue
             if rules.platform not in self.service.adapters:
                 portal.skipped = "adapter_not_implemented"
+                continue
+            if paused(rules, self.clock()):
+                portal.skipped = "paused_until"
                 continue
             if not within_active_hours(rules, self.clock()):
                 portal.skipped = "outside_active_hours"
@@ -265,6 +284,39 @@ class Worker:
         if exhausted:
             await self.notify_quota(rules, result)
 
+    # --- Phase 6A: housekeeping (mail watchers + nightly digest) ----------------------------
+    async def housekeeping(self) -> None:
+        now = self.clock()
+        reader = self.mail_reader
+        if reader is not None and getattr(reader, "any_configured", False) and (
+                self.last_mail_scan is None
+                or (now - self.last_mail_scan).total_seconds() >= self.mail_scan_interval_sec):
+            self.last_mail_scan = now
+            try:
+                replies = await reader.scan_recruiter_replies(self.store, notify=self.notify)
+                publish = getattr(self.service, "publish", None)
+                for alert in replies.alerts:
+                    if publish is not None:
+                        await publish("mail.recruiter_reply", {"alert": alert[:200]})
+                alerts = await reader.scan_job_alert_emails(self.store)
+                self.housekeeping_log.append({"mail_scan": now.isoformat(), "replies": replies.new_events,
+                                              "alert_jobs": alerts.discovered, "tier": replies.tier})
+            except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
+                logger.warning("mail watcher failed: %s", type(exc).__name__)
+        if self.digest is not None and self.notify is not None:
+            try:
+                if await self.digest.due(now):
+                    from backend.app.browser_v2.digest import build_digest
+
+                    text = await build_digest(self.store, now, ai=getattr(self.service, "ai", None),
+                                              mail_events=getattr(reader, "events", None))
+                    await self.notify(text)
+                    await self.digest.mark_sent(now)
+                    self.housekeeping_log.append({"digest": now.isoformat()})
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("digest failed: %s", type(exc).__name__)
+        del self.housekeeping_log[:-50]
+
     async def notify_quota(self, rules: PortalRules, result: QuotaReport) -> None:
         if self.notify is None or not result.queued:
             return
@@ -283,7 +335,7 @@ class Worker:
         """Quota already hit: inspect (never apply) a few fresh discoveries and park the passing ones
         for the draft + next-day retry path. Capped per portal per day (QUOTA_FALLBACK_DAILY_CAP)."""
         platform, now = rules.platform, self.clock()
-        cap = fallback_daily_cap()
+        cap = fallback_daily_cap(rules)
         today = day_start(rules, now)
         inspections_key = (platform, today.isoformat())
         used = self.quota_inspections.get(inspections_key, 0)
@@ -384,6 +436,9 @@ class Worker:
         listings = await self.service.discover_listings(platform, portal.query, DISCOVERY_LIMIT, rules)
         portal.discovered = len(listings)
         backlog = await self.store.list_by_state(platform, BACKLOG_STATES, limit=DISCOVERY_LIMIT)
+        # Phase 6A: never-processed DISCOVERED rows (job-alert emails, interrupted cycles), bounded.
+        backlog += [r for r in await self.store.list_by_state(platform, (S.DISCOVERED,), limit=ALERT_BACKLOG_PER_CYCLE)
+                    if r.job_url]
         candidates: list[JobListing] = []
         for item in [*(self.backlog_listing(r) for r in backlog if r.job_url), *listings]:
             if item.external_job_id not in seen:
@@ -406,13 +461,32 @@ class Worker:
             await self.store.cancel_open_hitl(platform, "AUTH")
             return True
         if status == "AUTH_REQUIRED":
+            # Phase 6A: one bounded auto re-login (Keychain / email OTP / trusted Google chip,
+            # 30-min cooldown per portal) before asking the owner.
+            login: dict[str, Any] | None = None
+            if getattr(self.service, "auto_login", None) is not None:
+                try:
+                    login = await self.service.attempt_auto_login(platform)
+                except Exception as exc:  # noqa: BLE001 - fall through to the HITL
+                    login = {"ok": False, "reason": f"auto_login_error:{type(exc).__name__}"}
+                if login.get("ok"):
+                    recheck = await self.service.check_portal_session(platform)
+                    if recheck.get("status") == "OK":
+                        await self.store.cancel_open_hitl(platform, "AUTH")
+                        portal.outcomes.append({"auto_login": login.get("method")})
+                        return True
             # Pause only this portal; one OPEN AUTH request until the owner logs in again.
             if not await self.store.open_hitl_exists(platform, "AUTH"):
                 name = platform.capitalize()
                 await self.store.create_hitl(
                     None, platform, "AUTH",
                     f"[{name}] Session expired — run login-setup & reply /resume {platform}",
-                    {"reason": session.get("reason"), "refreshed": session.get("refreshed")})
+                    {"reason": session.get("reason"), "refreshed": session.get("refreshed"),
+                     "auto_login": (login or {}).get("reason")})
+                publish = getattr(self.service, "publish", None)
+                if publish is not None:
+                    await publish("portal.auth_required", {"platform": platform, "reason": session.get("reason"),
+                                                           "auto_login": (login or {}).get("reason")})
             portal.skipped = "auth_required"
             return False
         portal.skipped = "auth_unknown"
@@ -533,7 +607,10 @@ async def start_telegram(service: BrowserService, stop: asyncio.Event,
     from backend.app.telegram_v2.config import TelegramConfig
 
     try:
-        bot = TelegramBot(TelegramConfig.from_env(load_env(env_file)), service.store, ai=service.ai)
+        reader = getattr(service, "mail_reader", None)
+        bot = TelegramBot(TelegramConfig.from_env(load_env(env_file)), service.store, ai=service.ai,
+                          event_bus=getattr(service, "event_bus", None),
+                          mail_events=getattr(reader, "events", None))
         if not bot.config.configured:
             await bot.run(stop)  # records polling_state='unconfigured' and returns
             return None
@@ -581,7 +658,11 @@ async def run_worker(*, dry_run: bool, once: bool, env_file: str | None = None,
     env = load_env(env_file)
     quota = await build_quota_processor(service, env)
     notify, notify_close = quota_notifier(env) if telegram else (None, None)
-    worker = Worker(service, force_dry_run=dry_run, stop_event=stop, quota=quota, notify=notify)
+    from backend.app.browser_v2.digest import DigestScheduler, digest_hour
+
+    worker = Worker(service, force_dry_run=dry_run, stop_event=stop, quota=quota, notify=notify,
+                    mail_reader=getattr(service, "mail_reader", None),
+                    digest=DigestScheduler(service.store, hour=digest_hour(env)) if notify is not None else None)
     logger.info("worker store=%s dry_run=%s once=%s telegram=%s", backend, worker.force_dry_run, once, telegram)
     telegram_stop = asyncio.Event()
     telegram_task = await start_telegram(service, telegram_stop, env_file) if telegram else None
@@ -591,6 +672,9 @@ async def run_worker(*, dry_run: bool, once: bool, env_file: str | None = None,
         await stop_telegram(telegram_task, telegram_stop)
         if notify_close is not None:
             await notify_close()
+        bus = getattr(service, "event_bus", None)
+        if bus is not None:
+            await bus.close()
         await service.manager.close()
         await service.store.close()
 

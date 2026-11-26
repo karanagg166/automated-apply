@@ -295,3 +295,48 @@ async def test_pipeline_e_chaos_isolates_failures_and_never_replays():
     assert (await worker.cycle()).portals  # a second cycle under the same chaos still completes
     assert "instahyre-3" not in [j for j, _ in instahyre.applied]
     await bot.client.aclose()
+
+
+# --- F. Phase 6A: Telegram free chat changes a live rule mid-run without interrupting the job ---------
+class BlockingAdapter(FakeAdapter):
+    """The first live apply waits (an application being filled in Brave) until released."""
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        import asyncio
+
+        self.in_flight = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def apply_job(self, page, detail, profile, *, dry_run=True, existing_state=None, hitl_answers=None):
+        if not dry_run and not self.in_flight.is_set():
+            self.in_flight.set()
+            await self.release.wait()
+        return await super().apply_job(page, detail, profile, dry_run=dry_run, existing_state=existing_state,
+                                       hitl_answers=hitl_answers)
+
+
+async def test_pipeline_f_telegram_free_chat_updates_rules_mid_run_without_interrupting():
+    import asyncio
+
+    adapter = BlockingAdapter("naukri", [job(1), job(2), job(3)])
+    store, worker = system({"naukri": rules("naukri", max_applies_per_day=2, max_applies_per_hour=2)},
+                           {"naukri": adapter})
+    fake = FakeTelegram()
+    bot = TelegramBot(telegram_config(), store, transport=httpx.MockTransport(fake), min_send_interval=0)
+    cycle = asyncio.create_task(worker.cycle(await store.get_worker_control()))
+    await adapter.in_flight.wait()
+    assert state(store, "naukri", "naukri-1") is S.APPLYING  # reserved before the click, now in flight
+    await bot.handle_update({"update_id": 1, **msg("raise Naukri daily limit to 3")})
+    await bot.drain_agent()
+    reply = [p for m, p in fake.calls if m == "sendMessage"][-1]["text"]
+    assert "Updated Naukri" in reply and (await store.get_rules("naukri")).max_applies_per_day == 3
+    assert not cycle.done() and state(store, "naukri", "naukri-1") is S.APPLYING  # untouched
+    adapter.release.set()
+    report = await cycle
+    assert state(store, "naukri", "naukri-1") is S.APPLIED and report.portals[0].applied == 2
+    # The new daily cap (3) is read at the start of the NEXT cycle (no restart); hourly cap still 2.
+    await bot.handle_update({"update_id": 2, **msg("set naukri hourly limit to 3")})
+    await bot.drain_agent()
+    second = await worker.cycle(await store.get_worker_control())
+    assert second.portals[0].applied == 1 and state(store, "naukri", "naukri-3") is S.APPLIED

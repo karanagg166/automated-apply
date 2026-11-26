@@ -90,6 +90,14 @@
       "methods": ["POST"]
     },
     {
+      "pattern": "^v2\\/(events\\/status|mail\\/replies)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/agent\\/chat$",
+      "methods": ["POST"]
+    },
+    {
       "pattern": "^startups\\/discovery\\/runs\\/[a-f0-9-]{36}\\/complete$",
       "methods": ["POST"]
     },

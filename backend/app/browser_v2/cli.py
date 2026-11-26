@@ -18,6 +18,10 @@ Run from the repository root:
         --role "Backend Engineer" [--dry-run]
     backend/venv/bin/python -m backend.app.browser_v2.cli enrichment-status
     backend/venv/bin/python -m backend.app.browser_v2.cli live-smoke --check db --check mail [--mail-app]
+    backend/venv/bin/python -m backend.app.browser_v2.cli test-apply --portal greenhouse --board <token> --dry-run
+    backend/venv/bin/python -m backend.app.browser_v2.cli set-portal-cred --portal instahyre
+    backend/venv/bin/python -m backend.app.browser_v2.cli export-sft-dataset --out ~/sft.jsonl
+    backend/venv/bin/python -m backend.app.browser_v2.cli agent-chat "how many applied today?"
 
 Gmail is READ + DRAFT ONLY: no command here can deliver an email.
 """
@@ -32,6 +36,7 @@ import sys
 from typing import Any
 
 from backend.app.browser_v2 import profile as brave_profile
+from backend.app.browser_v2.portals import PORTALS
 
 PHASE1_LIVE_LIMIT = 1
 MAX_INSPECTIONS_PER_APPLY = 10
@@ -89,7 +94,7 @@ async def default_query(service: Any) -> str:
 
 
 async def test_apply(portal: str, live: bool, limit: int, query: str | None, url: str | None,
-                     assume_yes: bool) -> int:
+                     assume_yes: bool, boards: list[str] | None = None) -> int:
     from backend.app.browser_v2.service import build_service
     from backend.app.browser_v2.state import NEVER_REPLAY
 
@@ -99,6 +104,10 @@ async def test_apply(portal: str, live: bool, limit: int, query: str | None, url
     service, backend = await build_service(require_db=live)
     results: list[dict[str, Any]] = []
     try:
+        await service.configure_adapters()
+        adapter = service.adapters.get(portal)
+        if boards and adapter is not None and hasattr(adapter, "boards"):
+            adapter.boards.update({board: None for board in boards})
         if url:
             targets = [url]
         else:
@@ -114,8 +123,8 @@ async def test_apply(portal: str, live: bool, limit: int, query: str | None, url
         for target in targets[: limit * MAX_INSPECTIONS_PER_APPLY]:
             outcome = await service.apply_to_job(portal, target, dry_run=not live)
             results.append(outcome)
-            reached_apply = outcome.get("reason") == "dry_run_stopped_before_apply_click" or outcome.get(
-                "clicked_apply")
+            reached_apply = outcome.get("reason") in {"dry_run_stopped_before_apply_click",
+                                                      "dry_run_stopped_before_submit"} or outcome.get("clicked_apply")
             if reached_apply or outcome.get("state") in {"APPLIED", "WAITING_FOR_USER",
                                                          "SUBMISSION_UNKNOWN", "QUOTA_HIT_PENDING"}:
                 applied += 1
@@ -288,6 +297,59 @@ async def seed_cache_command() -> int:
         await store.close()
 
 
+def set_portal_cred_command(portal: str, vault: Any = None, *, prompt: Any = None, secret: Any = None) -> int:
+    """Store a portal username + password in the macOS Keychain (service automated-apply:<portal>)."""
+    import getpass
+
+    from backend.app.browser_v2.auth import LOGIN_SPECS, KeychainVault
+
+    if portal not in LOGIN_SPECS or not LOGIN_SPECS[portal].password_login:
+        emit({"error": f"{portal} has no password login (use login-setup / Google instead)"})
+        return 2
+    vault = vault or KeychainVault()
+    username = (prompt or input)(f"{portal} login email/username: ").strip()
+    password = (secret or getpass.getpass)(f"{portal} password (hidden, stored only in macOS Keychain): ")
+    if not username or not password:
+        emit({"error": "username and password are required"})
+        return 2
+    vault.set(portal, username, password)
+    emit({"stored": True, "portal": portal, "keychain_service": f"automated-apply:{portal}",
+          "username": username[:2] + "•••", "note": "used only for one auto re-login per 30 min before a "
+                                                    "Telegram AUTH request; never written to .env or Postgres"})
+    return 0
+
+
+async def export_sft_command(out: str) -> int:
+    """PII-scrubbed, human-verified Q&A -> chat-completion JSONL (0600) for future fine-tuning."""
+    from backend.app.ai_v2.runtime import AIRuntime
+    from backend.app.ai_v2.sft_export import export_sft_dataset
+    from backend.app.browser_v2.service import open_store
+
+    store, backend = await open_store(require_db=False)
+    try:
+        ai = await AIRuntime.for_store(store)
+        profile, reviewed = await store.load_profile()
+        result = await export_sft_dataset(out, cache_store=ai.cache.store, reviewed=reviewed, profile=profile)
+        emit({"store": backend, "cache_backend": ai.cache.store.backend, **result})
+        return 0
+    finally:
+        await store.close()
+
+
+async def agent_chat_command(text: str) -> int:
+    """Run the LangGraph control agent once (same tools + guardrails as Telegram free chat)."""
+    from backend.app.agent_v2.control_graph import ControlAgent
+    from backend.app.browser_v2.service import build_ai, open_store
+
+    store, backend = await open_store(require_db=False)
+    try:
+        agent = ControlAgent(store, ai=await build_ai(store))
+        emit({"store": backend, **await agent.run(text)})
+        return 0
+    finally:
+        await store.close()
+
+
 async def test_qa_command(question: str, options: list[str], no_llm: bool, no_save: bool) -> int:
     """Run Tier 0 -> 1 -> 2 -> 3 for one question and print which tier answered."""
     from backend.app.ai_v2.runtime import AIRuntime
@@ -385,10 +447,12 @@ def main(argv: list[str] | None = None) -> int:
                        help="repeatable; default: portals with a live adapter (naukri)")
     login.add_argument("--all", action="store_true", help="open all 8 browser-portal login pages")
     check = commands.add_parser("check-session", help="verify the persistent login")
-    check.add_argument("--portal", default="naukri", choices=["naukri"])
+    check.add_argument("--portal", default="naukri", choices=sorted(PORTALS))
     check.add_argument("--restart", action="store_true", help="also verify after a browser restart")
     apply = commands.add_parser("test-apply", help="discover and apply (dry-run or one live)")
-    apply.add_argument("--portal", default="naukri", choices=["naukri"])
+    apply.add_argument("--portal", default="naukri", choices=sorted(PORTALS))
+    apply.add_argument("--board", action="append", default=[],
+                       help="greenhouse/lever board token for this run (repeatable; else preferences)")
     mode = apply.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--live", action="store_true")
@@ -436,12 +500,24 @@ def main(argv: list[str] | None = None) -> int:
     smoke.add_argument("--mail-app", action="store_true", help="also probe Mail.app scripting")
     smoke.add_argument("--no-llm-ping", action="store_true", help="skip the 1-request free LLM health ping")
     smoke.add_argument("--portal", default="naukri", choices=["naukri"])
+    cred = commands.add_parser("set-portal-cred", help="store a portal login in the macOS Keychain (auto re-login)")
+    cred.add_argument("--portal", required=True, choices=sorted(PORTALS))
+    sft = commands.add_parser("export-sft-dataset", help="PII-scrubbed verified Q&A -> chat JSONL for fine-tuning")
+    sft.add_argument("--out", required=True, help="output .jsonl path (written 0600)")
+    chat = commands.add_parser("agent-chat", help="one message to the LangGraph control agent")
+    chat.add_argument("text")
     args = parser.parse_args(argv)
     try:
+        if args.command == "set-portal-cred":
+            return set_portal_cred_command(args.portal)
+        if args.command == "export-sft-dataset":
+            return asyncio.run(export_sft_command(args.out))
+        if args.command == "agent-chat":
+            return asyncio.run(agent_chat_command(args.text))
         if args.command == "login-setup":
-            from backend.app.browser_v2.portals import ADAPTER_READY
+            from backend.app.browser_v2.portals import LOGIN_PORTALS
 
-            portals = sorted(brave_profile.LOGIN_URLS) if args.all else (args.portal or sorted(ADAPTER_READY))
+            portals = sorted(brave_profile.LOGIN_URLS) if args.all else (args.portal or sorted(LOGIN_PORTALS))
             return login_setup(portals)
         if args.command == "mail-status":
             return asyncio.run(mail_status_command(args.probe, args.mail_app, max(0, min(args.recent, 50))))
@@ -457,7 +533,7 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(check_session(args.portal, args.restart))
         if args.command == "test-apply":
             return asyncio.run(test_apply(args.portal, args.live, max(1, args.limit), args.query,
-                                          args.url, args.yes))
+                                          args.url, args.yes, boards=args.board))
         if args.command == "worker":
             return asyncio.run(run_worker_command(args.dry_run, args.once, telegram=not args.no_telegram))
         if args.command == "telegram-status":

@@ -990,6 +990,64 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/v2/agent/chat": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Agent Chat
+     * @description The same LangGraph control agent as Telegram free chat (guardrailed tools only; it can
+     *     never send email, delete data or re-apply). Effects use the borrowed pooled connection.
+     */
+    post: operations["agent_chat_api_v1_v2_agent_chat_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/events/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Events Status */
+    get: operations["events_status_api_v1_v2_events_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/mail/replies": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Mail Replies
+     * @description Recruiter replies / interview alerts found by the READ-ONLY inbox watcher (newest first).
+     */
+    get: operations["mail_replies_api_v1_v2_mail_replies_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/local-agent/profile-confirmation": {
     parameters: {
       query?: never;
@@ -4277,6 +4335,33 @@ export interface components {
       /** Confirm Values And Consents */
       confirm_values_and_consents: boolean;
     };
+    /** AgentChatInput */
+    AgentChatInput: {
+      /**
+       * Text
+       * @description Owner message, e.g. 'pause Internshala for 3 hours'
+       */
+      text: string;
+    };
+    /** AgentChatRead */
+    AgentChatRead: {
+      /** Reply */
+      reply: string;
+      /** Tool */
+      tool?: string | null;
+      /**
+       * Source
+       * @description deterministic | llm
+       */
+      source?: string | null;
+      /**
+       * Verdict
+       * @description ok | rejected | confirm | help
+       */
+      verdict?: string | null;
+      /** Ok */
+      ok: boolean;
+    };
     /** AlertPolicy */
     AlertPolicy: {
       /** Expected Version */
@@ -5930,6 +6015,41 @@ export interface components {
       /** Cached Domains */
       cached_domains: number;
     };
+    /** EventBusStatusRead */
+    EventBusStatusRead: {
+      /**
+       * Backend
+       * @enum {string}
+       */
+      backend: "postgres" | "cloudamqp" | "upstash_redis" | "in_process";
+      /** Requested Backend */
+      requested_backend: string;
+      /** Fell Back */
+      fell_back: boolean;
+      /** Healthy */
+      healthy: boolean;
+      /**
+       * Published
+       * @default 0
+       */
+      published: number;
+      /**
+       * Handler Errors
+       * @default 0
+       */
+      handler_errors: number;
+      /** Topics */
+      topics: string[];
+      /** Remote */
+      remote?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Process Note
+       * @default The worker process owns the live bus; this shows the configured backend.
+       */
+      process_note: string;
+    };
     /** EvidenceList */
     EvidenceList: {
       /** Verified */
@@ -7074,6 +7194,18 @@ export interface components {
       skill_years?: {
         [key: string]: number;
       };
+      /** Resume Files */
+      resume_files?: {
+        [key: string]: components["schemas"]["ResumeFileSpec"] | string;
+      };
+      /** Greenhouse Boards */
+      greenhouse_boards?: {
+        [key: string]: string | null;
+      };
+      /** Lever Boards */
+      lever_boards?: {
+        [key: string]: string | null;
+      };
     };
     /** JobSearchPreferences */
     "JobSearchPreferences-Output": {
@@ -7153,6 +7285,18 @@ export interface components {
       /** Skill Years */
       skill_years?: {
         [key: string]: number;
+      };
+      /** Resume Files */
+      resume_files?: {
+        [key: string]: components["schemas"]["ResumeFileSpec"] | string;
+      };
+      /** Greenhouse Boards */
+      greenhouse_boards?: {
+        [key: string]: string | null;
+      };
+      /** Lever Boards */
+      lever_boards?: {
+        [key: string]: string | null;
       };
     };
     /** JobSearchPreferencesUpdate */
@@ -7234,6 +7378,18 @@ export interface components {
       skill_years?: {
         [key: string]: number;
       };
+      /** Resume Files */
+      resume_files?: {
+        [key: string]: components["schemas"]["ResumeFileSpec"] | string;
+      };
+      /** Greenhouse Boards */
+      greenhouse_boards?: {
+        [key: string]: string | null;
+      };
+      /** Lever Boards */
+      lever_boards?: {
+        [key: string]: string | null;
+      };
     };
     /**
      * JobStatus
@@ -7261,6 +7417,53 @@ export interface components {
       company_domain?: string | null;
       /** Reviewed Job Evidence */
       reviewed_job_evidence: boolean;
+    };
+    /** MailEventRead */
+    MailEventRead: {
+      /** Id */
+      id?: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "RECRUITER_REPLY" | "INTERVIEW" | "JOB_ALERT";
+      /** Source */
+      source: string;
+      /** Platform */
+      platform?: string | null;
+      /** Company Name */
+      company_name?: string | null;
+      /** Sender */
+      sender?: string | null;
+      /** Subject */
+      subject?: string | null;
+      /** Snippet */
+      snippet?: string | null;
+      /** Application Id */
+      application_id?: string | null;
+      /** Received At */
+      received_at?: string | null;
+      /** Alerted At */
+      alerted_at?: string | null;
+      /** Created At */
+      created_at?: string | null;
+    };
+    /** MailReplyPage */
+    MailReplyPage: {
+      /**
+       * Permission
+       * @default READ_ONLY
+       * @constant
+       */
+      permission: "READ_ONLY";
+      /** Configured */
+      configured: boolean;
+      /** Tiers */
+      tiers: {
+        [key: string]: boolean;
+      };
+      /** Items */
+      items: components["schemas"]["MailEventRead"][];
     };
     /** MailStatusRead */
     MailStatusRead: {
@@ -8399,6 +8602,15 @@ export interface components {
       active_hours_end?: string | null;
       /** Timezone */
       timezone?: string | null;
+      /** Quota Fallback Daily Cap */
+      quota_fallback_daily_cap?: number | null;
+      /** Quota Drafts Per Cycle */
+      quota_drafts_per_cycle?: number | null;
+      /**
+       * Paused Until
+       * @description null = resume now
+       */
+      paused_until?: string | null;
     };
     /** PortalRulesRead */
     PortalRulesRead: {
@@ -8467,6 +8679,23 @@ export interface components {
        * @default true
        */
       requires_login: boolean;
+      /**
+       * Quota Fallback Daily Cap
+       * @description Max new jobs drafted+queued per day once the daily quota is hit
+       * @default 10
+       */
+      quota_fallback_daily_cap: number;
+      /**
+       * Quota Drafts Per Cycle
+       * @description Max Gmail drafts created per worker cycle
+       * @default 5
+       */
+      quota_drafts_per_cycle: number;
+      /**
+       * Paused Until
+       * @description Portal skipped until this time (temporary pause)
+       */
+      paused_until?: string | null;
     };
     /** PortalStatus */
     PortalStatus: {
@@ -9276,6 +9505,21 @@ export interface components {
       /** Expected Profile Version */
       expected_profile_version?: number | null;
     };
+    /**
+     * ResumeFileSpec
+     * @description Phase 6A multi-resume picker entry: a local PDF plus optional matching keywords.
+     */
+    ResumeFileSpec: {
+      /** Path */
+      path: string;
+      /** Keywords */
+      keywords?: string[];
+      /**
+       * Primary
+       * @default false
+       */
+      primary: boolean;
+    };
     /** ResumeImportRead */
     ResumeImportRead: {
       /**
@@ -9772,6 +10016,18 @@ export interface components {
       skill_years?: {
         [key: string]: number;
       };
+      /** Resume Files */
+      resume_files?: {
+        [key: string]: components["schemas"]["ResumeFileSpec"] | string;
+      };
+      /** Greenhouse Boards */
+      greenhouse_boards?: {
+        [key: string]: string | null;
+      };
+      /** Lever Boards */
+      lever_boards?: {
+        [key: string]: string | null;
+      };
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -9896,6 +10152,18 @@ export interface components {
       /** Skill Years */
       skill_years?: {
         [key: string]: number;
+      };
+      /** Resume Files */
+      resume_files?: {
+        [key: string]: components["schemas"]["ResumeFileSpec"] | string;
+      };
+      /** Greenhouse Boards */
+      greenhouse_boards?: {
+        [key: string]: string | null;
+      };
+      /** Lever Boards */
+      lever_boards?: {
+        [key: string]: string | null;
       };
       /** Minimum Experience */
       minimum_experience?: number | null;
@@ -13220,6 +13488,90 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  agent_chat_api_v1_v2_agent_chat_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AgentChatInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentChatRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  events_status_api_v1_v2_events_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EventBusStatusRead"];
+        };
+      };
+    };
+  };
+  mail_replies_api_v1_v2_mail_replies_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MailReplyPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
       };
     };
   };
