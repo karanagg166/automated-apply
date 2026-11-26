@@ -275,6 +275,7 @@ class CandidatePreferences:
     remote_policy: str = "any"
     min_ctc: float | None = None
     skill_match_mode: str = "any"
+    experience_years: float | None = None  # Phase 8b: total experience (preferences or verified)
 
     @classmethod
     def from_profile(cls, profile: dict[str, Any]) -> CandidatePreferences:
@@ -299,7 +300,47 @@ class CandidatePreferences:
             min_ctc=float(min_ctc) if isinstance(min_ctc, (int, float)) and not isinstance(min_ctc, bool)
             else None,
             skill_match_mode=str(prefs.get("skill_match_mode") or "any"),
+            experience_years=_years(prefs.get("total_experience_years"), profile.get("verified_experience_years")),
         )
+
+
+def _years(*values: Any) -> float | None:
+    for value in values:
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+            return float(value)
+    return None
+
+
+EXPERIENCE_TOLERANCE_YEARS = 1.0
+_EXPERIENCE_RANGE = re.compile(r"(\d{1,2}(?:\.\d)?)\s*(?:-|–|to)\s*(\d{1,2}(?:\.\d)?)\s*(?:\+\s*)?(?:yrs?|years?)\b",
+                               re.IGNORECASE)
+_EXPERIENCE_MIN = re.compile(r"(\d{1,2}(?:\.\d)?)\s*\+?\s*(?:yrs?|years?)\b", re.IGNORECASE)
+
+
+def parse_experience_range(text: str | None) -> tuple[float | None, float | None]:
+    """"0 - 5 years" -> (0, 5); "4-5 Yrs" -> (4, 5); "3+ years" -> (3, None); "Fresher" -> (0, 1)."""
+    if not text:
+        return None, None
+    if re.search(r"\bfresher", text, re.IGNORECASE):
+        return 0.0, 1.0
+    match = _EXPERIENCE_RANGE.search(text)
+    if match:
+        low, high = float(match.group(1)), float(match.group(2))
+        return min(low, high), max(low, high)
+    match = _EXPERIENCE_MIN.search(text)
+    return (float(match.group(1)), None) if match else (None, None)
+
+
+def evaluate_experience(experience_text: str | None, prefs: CandidatePreferences) -> FilterResult:
+    """Skip roles whose MINIMUM experience is beyond the candidate's (+1 year tolerance)."""
+    low, high = parse_experience_range(experience_text)
+    if low is None or prefs.experience_years is None:
+        return FilterResult(Decision.PASS)
+    if low > prefs.experience_years + EXPERIENCE_TOLERANCE_YEARS:
+        shown = f"{low:g}-{high:g}" if high is not None else f"{low:g}+"
+        return FilterResult(Decision.FILTERED,
+                            (f"experience_above_profile: needs {shown} yrs, have {prefs.experience_years:g}",))
+    return FilterResult(Decision.PASS)
 
 
 @dataclass(frozen=True)
@@ -418,12 +459,15 @@ def evaluate_pipeline(*, age_days: int | None, applicants: ApplicantCount, rules
                       prefs: CandidatePreferences, title: str | None, company: str | None,
                       description: str | None = None, salary_text: str | None = None,
                       work_mode: str | None = None, age_is_lower_bound: bool = False,
-                      require_description: bool = True) -> FilterResult:
-    """Portal hard filters (age, applicants) then candidate preferences."""
+                      require_description: bool = True, experience_text: str | None = None) -> FilterResult:
+    """Portal hard filters (age, applicants), required experience, then candidate preferences."""
     portal = evaluate_job(age_days=age_days, applicants=applicants, rules=rules,
                           age_is_lower_bound=age_is_lower_bound)
     if portal.decision is Decision.FILTERED:
         return portal
+    experience = evaluate_experience(experience_text, prefs)
+    if experience.decision is Decision.FILTERED:
+        return experience
     preference = evaluate_preferences(title=title, company=company, description=description,
                                       salary_text=salary_text, work_mode=work_mode, prefs=prefs,
                                       require_description=require_description)

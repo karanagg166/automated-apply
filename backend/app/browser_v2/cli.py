@@ -555,6 +555,28 @@ async def health_check_command(as_json: bool, include_db: bool) -> int:
     return 0 if report["ok"] else 1
 
 
+async def verify_submissions_command(portal: str) -> int:
+    """Read-only check of the portal's history; SUBMISSION_UNKNOWN -> APPLIED only on an exact match."""
+    from backend.app.browser_v2.service import build_service
+    from backend.app.browser_v2.state import ApplicationState
+    from backend.app.browser_v2.store import ApplicationQuery
+
+    service, backend = await build_service(require_db=True)
+    try:
+        session = await service.check_portal_session(portal)
+        results = await service.reconcile_submissions(portal) if session.get("status") == "OK" else []
+        applied, _ = await service.store.list_applications(
+            ApplicationQuery(platform=portal, state=ApplicationState.APPLIED.value, limit=20))
+        emit({"store": backend, "portal": portal, "session": session.get("status"), "reconciled": results,
+              "applied": [{"external_job_id": r.external_job_id, "title": r.role_title, "company": r.company_name,
+                           "reason": r.reason, "receipt_source": (r.receipt or {}).get("source"),
+                           "applied_at": r.applied_at} for r in applied]})
+        return 0
+    finally:
+        await service.manager.close()
+        await service.store.close()
+
+
 async def apply_one_command(portal: str, url: str, confirm_live: bool, assume_yes: bool) -> int:
     from backend.app.ai_v2.router import load_env
     from backend.app.browser_v2.canary import apply_one
@@ -651,6 +673,9 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--confirm-live", action="store_true",
                      help="really apply (still asks you to type 'APPLY <portal>'); default is a dry-run")
     one.add_argument("--yes", action="store_true", help="with --confirm-live: skip the typed confirmation")
+    verify = commands.add_parser("verify-submissions",
+                                 help="confirm SUBMISSION_UNKNOWN rows from the portal's application history")
+    verify.add_argument("--portal", default="naukri", choices=sorted(PORTALS))
     from backend.app.browser_v2 import facts_cli
 
     facts_cli.register(commands)
@@ -667,6 +692,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(agent_chat_command(args.text))
         if args.command == "health-check":
             return asyncio.run(health_check_command(args.json, not args.no_db))
+        if args.command == "verify-submissions":
+            return asyncio.run(verify_submissions_command(args.portal))
         if args.command == "apply-one":
             return asyncio.run(apply_one_command(args.portal, args.url, args.confirm_live, args.yes))
         if args.command == "facts":

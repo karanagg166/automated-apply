@@ -139,3 +139,14 @@ def test_cli_registers_apply_one_and_facts(capsys):
     with pytest.raises(SystemExit):
         main(["facts", "--help"])
     assert "reseed-cache" in capsys.readouterr().out
+
+
+async def test_post_click_exception_still_writes_a_report(tmp_path):
+    class Exploding(FakeService):
+        async def apply_to_job(self, platform: str, url: str, *, dry_run: bool) -> dict[str, Any]:
+            raise RuntimeError("Page.evaluate: Execution context was destroyed")
+
+    report = await apply_one("greenhouse", GH_URL, confirm_live=True, assume_yes=True,
+                             service_factory=factory_for(Exploding(store())), evidence_dir=tmp_path)
+    assert report["ok"] and report["outcome"]["reason"].startswith("exception:RuntimeError")
+    assert report["evidence"] and report["verified"] is False

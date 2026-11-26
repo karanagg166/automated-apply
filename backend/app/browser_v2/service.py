@@ -302,7 +302,8 @@ class BrowserService:
         verdict = evaluate_pipeline(
             age_days=listing.posted_age_days, applicants=listing.applicants or UNKNOWN_APPLICANTS,
             rules=rules, prefs=prefs, title=listing.title, company=listing.company,
-            age_is_lower_bound=listing.age_is_lower_bound, require_description=False)
+            age_is_lower_bound=listing.age_is_lower_bound, require_description=False,
+            experience_text=listing.experience_text)
         # Unknown age/applicants on a card are re-checked on the job page; only hard fails stop here.
         if is_title_mismatch_only(verdict) and self.gray_zone_possible(listing.title, prefs):
             # Ambiguous title: open the JD (all other card-level filters must still pass).
@@ -310,11 +311,46 @@ class BrowserService:
                 age_days=listing.posted_age_days, applicants=listing.applicants or UNKNOWN_APPLICANTS,
                 rules=rules, prefs=replace(prefs, target_roles=()), title=listing.title,
                 company=listing.company, age_is_lower_bound=listing.age_is_lower_bound,
-                require_description=False)
+                require_description=False, experience_text=listing.experience_text)
         if verdict.decision is Decision.FILTERED:
             return await self.filter_out(record, format_reason(verdict),
                                          record_filters=record_filters), verdict
         return record, None
+
+    # --- Phase 8b: verified reconciliation of SUBMISSION_UNKNOWN ---------------------------------
+    async def reconcile_submissions(self, platform: str, *, limit: int = 20,
+                                    max_age: timedelta = timedelta(days=14)) -> list[dict[str, Any]]:
+        """SUBMISSION_UNKNOWN rows (never migrated history) -> APPLIED only when the portal's own
+        application history shows exactly one matching "Application sent". Never clicks anything."""
+        from backend.app.browser_v2.state import RECONCILE_REASON
+
+        adapter: Any = self.adapters.get(platform)
+        if adapter is None or not hasattr(adapter, "history_rows"):
+            return []
+        cutoff = datetime.now(UTC) - max_age
+        pending = [r for r in await self.store.list_by_state(platform, (S.SUBMISSION_UNKNOWN,), limit=limit)
+                   if not (r.reason or "").startswith("migrated_") and r.role_title and r.company_name
+                   and (r.updated_at is None or r.updated_at >= cutoff)]
+        if not pending:
+            return []
+        async with self.manager.job() as page:
+            rows = await adapter.history_rows(page)
+        results = []
+        for record in pending:
+            match = adapter.history_match(rows, record.role_title, record.company_name)
+            if match is None:
+                results.append({"external_job_id": record.external_job_id, "state": record.state.value,
+                                "verified": False})
+                continue
+            receipt = {"source": "application_history", "status": match.get("status"),
+                       "verified_at": datetime.now(UTC).isoformat(), "previous_reason": record.reason}
+            moved = await self.store.transition(record, S.APPLIED, RECONCILE_REASON, receipt=receipt)
+            await self.publish("job.applied", {"platform": platform, "external_job_id": record.external_job_id,
+                                               "company": record.company_name, "title": record.role_title,
+                                               "reconciled": True})
+            results.append({"external_job_id": record.external_job_id, "state": moved.state.value,
+                            "verified": True, "status": match.get("status")})
+        return results
 
     # --- Phase 8: smart external ATS handoff --------------------------------------------------
     def handoff_target(self, platform: str, detail: Any) -> Any:
@@ -418,7 +454,8 @@ class BrowserService:
                 age_days=detail.posted_age_days, applicants=detail.applicants, rules=rules, prefs=prefs,
                 title=detail.listing.title, company=detail.listing.company,
                 description=detail.description, salary_text=detail.salary_text,
-                work_mode=detail.work_mode, age_is_lower_bound=detail.listing.age_is_lower_bound)
+                work_mode=detail.work_mode, age_is_lower_bound=detail.listing.age_is_lower_bound,
+                experience_text=detail.listing.experience_text)
             if is_title_mismatch_only(verdict) and self.gray_zone_possible(detail.listing.title, prefs):
                 verdict = await self.gray_zone_verdict(
                     verdict, title=detail.listing.title, company=detail.listing.company,
@@ -428,7 +465,8 @@ class BrowserService:
                         prefs=replace(prefs, target_roles=()), title=detail.listing.title,
                         company=detail.listing.company, description=detail.description,
                         salary_text=detail.salary_text, work_mode=detail.work_mode,
-                        age_is_lower_bound=detail.listing.age_is_lower_bound))
+                        age_is_lower_bound=detail.listing.age_is_lower_bound,
+                        experience_text=detail.listing.experience_text))
             summary |= {"filter": verdict.decision.value, "filter_reasons": list(verdict.reasons)}
             if verdict.decision is not Decision.PASS and not detail.already_applied:
                 reason = format_reason(verdict)

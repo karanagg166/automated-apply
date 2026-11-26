@@ -458,6 +458,7 @@ class Worker:
         await self.store.worker_heartbeat("RUNNING", current_platform=platform)
         if not await self.session_ok(platform, portal):
             return
+        await self.reconcile(platform, portal)
         if not dry_run:
             counts = await quota_counts(self.store, rules, self.clock())
             if counts["daily_limit_hit"] or counts["portal_limit_hit_today"]:
@@ -527,6 +528,19 @@ class Worker:
                 portal.stopped_reason = stop
                 break
             await self.service.manager.maybe_recycle_between_jobs(RECYCLE_AFTER_SEC)
+
+    async def reconcile(self, platform: str, portal: PortalReport) -> None:
+        """Phase 8b: confirm post-click SUBMISSION_UNKNOWN rows from the portal's history (read-only)."""
+        reconcile = getattr(self.service, "reconcile_submissions", None)
+        if reconcile is None:
+            return
+        try:
+            for row in await reconcile(platform):
+                portal.outcomes.append({"reconciled": row})
+                if row.get("verified"):
+                    portal.applied += 1
+        except Exception as exc:  # noqa: BLE001 - verification is best effort, never blocks the portal
+            logger.warning("reconcile %s failed: %s", platform, type(exc).__name__)
 
     async def session_ok(self, platform: str, portal: PortalReport) -> bool:
         session = await self.service.check_portal_session(platform)

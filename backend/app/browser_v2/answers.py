@@ -443,7 +443,15 @@ def match_option(answer: str, options: tuple[str, ...]) -> str | None:
     for option in options:
         if " ".join(option.split()).casefold() == folded:
             return option
-    return None
+    # Live canary 2026-11-27: Naukri radio values drop apostrophes ("No, I dont have one") while the
+    # owner types the label ("No, I don't have one"). Punctuation-insensitive, still exactly one match.
+    loose = _punctless(text)
+    matches = [option for option in options if loose and _punctless(option) == loose]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _punctless(value: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", "", value or "").casefold().split())
 
 
 def hitl_override(question: str, options: tuple[str, ...], answers: dict[str, str] | None) -> str | None:

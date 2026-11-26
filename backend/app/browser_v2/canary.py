@@ -118,7 +118,10 @@ async def apply_one(portal: str, url: str, *, confirm_live: bool, assume_yes: bo
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         base = folder / f"{portal}-{job_id}-{stamp}"
         report["pre_screenshot"] = await _screenshot(service, Path(f"{base}-pre.png"), url)
-        outcome = await service.apply_to_job(portal, url, dry_run=not live)
+        try:
+            outcome = await service.apply_to_job(portal, url, dry_run=not live)
+        except Exception as exc:  # noqa: BLE001 - post-click errors are already SUBMISSION_UNKNOWN in the DB
+            outcome = {"state": None, "reason": f"exception:{type(exc).__name__}: {str(exc)[:200]}"}
         report["adapter_screenshot"] = outcome.get("screenshot")
         report["post_screenshot"] = await _screenshot(service, Path(f"{base}-post.png"))
         report["outcome"] = {k: outcome.get(k) for k in (

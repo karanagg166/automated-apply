@@ -35,6 +35,8 @@ class JobListing:
     posted_age_days: int | None = None
     age_is_lower_bound: bool = False
     applicants: ApplicantCount | None = None
+    # Phase 8b: required experience as shown by the portal ("0 - 5 years", "4-5 Yrs", "Fresher").
+    experience_text: str | None = None
 
 
 @dataclass(frozen=True)

@@ -66,6 +66,9 @@ PORTAL_LIMIT = re.compile(
     r"apply\s+limit\s+(?:reached|exceeded)", re.IGNORECASE)
 HISTORY_SENT = re.compile(r"^application sent\b", re.IGNORECASE)
 MAX_QUESTION_STEPS = 20
+# Live canary 2026-11-27: "Enter Resume Verification ID and/or Verification URL. (if available)" -
+# optional questions Naukri lets you skip are skipped when no stored fact answers them (truthful).
+OPTIONAL_QUESTION = re.compile(r"\b(?:if (?:any|available|applicable)|optional)\b", re.IGNORECASE)
 OTP_VALUE = re.compile(r"^\s*(\d{4,8})\s*$")
 OtpProvider = Callable[[str, datetime], Awaitable[str | None]]
 
@@ -101,7 +104,8 @@ LISTING_JS = "({limit}) => {" + VISIBLE_JS + r"""
     const pick = (sel) => text(card && card.querySelector(sel)) || null;
     out.push({id: m[1], url: u.origin + path, title: (a.getAttribute("title") || text(a)) || null,
       company: pick('.comp-name,[class*="comp-name"],[class*="compName"]'),
-      posted: pick('.job-post-day,[class*="job-post-day"],[class*="postDay"],[class*="post-day"]')});
+      posted: pick('.job-post-day,[class*="job-post-day"],[class*="postDay"],[class*="post-day"]'),
+      experience: pick('.expwdth,[class*="exp-wrap"],[class*="expwdth"],[class*="experience"]')});
     if (out.length >= limit) break;
   }
   return {jobs: out, empty: /no jobs found|no results found/i.test(document.body && document.body.innerText || "")};
@@ -143,9 +147,10 @@ DETAIL_JS = "() => {" + VISIBLE_JS + r"""
   // header without a location element threw "Cannot read properties of null (reading 'href')").
   const jobLocation = text(header && header.querySelector('[class*="location"],[class*="loc"]')) || null;
   const workMode = spans.find(t => /^(remote|hybrid|work from (home|office)|on-?site)/i.test(t)) || null;
+  const experience = spans.find(t => /^(?:\d{1,2}\s*(?:-|–|to)\s*\d{1,2}|\d{1,2}\+?)\s*(?:yrs?|years?)$|^fresher/i.test(t)) || null;
   const buttons = header ? [...header.querySelectorAll("button,[role=button],a")].filter(visible) : [];
   return {
-    description, salary, location: jobLocation, workMode,
+    description, salary, location: jobLocation, workMode, experience,
     url: window.location.href,
     title: text(header && header.querySelector("h1")) || null,
     company: text(header && header.querySelector('[class*="comp-name"] > a,[class*="compName"] > a'))
@@ -198,6 +203,8 @@ PAGE_STATE_JS = "() => {" + VISIBLE_JS + r"""
     question: msgs.length ? text(msgs[msgs.length - 1]).slice(0, 2000) : null,
     chips: drawer ? [...drawer.querySelectorAll(".chipsContainer .chatbot_Chip")].filter(visible).map(text)
       .filter(t => !/^skip this question$/i.test(t)) : [],
+    skippable: !!drawer && [...drawer.querySelectorAll(".chatbot_Chip, button, [role=button], span, div")]
+      .some(el => visible(el) && el.children.length === 0 && /^skip this question$/i.test(text(el))),
     radios: drawer ? [...drawer.querySelectorAll('input.ssrc__radio[type="radio"]')].map(r => String(r.value || "").trim()) : [],
     textInput: !!(drawer && [...drawer.querySelectorAll('.textArea[contenteditable="true"],textarea,input[type=text]')].find(visible)),
     // Phase 8: multi-select checkboxes and dropdowns inside the chatbot drawer.
@@ -208,7 +215,7 @@ PAGE_STATE_JS = "() => {" + VISIBLE_JS + r"""
     selectOptions: (() => { const s = drawer && [...drawer.querySelectorAll("select")].find(visible);
       return s ? [...s.options].filter(o => o.value !== "" && !/^(select|choose)\b/i.test(o.text.trim()))
         .map(o => o.text.trim()) : []; })(),
-    fileInput: !!(drawer && drawer.querySelector('input.chatbot_Uploader[type="file"]')),
+    fileInput: !!(drawer && drawer.querySelector('input.chatbot_Uploader[type="file"]')),  // often hidden: lowest priority
     headerApplied: !!header && [...header.querySelectorAll("button,[role=button]")].some(b => /^(applied|already applied)$/i.test(text(b))),
   };
 }"""
@@ -220,6 +227,14 @@ HISTORY_JS = "({title, company}) => {" + VISIBLE_JS + r"""
     status: text(card.querySelector("section.apply-status .title")),
   }));
   return rows.filter(r => norm(r.title) === norm(title) && norm(r.company) === norm(company));
+}"""
+
+
+HISTORY_ALL_JS = "() => {" + VISIBLE_JS + r"""
+  return [...document.querySelectorAll(".jdTuplesContainer .jdTupleContainer")].slice(0, 100).map(card => ({
+    title: text(card.querySelector(".jdTitle")), company: text(card.querySelector(".subheading .company")),
+    status: text(card.querySelector("section.apply-status .title")),
+  }));
 }"""
 
 
@@ -329,11 +344,26 @@ class NaukriAdapter:
                 platform=self.platform, external_job_id=item["id"], url=item["url"],
                 title=item.get("title"), company=item.get("company"), posted_text=posted,
                 posted_age_days=parse_posted_age_days(posted),
-                age_is_lower_bound=bool(posted and "+" in posted)))
+                age_is_lower_bound=bool(posted and "+" in posted), experience_text=item.get("experience")))
         return listings
+
+    async def _wait_for_job_header(self, page: Any, timeout_ms: int = 15_000) -> None:
+        """Live canary 2026-11-27: on a cold load the React JD header renders well after
+        DOMContentLoaded; reading it early returned no title/age/JD and the job was filtered as
+        needs_review. Wait for the header h1 (or a login/expired page), then read."""
+        try:
+            await page.wait_for_function(
+                "() => { const h = document.querySelector('#job_header h1, [class*=\"jd-header\"] h1, "
+                "[class*=\"jdHeader\"] h1'); return (h && h.innerText.trim().length > 0) || "
+                "/nlogin|login/i.test(location.pathname) || "
+                "/no longer (?:available|active)|job (?:has )?expired/i.test(document.body ? document.body.innerText : ''); }",
+                timeout=timeout_ms)
+        except Exception:  # noqa: BLE001 - parse whatever rendered; the filters fail closed
+            return
 
     async def inspect_job(self, page: Any, listing: JobListing) -> JobDetail:
         await self._goto(page, listing.url)
+        await self._wait_for_job_header(page)
         probe = await self._probe(page)
         auth = classify_auth(probe)
         data = await page.evaluate(DETAIL_JS)
@@ -355,7 +385,7 @@ class NaukriAdapter:
             title=data.get("title") or listing.title, company=data.get("company") or listing.company,
             posted_text=data.get("posted") or listing.posted_text, posted_age_days=age,
             age_is_lower_bound=listing.age_is_lower_bound and not data.get("datePosted"),
-            applicants=applicants)
+            applicants=applicants, experience_text=data.get("experience") or listing.experience_text)
         return JobDetail(
             listing=merged, applicants=applicants, posted_age_days=age,
             already_applied=bool(data.get("applied")), apply_mode=mode,
@@ -392,7 +422,21 @@ class NaukriAdapter:
         return str(path)
 
     async def _state(self, page: Any) -> dict[str, Any]:
-        return await page.evaluate(PAGE_STATE_JS)
+        """Live canary 2026-11-27: the last answer can navigate (success / saveApply page) while we
+        poll; "Execution context was destroyed" is a navigation, not a failure - wait and re-read."""
+        for attempt in range(4):
+            try:
+                return await page.evaluate(PAGE_STATE_JS)
+            except Exception as exc:  # only navigation races are retried
+                message = str(exc)
+                if attempt == 3 or not ("Execution context was destroyed" in message or "navigat" in message):
+                    raise
+                try:
+                    await page.wait_for_load_state("domcontentloaded", timeout=15_000)
+                except Exception:  # noqa: BLE001, S110 - re-read whatever loaded
+                    pass
+                await page.wait_for_timeout(500)
+        raise RuntimeError("unreachable")
 
     @staticmethod
     def _confirmation(state: dict[str, Any]) -> str | None:
@@ -463,8 +507,7 @@ class NaukriAdapter:
         def ready(st: dict[str, Any]) -> bool:
             return bool(not st.get("drawer") or self._confirmation(st) or PORTAL_LIMIT.search(st.get("body") or "")
                         or (st.get("question") and (st.get("chips") or st.get("radios") or st.get("checkboxes")
-                                                    or st.get("selectOptions") or st.get("textInput")
-                                                    or st.get("fileInput"))))
+                                                    or st.get("selectOptions") or st.get("textInput"))))
         if ready(state):
             return state
         return await self._poll(page, ready, 8.0)
@@ -497,8 +540,16 @@ class NaukriAdapter:
                 has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$")).first.click()
             return
         if state.get("radios"):
-            await drawer.locator("label.ssrc__label").filter(
-                has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$")).first.click()
+            # Options are the radio VALUES; the visible label may differ ("dont" vs "don't").
+            value = answer.replace("\\", "\\\\").replace('"', '\\"')
+            radio = drawer.locator(f'input.ssrc__radio[type="radio"][value="{value}"]')
+            radio_id = await radio.first.get_attribute("id") if await radio.count() else None
+            label = drawer.locator(f'label[for="{radio_id}"]') if radio_id else drawer.locator(
+                "label.ssrc__label").filter(has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$"))
+            if await label.count():
+                await label.first.click()
+            else:
+                await radio.first.check(force=True)
             await page.wait_for_timeout(300)
             await send.first.click()
             return
@@ -507,6 +558,22 @@ class NaukriAdapter:
         await editor.fill(answer)
         await page.wait_for_timeout(300)
         await send.first.click()
+
+    async def history_rows(self, page: Any) -> list[dict[str, Any]]:
+        """Every visible row of the Naukri application history (title, company, status)."""
+        await self._goto(page, HISTORY_URL)
+        try:
+            await page.wait_for_selector(".jdTuplesContainer .jdTupleContainer", timeout=12_000)
+        except Exception:  # noqa: BLE001, S110 - empty history or layout drift: nothing verifies
+            pass
+        return await page.evaluate(HISTORY_ALL_JS)
+
+    @staticmethod
+    def history_match(rows: list[dict[str, Any]], title: str | None, company: str | None) -> dict[str, Any] | None:
+        norm = lambda v: " ".join((v or "").lower().split())
+        sent = [r for r in rows if norm(r.get("title")) == norm(title) and norm(r.get("company")) == norm(company)
+                and HISTORY_SENT.match(r.get("status") or "")]
+        return sent[0] if title and company and len(sent) == 1 else None
 
     async def _confirm_from_history(self, page: Any, detail: JobDetail) -> str | None:
         await self._goto(page, HISTORY_URL)
@@ -670,8 +737,10 @@ class NaukriAdapter:
             question = state.get("question") or ""
             multi = tuple(state.get("checkboxes") or ())
             options = tuple(state.get("chips") or state.get("radios") or state.get("selectOptions") or multi)
-            input_kind = ("file" if state.get("fileInput") else "multi" if multi else "choice" if options
-                          else "text")
+            # Live canary 2026-11-27: the drawer always holds a hidden resume-uploader <input type=file>;
+            # checking it first turned every radio question into "file_upload" -> needless HITL.
+            input_kind = ("multi" if multi else "choice" if options else "text" if state.get("textInput")
+                          else "file" if state.get("fileInput") else "text")
             if input_kind == "text" and not state.get("textInput"):
                 # Unknown control (date picker, slider ...): Naukri has not submitted yet (the drawer
                 # is still asking) - stop and ask the owner instead of guessing or raising.
@@ -688,6 +757,17 @@ class NaukriAdapter:
                                                                              hitl_answers)
             if answer is not None and input_kind == "multi" and not self.multi_answers(answer, multi):
                 answer, resolver_reason = None, "multi_select_answer_not_in_options"
+            if answer is None and state.get("skippable") and OPTIONAL_QUESTION.search(question):
+                await self._pause()
+                await page.locator(".chatbot_DrawerContentWrapper").get_by_text(
+                    re.compile(r"^\s*skip this question\s*$", re.IGNORECASE)).last.click()
+                answers.append({"question": question, "answer": "[skipped: optional]", "source": "skip_optional"})
+                state = await self._wait_after_answer(page, question)
+                if state.get("drawer") and state.get("question") == question and not self._confirmation(state):
+                    return self._result(ApplicationState.SUBMISSION_UNKNOWN, "questionnaire_stalled", False,
+                                        clicked_apply=True, answers=tuple(answers),
+                                        screenshot=await self._screenshot(page, job_id, "stalled"))
+                continue
             if answer is None:
                 return self._result(
                     ApplicationState.WAITING_FOR_USER, "question_requires_owner", False, clicked_apply=True,

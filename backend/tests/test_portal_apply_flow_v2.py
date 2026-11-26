@@ -482,3 +482,245 @@ async def test_combobox_options_ignore_the_phone_country_picker(web, tmp_path):
     filler.settle_ms = 50
     assert await filler._combobox_options(page, {"idx": 7}) == ("Yes", "No")  # aria-controls scoped
     assert await filler._combobox_options(page, {"idx": 8}) == ("LinkedIn", "Friend")  # newly visible only
+
+
+async def test_naukri_cold_load_waits_for_the_react_header(web, tmp_path):
+    """Live canary 2026-11-27: inspection ran before the JD header rendered -> no title/age/JD ->
+    needs_review. The adapter now waits for the rendered header."""
+    page, site = web
+    late = naukri_page("<button>Apply</button>")
+    body_start = late.index("<body>") + len("<body>")
+    deferred = (late[:body_start] + "<div id='app'></div><template id='t'>" + late[body_start:].replace(
+        "</body>", "") + "</template><script>setTimeout(() => { document.getElementById('app').innerHTML = "
+        "document.getElementById('t').innerHTML; }, 700);</script></body></html>")
+    site.add(NAUKRI_JOB, deferred)
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    detail = await adapter.inspect_job(page, JobListing(platform="naukri", external_job_id="261125500123",
+                                                        url=NAUKRI_JOB))
+    assert detail.listing.title == "Backend Engineer" and detail.posted_age_days == 2
+    assert detail.description and "FastAPI" in detail.description and detail.apply_mode == "direct"
+
+
+# --- Phase 8b: required-experience filter (live canary found 4-5 yr roles passing for a <1 yr profile) ----
+@pytest.mark.parametrize("text,expected", [
+    ("0 - 5 years", (0.0, 5.0)), ("4-5 Yrs", (4.0, 5.0)), ("3+ years", (3.0, None)), ("Fresher", (0.0, 1.0)),
+    ("2 to 6 years", (2.0, 6.0)), (None, (None, None)), ("Not disclosed", (None, None)),
+])
+def test_parse_experience_range(text, expected):
+    from backend.app.browser_v2.rules import parse_experience_range
+
+    assert parse_experience_range(text) == expected
+
+
+def test_experience_filter_uses_minimum_with_one_year_tolerance():
+    from backend.app.browser_v2.rules import (
+        CandidatePreferences,
+        Decision,
+        evaluate_pipeline,
+    )
+
+    rules = PortalRules(platform="naukri", enabled=True)
+    prefs = CandidatePreferences.from_profile({"preferences": {"total_experience_years": 0.5}})
+    run = lambda text: evaluate_pipeline(age_days=1, applicants=parse_applicants("20 applicants"),
+                                         rules=rules, prefs=prefs, title="Backend Engineer", company="Acme",
+                                         require_description=False, experience_text=text)
+    senior = run("4 - 5 years")
+    assert senior.decision is Decision.FILTERED and senior.reasons[0].startswith("experience_above_profile")
+    assert run("0 - 5 years").decision is Decision.PASS and run("1-3 Yrs").decision is Decision.PASS
+    assert run(None).decision is Decision.PASS  # unknown requirement never blocks
+    unknown_profile = CandidatePreferences.from_profile({"preferences": {}})
+    assert unknown_profile.experience_years is None
+    assert CandidatePreferences.from_profile({"verified_experience_years": 2}).experience_years == 2.0
+
+
+async def test_naukri_reads_required_experience_from_the_header(web, tmp_path):
+    page, site = web
+    body = naukri_page("<button>Apply</button>").replace(
+        "<span>Posted: 2 days ago</span>", "<span>4 - 5 years</span><span>Posted: 2 days ago</span>")
+    site.add(NAUKRI_JOB, body)
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    detail = await adapter.inspect_job(page, naukri_listing())
+    assert detail.listing.experience_text == "4 - 5 years"
+
+
+def test_owner_answers_match_options_regardless_of_punctuation():
+    from backend.app.browser_v2.answers import match_option
+
+    options = ("Applied / In Progress", "Yes, I have", "No, I dont have one", "I am not sure")
+    assert match_option("No, I don't have one", options) == "No, I dont have one"
+    assert match_option("no i dont have one!", options) == "No, I dont have one"
+    assert match_option("No", options) is None  # still never a guess
+    assert match_option("Applied In Progress", options) == "Applied / In Progress"
+
+
+LIVE_DRAWER_SCRIPT = """<script>
+window.answers = [];
+document.querySelector('#job_header button').onclick = () => {
+  document.body.insertAdjacentHTML('beforeend', `<div class="chatbot_DrawerContentWrapper">
+    <input class="chatbot_Uploader" type="file" style="display:none">
+    <div class="chatbot_MessageContainer"><div class="botItem"><div class="botMsg">Hi karan, thank you for showing interest.</div></div></div></div>`);
+  setTimeout(() => {
+    const d = document.querySelector('.chatbot_DrawerContentWrapper');
+    d.querySelector('.chatbot_MessageContainer').insertAdjacentHTML('beforeend',
+      '<div class="botItem"><div class="botMsg">Do you have a digitally signed and verified resume issued by any company or organization?</div></div>');
+    d.insertAdjacentHTML('beforeend', `
+      <input class="ssrc__radio" type="radio" id="r1" value="Yes, I have"><label class="ssrc__label" for="r1">Yes, I have</label>
+      <input class="ssrc__radio" type="radio" id="r2" value="No, I dont have one"><label class="ssrc__label" for="r2">No, I don't have one</label>
+      <div class="send">Save</div>`);
+    d.querySelector('.send').onclick = () => {
+      window.answers.push([...d.querySelectorAll('input:checked')].map(x => x.id));
+      d.remove();
+      document.body.insertAdjacentHTML('beforeend', '<div>You have successfully applied to Software Engineer</div>');
+    };
+  }, 400);
+};
+</script>"""
+
+
+async def test_naukri_live_drawer_hidden_uploader_and_apostrophe_label(web, tmp_path):
+    """Live canary 2026-11-27: the hidden uploader made every radio question 'file_upload', and the
+    radio value ("dont") differed from its label ("don't")."""
+    page, site = web
+    site.add(NAUKRI_JOB, naukri_page("<button>Apply</button>", script=LIVE_DRAWER_SCRIPT))
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    detail = await adapter.inspect_job(page, naukri_listing())
+    question = "Do you have a digitally signed and verified resume issued by any company or organization?"
+    result = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=False,
+                                     hitl_answers={question: "No, I dont have one"})
+    assert result.state is S.APPLIED and result.reason == "confirmed"
+    assert await page.evaluate("() => window.answers") == [["r2"]]
+    site.add(NAUKRI_JOB, naukri_page("<button>Apply</button>", script=LIVE_DRAWER_SCRIPT))
+    detail = await adapter.inspect_job(page, naukri_listing())
+    unanswered = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=False, hitl_answers={})
+    assert unanswered.question is not None and unanswered.question.input_kind == "choice"
+    assert unanswered.question.prompt == question and "No, I dont have one" in unanswered.question.options
+
+
+def optional_drawer(second_question: str) -> str:
+    return """<script>
+window.answers = [];
+document.querySelector('#job_header button').onclick = () => {
+  document.body.insertAdjacentHTML('beforeend', '<div class="chatbot_DrawerContentWrapper">' +
+    '<input class="chatbot_Uploader" type="file" style="display:none"><div class="chatbot_MessageContainer"></div><div class="ctl"></div></div>');
+  const d = document.querySelector('.chatbot_DrawerContentWrapper');
+  const ask = (q, html) => { d.querySelector('.chatbot_MessageContainer').insertAdjacentHTML('beforeend',
+      `<div class="botItem"><div class="botMsg">${q}</div></div>`); d.querySelector('.ctl').innerHTML = html; };
+  ask("Do you have a digitally signed and verified resume issued by any company or organization?",
+      `<input class="ssrc__radio" type="radio" id="r2" value="No, I dont have one"><label class="ssrc__label" for="r2">No, I don't have one</label><div class="send">Save</div>`);
+  d.querySelector('.send').onclick = () => {
+    window.answers.push('radio');
+    setTimeout(() => {
+      ask("SECOND_Q", `<div class="textArea" contenteditable="true"></div><div class="chipsContainer"><span class="chatbot_Chip">Skip this question</span></div><div class="send">Save</div>`);
+      d.querySelector('.chatbot_Chip').onclick = () => { window.answers.push('skipped'); d.remove();
+        document.body.insertAdjacentHTML('beforeend', '<div>You have successfully applied to Software Engineer</div>'); };
+    }, 300);
+  };
+};
+</script>""".replace("SECOND_Q", second_question)
+
+
+async def test_naukri_skips_optional_unknown_questions_but_asks_required_ones(web, tmp_path):
+    page, site = web
+    owner = {"Do you have a digitally signed and verified resume issued by any company or organization?":
+             "No, I dont have one"}
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    site.add(NAUKRI_JOB, naukri_page("<button>Apply</button>", script=optional_drawer(
+        "Enter Resume Verification ID and/or Verification URL. (if available)")))
+    detail = await adapter.inspect_job(page, naukri_listing())
+    result = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=False, hitl_answers=owner)
+    assert result.state is S.APPLIED and await page.evaluate("() => window.answers") == ["radio", "skipped"]
+    assert [a["source"] for a in result.answers] == ["human_hitl", "skip_optional"]
+    site.add(NAUKRI_JOB, naukri_page("<button>Apply</button>", script=optional_drawer(
+        "Describe your largest production incident")))
+    detail = await adapter.inspect_job(page, naukri_listing())
+    required = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=False, hitl_answers=owner)
+    assert required.state is S.WAITING_FOR_USER and required.question is not None
+    assert required.question.prompt == "Describe your largest production incident"
+
+
+# --- Phase 8b: verified reconciliation + navigation-tolerant questionnaire (live canary 2026-11-27) ----------
+def test_submission_unknown_only_exits_to_applied():
+    from backend.app.browser_v2.state import InvalidTransition, check_transition
+
+    check_transition(S.SUBMISSION_UNKNOWN, S.APPLIED)
+    for target in S:
+        if target not in (S.APPLIED, S.SUBMISSION_UNKNOWN):
+            with pytest.raises(InvalidTransition):
+                check_transition(S.SUBMISSION_UNKNOWN, target)
+    with pytest.raises(InvalidTransition):
+        check_transition(S.APPLIED, S.SUBMISSION_UNKNOWN)
+
+
+class HistoryAdapter(ExternalAdapter):
+    def __init__(self, rows):
+        super().__init__("naukri", None)
+        self.rows = rows
+        self.history_reads = 0
+
+    async def history_rows(self, page):
+        self.history_reads += 1
+        return self.rows
+
+    history_match = staticmethod(NaukriAdapter.history_match)
+
+
+async def unknown_job(store, job_id, title, company, reason="exception_after_reservation:Error"):
+    record = await store.upsert_discovered(JobListing(platform="naukri", external_job_id=job_id,
+                                                      url=f"https://www.naukri.com/job-listings-x-{job_id}",
+                                                      title=title, company=company))
+    record = await store.transition(record, S.APPLYING, "apply_started")
+    return await store.transition(record, S.SUBMISSION_UNKNOWN, reason)
+
+
+async def test_reconcile_moves_only_exact_history_matches_to_applied():
+    store = store_for("naukri")
+    await unknown_job(store, "1", "Software Engineer", "Naineet Tech")
+    await unknown_job(store, "2", "Backend Developer", "Acme")
+    await unknown_job(store, "3", "Backend Developer", "QTrino", reason="migrated_historical_submitted_never_replay")
+    adapter = HistoryAdapter([{"title": "Software Engineer", "company": "Naineet Tech",
+                               "status": "Application sent today"},
+                              {"title": "Backend Developer", "company": "Acme", "status": "Applied - draft"}])
+    service = BrowserService(FakeManager(), store, adapters={"naukri": adapter})  # type: ignore[arg-type]
+    results = await service.reconcile_submissions("naukri")
+    assert {r["external_job_id"]: r["verified"] for r in results} == {"1": True, "2": False}
+    applied = await store.get("naukri", "1")
+    assert applied is not None and applied.state is S.APPLIED and applied.reason == "verified_in_portal_history"
+    assert applied.receipt is not None and applied.receipt["source"] == "application_history"
+    for job in ("2", "3"):
+        row = await store.get("naukri", job)
+        assert row is not None and row.state is S.SUBMISSION_UNKNOWN  # never guessed, migrated rows untouched
+    assert await service.reconcile_submissions("naukri") == [{"external_job_id": "2", "state": "SUBMISSION_UNKNOWN",
+                                                               "verified": False}]
+    assert adapter.history_reads == 2
+
+
+def test_history_match_needs_exactly_one_sent_row():
+    rows = [{"title": "SDE", "company": "Acme", "status": "Application sent today"},
+            {"title": "SDE", "company": "Acme", "status": "Application sent 2 days ago"}]
+    assert NaukriAdapter.history_match(rows, "SDE", "Acme") is None  # ambiguous: two applications
+    match = NaukriAdapter.history_match(rows[:1], "sde ", "ACME")
+    assert match is not None and match["status"] == "Application sent today"
+    assert NaukriAdapter.history_match(rows[:1], None, "Acme") is None
+
+
+NAVIGATING_SCRIPT = """<script>
+document.querySelector('#job_header button').onclick = () => {
+  document.body.insertAdjacentHTML('beforeend', `<div class="chatbot_DrawerContentWrapper"><div class="chatbot_MessageContainer">
+    <div class="botItem"><div class="botMsg">Are you willing to relocate to Pune?</div></div></div>
+    <input class="ssrc__radio" type="radio" id="y" value="Yes"><label class="ssrc__label" for="y">Yes</label>
+    <div class="send">Save</div></div>`);
+  document.querySelector('.send').onclick = () => { location.href = '/myapply/saveApply?strJobsarr=[261125500123]'; };
+};
+</script>"""
+
+
+async def test_naukri_last_answer_navigating_to_save_apply_is_a_confirmation(web, tmp_path):
+    page, site = web
+    site.add(NAUKRI_JOB, naukri_page("<button>Apply</button>", script=NAVIGATING_SCRIPT))
+    site.add("https://www.naukri.com/myapply/saveApply", html("<h2>Applied to 1 job</h2>"))
+    adapter = NaukriAdapter(settle_ms=10, refresh_wait_ms=10, jitter=(0, 0), receipts_dir=tmp_path / "naukri")
+    detail = await adapter.inspect_job(page, naukri_listing())
+    result = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=False,
+                                     hitl_answers={"Are you willing to relocate to Pune?": "Yes"})
+    assert result.state is S.APPLIED and result.receipt is not None
+    assert result.receipt["source"] == "save_apply_page"

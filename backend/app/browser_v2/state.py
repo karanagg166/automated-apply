@@ -43,8 +43,12 @@ TRANSITIONS: dict[ApplicationState, frozenset[ApplicationState]] = {
     S.DRAFTED_AND_QUEUED: frozenset({S.SCORED, S.APPLYING, S.FILTERED_OUT}),
     S.FAILED: frozenset({S.APPLYING, S.FILTERED_OUT, S.SCORED}),
     S.APPLIED: frozenset(),
-    S.SUBMISSION_UNKNOWN: frozenset(),
+    # Phase 8b: reconciliation ONLY - a post-click crash (e.g. a navigation) leaves SUBMISSION_UNKNOWN;
+    # when the portal's own application history shows exactly one matching "Application sent", the row
+    # becomes APPLIED with that receipt. Both states stay never-replay; nothing ever re-applies.
+    S.SUBMISSION_UNKNOWN: frozenset({S.APPLIED}),
 }
+RECONCILE_REASON = "verified_in_portal_history"
 
 
 class ReplayRefused(RuntimeError):

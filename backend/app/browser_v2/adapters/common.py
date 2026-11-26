@@ -1064,8 +1064,21 @@ class InteractivePortalAdapter:
                 continue
         return found
 
+    async def _wait_for_job_page(self, page: Any, timeout_ms: int = 12_000) -> None:
+        """Logged-in SPAs render the job title after DOMContentLoaded (live canary 2026-11-27):
+        wait for a non-empty h1, an apply/applied control, or a login/challenge page."""
+        try:
+            await page.wait_for_function(
+                "([applyRe]) => { const h = document.querySelector('h1'); if (h && h.innerText.trim()) return true;"
+                " const re = new RegExp(applyRe, 'i'); return [...document.querySelectorAll('button, a')]"
+                ".some(b => re.test((b.innerText || '').trim())) || /login|signin|sign_in/i.test(location.pathname); }",
+                arg=[self.config.apply_text], timeout=timeout_ms)
+        except Exception:  # noqa: BLE001 - timeout: parse whatever rendered; filters fail closed
+            return
+
     async def inspect_job(self, page: Any, listing: JobListing) -> JobDetail:
         await self._goto(page, listing.url)
+        await self._wait_for_job_page(page)
         auth = self.classify_auth(await self._probe(page))
         data = await page.evaluate(DETAIL_JS, self._detail_args())
         applicants = parse_applicants(data.get("applicants")) if data.get("applicants") else (
