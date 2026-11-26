@@ -1,5 +1,9 @@
-name: Rust validation
-# Hosted execution requires deliberate owner authorization. Never trigger on push/PR.
+name: Rust validation (FROZEN legacy, non-blocking)
+# FROZEN (Phase 6B, 2026-11-26): the Rust runtime is retired from the 24/7 loop
+# (com.automated-apply.rust is replaced by the Python v2 launchd agents). Kept only until
+# the owner approves Group B of backend/scripts/cleanup_legacy_v1.py. Non-blocking:
+# a failure here never gates a merge. Hosted execution requires deliberate owner
+# authorization. Never trigger on push/PR.
 on:
   workflow_dispatch:
 permissions:
@@ -7,6 +11,7 @@ permissions:
 jobs:
   rust:
     runs-on: ubuntu-24.04
+    continue-on-error: true
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7

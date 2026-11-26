@@ -1,5 +1,18 @@
 {
   "servers": {
+    "automated-apply-browser-v2": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/backend/venv/bin/python",
+      "args": [
+        "-m",
+        "backend.app.browser_v2.cli",
+        "mcp"
+      ],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    },
     "hiringcafe": {
       "type": "http",
       "url": "https://hiringcafe.com/api/mcp"

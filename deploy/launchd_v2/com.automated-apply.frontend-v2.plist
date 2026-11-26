@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Production Next.js dashboard on 127.0.0.1:3000; /api/backend/* proxies only to the
+     Python v2 API at 127.0.0.1:8000 (never the legacy Rust runtime). Secrets are read
+     at start from the two 0600 private env files named below. Rendered by cutover_v2.py. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.automated-apply.frontend-v2</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__NODE__</string>
+		<string>__REPO__/frontend/run-local-python-v2.mjs</string>
+		<string>--frontend-config</string>
+		<string>__FRONTEND_ENV_FILE__</string>
+		<string>--runtime-config</string>
+		<string>__ENV_FILE__</string>
+		<string>--port</string>
+		<string>3000</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__REPO__/frontend</string>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+		<key>Crashed</key>
+		<true/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>15</integer>
+	<key>ExitTimeOut</key>
+	<integer>45</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/frontend-v2.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/frontend-v2.err.log</string>
+</dict>
+</plist>

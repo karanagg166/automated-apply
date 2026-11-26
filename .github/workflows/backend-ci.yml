@@ -188,6 +188,44 @@ jobs:
           backend/scripts/startup_discovery_demo.py
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
+      - name: Python v2 lint (7 packages + Phase 6B ops)
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2 backend/app/enrichment_v2
+          backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2
+          backend/scripts/migrate_v2_core.py backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
+          backend/tests/test_phase6b_ops.py backend/tests/test_gmail_no_send_guardrail.py
+          backend/tests/test_no_local_llm_guardrail.py
+      - name: Python v2 type check (mypy 1.18.2)
+        run: |
+          uv pip install --system mypy==1.18.2
+          mypy --ignore-missing-imports --follow-imports=silent --check-untyped-defs --warn-unused-ignores \
+            --explicit-package-bases backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2 \
+            backend/app/enrichment_v2 backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2 \
+            backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
+      - name: Hard guardrails (Gmail read+draft only, no local generative LLM)
+        run: >-
+          python -m pytest -q -p no:cacheprovider
+          backend/tests/test_gmail_no_send_guardrail.py backend/tests/test_no_local_llm_guardrail.py
+      - name: Python v2 test pyramid (unit -> PG17 -> E2E)
+        timeout-minutes: 10
+        run: >-
+          python -m pytest -q -p no:cacheprovider
+          backend/tests/test_phase6b_ops.py backend/tests/test_adapters_phase6.py
+          backend/tests/test_agent_v2_control_graph.py backend/tests/test_ai_v2_api.py backend/tests/test_ai_v2_pii.py
+          backend/tests/test_ai_v2_pipeline.py backend/tests/test_ai_v2_router.py
+          backend/tests/test_ai_v2_semantic_cache.py backend/tests/test_automation_v2_api.py
+          backend/tests/test_browser_v2_answers.py backend/tests/test_browser_v2_auth.py
+          backend/tests/test_browser_v2_filters.py backend/tests/test_browser_v2_hitl_requeue.py
+          backend/tests/test_browser_v2_launch.py backend/tests/test_browser_v2_naukri.py
+          backend/tests/test_browser_v2_postgres_store.py backend/tests/test_browser_v2_quota.py
+          backend/tests/test_browser_v2_rules.py backend/tests/test_browser_v2_state.py
+          backend/tests/test_browser_v2_worker.py backend/tests/test_enrichment_v2.py
+          backend/tests/test_job_normalization_v2.py backend/tests/test_mail_v2.py backend/tests/test_mail_v2_reader.py
+          backend/tests/test_phase6a_misc.py backend/tests/test_phase6a_v2_postgres.py
+          backend/tests/test_telegram_v2_bot.py backend/tests/test_telegram_v2_postgres.py
+          backend/tests/test_v2_migration_sql.py backend/tests/test_v2_live_smoke.py
+          backend/tests/test_v2_full_pipeline_e2e.py backend/tests/test_v2_phase6a_browser_e2e.py
       - run: python -m compileall -q backend/app
       - name: Record isolated PostgreSQL baseline
         run: |

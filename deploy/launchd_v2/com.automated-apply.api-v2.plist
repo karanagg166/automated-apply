@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Python v2 FastAPI on 127.0.0.1:8000. Rendered by backend/scripts/cutover_v2.py.
+     No secrets here: api_launcher passes phase1.private.env to uvicorn as its env file. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.automated-apply.api-v2</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__PYTHON__</string>
+		<string>-m</string>
+		<string>backend.app.browser_v2.api_launcher</string>
+	</array>
+	<key>WorkingDirectory</key>
+	<string>__REPO__</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+		<key>PYTHONUNBUFFERED</key>
+		<string>1</string>
+		<key>AUTOMATED_APPLY_ENV_FILE</key>
+		<string>__ENV_FILE__</string>
+		<key>AUTOMATED_APPLY_LOG_DIR</key>
+		<string>__LOG_DIR__</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+		<key>Crashed</key>
+		<true/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>15</integer>
+	<key>ExitTimeOut</key>
+	<integer>45</integer>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Umask</key>
+	<integer>63</integer>
+	<key>StandardOutPath</key>
+	<string>__LOG_DIR__/api-v2.out.log</string>
+	<key>StandardErrorPath</key>
+	<string>__LOG_DIR__/api-v2.err.log</string>
+</dict>
+</plist>
