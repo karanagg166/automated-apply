@@ -436,3 +436,18 @@ async def test_digest_disabled_never_sends(hour):
     await Worker(_service(store), clock=lambda: IST_2105, notify=notify,
                  digest=DigestScheduler(store, hour=hour)).housekeeping()
     assert sent == [] and QUESTION
+
+
+async def test_waiting_worker_keeps_heartbeating_between_cycles():
+    """Live 2026-11-27: a RUNNING worker sleeps 10 min between cycles; health calls >5 min stale."""
+    from backend.app.browser_v2.store import WorkerControl, WorkerState
+
+    store = MemoryStore(worker=WorkerControl(desired_state=WorkerState.RUNNING))
+
+    async def no_wait(_seconds):
+        return None
+
+    worker = Worker(_service(store), sleeper=no_wait, idle_poll_sec=15)
+    assert await worker.sleep(600, heartbeat="SLEEPING") is True
+    assert store.heartbeats.count("SLEEPING") >= 9  # ~1/min across the 10-min wait
+    assert await worker.sleep(120) is True and store.heartbeats.count("SLEEPING") <= 10  # jitter sleeps: none

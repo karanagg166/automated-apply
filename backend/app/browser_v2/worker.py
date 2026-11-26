@@ -84,6 +84,7 @@ QUOTA_INSPECTIONS_PER_CYCLE = 5
 MAIL_SCAN_INTERVAL_SEC = 15 * 60
 ALERT_BACKLOG_PER_CYCLE = 5  # DISCOVERED jobs (e.g. from job-alert emails) processed per portal cycle
 HITL_EXPIRY_EVERY_SEC = 15 * 60
+HEARTBEAT_EVERY_SEC = 60
 PORTAL_BACKOFF_BASE_SEC = 5 * 60
 PORTAL_BACKOFF_MAX_SEC = 60 * 60
 MAX_CONSECUTIVE_JOB_ERRORS = 3
@@ -189,15 +190,27 @@ class Worker:
             return True
         return (await self.control()).desired_state is WorkerState.RUNNING
 
-    async def sleep(self, seconds: float, *, run_once: bool = False) -> bool:
-        """Sleep in short slices; False as soon as pause/stop/SIGTERM is requested."""
+    async def sleep(self, seconds: float, *, run_once: bool = False, heartbeat: str | None = None) -> bool:
+        """Sleep in short slices; False as soon as pause/stop/SIGTERM is requested.
+
+        `heartbeat` (e.g. "SLEEPING" between cycles) is re-reported about once a minute so the
+        watchdog never sees a healthy, waiting worker as stale (cycle interval 10 min > 5 min stale).
+        """
         remaining = max(0.0, seconds)
+        since_beat = 0.0
         while remaining > 0:
             if not await self.should_continue(run_once=run_once):
                 return False
             chunk = min(remaining, self.idle_poll_sec)
             await self._wait_stop(chunk)
             remaining -= chunk
+            since_beat += chunk
+            if heartbeat and since_beat >= HEARTBEAT_EVERY_SEC and remaining > 0:
+                since_beat = 0.0
+                try:
+                    await self.store.worker_heartbeat(heartbeat)
+                except Exception as exc:  # noqa: BLE001 - a missed heartbeat never stops the loop
+                    logger.warning("heartbeat failed: %s", type(exc).__name__)
         return await self.should_continue(run_once=run_once)
 
     async def _wait_stop(self, seconds: float) -> None:
@@ -236,7 +249,7 @@ class Worker:
                     continue
                 if once:
                     return reports
-                await self.sleep(self.cycle_interval_sec)
+                await self.sleep(self.cycle_interval_sec, heartbeat="SLEEPING")
                 continue
             if control.desired_state is WorkerState.STOPPED and self.service.manager.running:
                 await self.service.manager.close()  # STOP frees Brave RAM; PAUSE keeps it warm
