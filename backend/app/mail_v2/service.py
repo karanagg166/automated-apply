@@ -74,7 +74,8 @@ class MailDraftService:
 
     async def create_application_draft(self, record: ApplicationRecord, recipient: str, content: DraftContent, *,
                                        sender_name: str | None = None,
-                                       enrichment_source: str | None = None) -> DraftOutcome:
+                                       enrichment_source: str | None = None,
+                                       attachment_path: str | None = None) -> DraftOutcome:
         try:
             to = valid_recipient(recipient)
         except DraftValidationError as exc:
@@ -89,7 +90,8 @@ class MailDraftService:
             return DraftOutcome(created=False, already_drafted=True, draft=reservation.draft)
         assert reservation.draft is not None
         draft_id = reservation.draft.id
-        outcome = await self._deliver(content, to, sender_name=sender_name, application_id=record.id)
+        outcome = await self._deliver(content, to, sender_name=sender_name, application_id=record.id,
+                                      attachment_path=attachment_path)
         if outcome.created and outcome.channel:
             outcome.draft = await self.store.complete_email_draft(
                 draft_id, channel=outcome.channel, subject=content.subject, body_preview=content.body,
@@ -115,8 +117,8 @@ class MailDraftService:
         return await self._deliver(marked, to, sender_name=sender_name, application_id=None)
 
     async def _deliver(self, content: DraftContent, to: str, *, sender_name: str | None,
-                       application_id: str | None) -> DraftOutcome:
-        attachment, skipped = resume_attachment(self.config.resume_path)
+                       application_id: str | None, attachment_path: str | None = None) -> DraftOutcome:
+        attachment, skipped = resume_attachment(attachment_path or self.config.resume_path)
         note = "attached" if attachment else (f"skipped:{skipped}" if skipped else None)
         mode = self.config.channel
         imap_error: str | None = None

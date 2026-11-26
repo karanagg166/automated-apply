@@ -14,7 +14,8 @@ from __future__ import annotations
 import asyncio
 import random
 import re
-from datetime import UTC, datetime
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote_plus, urlsplit
@@ -35,6 +36,7 @@ from backend.app.browser_v2.answers import (
     resolve_answer,
 )
 from backend.app.browser_v2.forms import extract_form
+from backend.app.browser_v2.receipts import prune_failures
 from backend.app.browser_v2.rules import parse_applicants, parse_posted_age_days
 from backend.app.browser_v2.state import ApplicationState, guard_apply
 
@@ -54,6 +56,9 @@ PORTAL_LIMIT = re.compile(
     r"apply\s+limit\s+(?:reached|exceeded)", re.IGNORECASE)
 HISTORY_SENT = re.compile(r"^application sent\b", re.IGNORECASE)
 MAX_QUESTION_STEPS = 20
+OTP_VALUE = re.compile(r"^\s*(\d{4,8})\s*$")
+OtpProvider = Callable[[str, datetime], Awaitable[str | None]]
+
 
 VISIBLE_JS = """const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 &&
   getComputedStyle(el).visibility !== "hidden";
@@ -168,6 +173,16 @@ HISTORY_JS = "({title, company}) => {" + VISIBLE_JS + r"""
 }"""
 
 
+OTP_STATE_JS = "() => {" + VISIBLE_JS + r"""
+  const boxes = [...document.querySelectorAll('input[autocomplete="one-time-code"],input[name*="otp" i],input[id*="otp" i],input[class*="otp" i]')].filter(visible);
+  const verify = [...document.querySelectorAll("button,[role=button],input[type=submit]")].filter(visible)
+    .filter(b => /^(verify|submit|continue|login|proceed|confirm)$/i.test((text(b) || b.value || "").trim()));
+  const body = (document.body && document.body.innerText || "").slice(0, 8000);
+  return {boxes: boxes.length, maxLength: boxes.length === 1 ? (boxes[0].maxLength || 0) : 1,
+          verify: verify.length, invalid: /invalid otp|incorrect otp|otp (?:has )?expired|wrong otp/i.test(body),
+          url: location.href};
+}"""
+
 def classify_auth(probe: dict[str, Any]) -> str:
     path = urlsplit(str(probe.get("url", ""))).path.lower()
     if probe.get("challenge"):
@@ -202,8 +217,11 @@ class NaukriAdapter:
 
     def __init__(self, *, refresh_wait_ms: int = 3000, settle_ms: int = 1500,
                  receipts_dir: Path | None = None, jitter: tuple[float, float] = (0.8, 2.2),
-                 answerer: ScreeningResolver | None = None) -> None:
+                 answerer: ScreeningResolver | None = None,
+                 otp_provider: OtpProvider | None = None) -> None:
         self.refresh_wait_ms = refresh_wait_ms
+        # Phase 6A: auto email-OTP (MailReadService.fetch_recent_otp) when no owner answer exists.
+        self.otp_provider = otp_provider
         # Phase 3: Tier 0 profile -> Tier 1 semantic cache -> Tier 2 free LLM; None = HITL.
         self.answerer = answerer
         self.settle_ms = settle_ms
@@ -304,13 +322,18 @@ class NaukriAdapter:
         await asyncio.sleep(random.uniform(*self.jitter))
 
     async def _screenshot(self, page: Any, job_id: str, label: str) -> str | None:
-        self.receipts_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        path = self.receipts_dir / f"{job_id}-{stamp}-{label}.png"
+        # Phase 6A: verified receipts stay in receipts/naukri; every other capture goes to the
+        # receipts/failures ring buffer (newest 20 kept).
+        folder = self.receipts_dir if label == "receipt" else self.receipts_dir.parent / "failures"
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        path = folder / f"naukri-{job_id}-{stamp}-{label}.png"
         try:
+            folder.mkdir(parents=True, exist_ok=True, mode=0o700)
             await page.screenshot(path=str(path), full_page=False)
         except Exception:  # noqa: BLE001 - a missing screenshot must never change the outcome
             return None
+        if label != "receipt":
+            prune_failures(folder)
         return str(path)
 
     async def _state(self, page: Any) -> dict[str, Any]:
@@ -398,12 +421,85 @@ class NaukriAdapter:
     def _result(self, state: ApplicationState, reason: str, dry_run: bool, **extra: Any) -> ApplyResult:
         return ApplyResult(state=state, reason=reason, dry_run=dry_run, **extra)
 
+    # --- Phase 6A: live OTP entry -----------------------------------------------------------
+    @staticmethod
+    def otp_from_answers(hitl_answers: dict[str, str] | None) -> str | None:
+        """Newest owner answer that is a 4-8 digit code (resolved OTP HITL rows)."""
+        for answer in reversed(list((hitl_answers or {}).values())):
+            match = OTP_VALUE.match(answer or "")
+            if match:
+                return match.group(1)
+        return None
+
+    async def obtain_otp(self, hitl_answers: dict[str, str] | None, since: datetime) -> tuple[str | None, str]:
+        code = self.otp_from_answers(hitl_answers)
+        if code:
+            return code, "hitl_owner_answer"
+        if self.otp_provider is not None:
+            try:
+                fetched = await self.otp_provider(self.platform, since)
+            except Exception:  # noqa: BLE001 - mail outage: fall back to the OTP HITL
+                fetched = None
+            if fetched and OTP_VALUE.match(fetched):
+                return fetched.strip(), "email_otp"
+        return None, "none"
+
+    async def enter_otp(self, page: Any, code: str) -> bool:
+        """Type the code into Naukri's OTP box(es) and press Verify. True when the OTP screen clears."""
+        if not OTP_VALUE.match(code or ""):
+            return False
+        state = await page.evaluate(OTP_STATE_JS)
+        if not state.get("boxes"):
+            return False
+        boxes = page.locator('input[autocomplete="one-time-code"],input[name*="otp" i],input[id*="otp" i],'
+                             'input[class*="otp" i]')
+        digits = code.strip()
+        if state["boxes"] == 1:
+            await boxes.first.fill(digits)
+        else:  # one box per digit
+            for index, digit in enumerate(digits[: state["boxes"]]):
+                await boxes.nth(index).fill(digit)
+        await page.wait_for_timeout(300)
+        verify = page.locator("button,[role=button],input[type=submit]").filter(
+            has_text=re.compile(r"^\s*(verify|submit|continue|login|proceed|confirm)\s*$", re.IGNORECASE))
+        if await verify.count() >= 1:
+            await verify.first.click()
+        else:
+            await boxes.last.press("Enter")
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 10
+        while loop.time() < deadline:
+            await page.wait_for_timeout(400)
+            after = await page.evaluate(OTP_STATE_JS)
+            if after.get("invalid"):
+                return False
+            if not after.get("boxes"):
+                return True
+        return False
+
+    async def recover_otp(self, page: Any, hitl_answers: dict[str, str] | None) -> tuple[bool, str]:
+        since = datetime.now(UTC) - timedelta(minutes=3)
+        code, source = await self.obtain_otp(hitl_answers, since)
+        if code is None:
+            return False, "otp_unavailable"
+        return await self.enter_otp(page, code), source
+
     async def apply_job(self, page: Any, detail: JobDetail, profile: CandidateFacts | Any, *,
                         dry_run: bool = True, existing_state: str | None = None,
                         hitl_answers: dict[str, str] | None = None) -> ApplyResult:
         guard_apply(existing_state)
         facts = profile if isinstance(profile, CandidateFacts) else CandidateFacts.from_profile(profile)
         job_id = detail.listing.external_job_id
+        if detail.challenge == "otp" and not dry_run:
+            # Phase 6A: owner OTP (Telegram/dashboard) or auto email-OTP, then re-inspect once.
+            entered, _otp_source = await self.recover_otp(page, hitl_answers)
+            if entered:
+                await self._goto(page, detail.listing.url)
+                fresh = await self.inspect_job(page, detail.listing)
+                if fresh.challenge != "otp":
+                    return await self.apply_job(page, fresh, facts, dry_run=dry_run, existing_state=existing_state,
+                                                hitl_answers={k: v for k, v in (hitl_answers or {}).items()
+                                                              if not OTP_VALUE.match(v or "")})
         if detail.challenge:
             kind = {"challenge": "CAPTCHA", "otp": "OTP", "login": "AUTH"}[detail.challenge]
             return self._result(ApplicationState.WAITING_FOR_USER, "portal_" + detail.challenge, dry_run,

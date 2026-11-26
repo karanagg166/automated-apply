@@ -19,13 +19,13 @@ type Rules = Schema<"PortalRulesRead">;
 
 const PORTALS: Array<[string, string, boolean]> = [
   ["greenhouse", "Greenhouse (direct ATS)", false],
-  ["himalayas", "Himalayas", true],
-  ["hiringcafe", "HiringCafe", true],
+  ["himalayas", "Himalayas", false],
+  ["hiringcafe", "HiringCafe", false],
   ["instahyre", "Instahyre", true],
   ["internshala", "Internshala", true],
   ["lever", "Lever (direct ATS)", false],
   ["naukri", "Naukri", true],
-  ["we_work_remotely", "We Work Remotely", true],
+  ["we_work_remotely", "We Work Remotely", false],
   ["wellfound", "Wellfound", true],
   ["work_at_a_startup", "YC Work at a Startup", true],
 ];
@@ -47,8 +47,11 @@ const rules: Rules[] = PORTALS.map(([platform, label, login]) => ({
   timezone: "Asia/Kolkata",
   auth_status: "UNKNOWN",
   revision: 1,
-  adapter_status: platform === "naukri" ? "ready" : "pending_phase6",
+  adapter_status: "ready",
   requires_login: login,
+  quota_fallback_daily_cap: 10,
+  quota_drafts_per_cycle: 5,
+  paused_until: null,
 }));
 
 const mail = (
@@ -230,9 +233,10 @@ it("manages all 10 portals and marks which adapters can run live", async () => {
   mount(<PortalRulesEditor />);
   const headings = await screen.findAllByRole("heading", { level: 3 });
   expect(headings.map((h) => h.textContent)).toEqual(PORTALS.map((p) => p[1]));
-  expect(screen.getAllByText("Adapter ready")).toHaveLength(1);
-  expect(screen.getAllByText("Phase 6 adapter pending")).toHaveLength(9);
-  expect(screen.getAllByText("No login needed")).toHaveLength(2);
+  // Phase 6A: every portal has an adapter; the new ones stay disabled until enabled.
+  expect(screen.getAllByText("Adapter ready")).toHaveLength(10);
+  expect(screen.queryByText("Phase 6 adapter pending")).not.toBeInTheDocument();
+  expect(screen.getAllByText("No login needed")).toHaveLength(5);
   const naukri = screen.getByRole("region", { name: "Naukri" });
   expect(within(naukri).getByText("Adapter ready")).toBeInTheDocument();
   expect(

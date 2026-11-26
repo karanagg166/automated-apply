@@ -77,6 +77,56 @@ def can_move(record: ApplicationRecord, target: ApplicationState) -> bool:
     return record.state == target or target in TRANSITIONS[record.state]
 
 
+def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
+    """All 10 Phase 6A adapters (each portal still runs only when enabled in portal_rules)."""
+    from backend.app.browser_v2.adapters.greenhouse import GreenhouseAdapter
+    from backend.app.browser_v2.adapters.himalayas import HimalayasAdapter
+    from backend.app.browser_v2.adapters.hiringcafe import HiringCafeAdapter
+    from backend.app.browser_v2.adapters.instahyre import InstahyreAdapter
+    from backend.app.browser_v2.adapters.internshala import InternshalaAdapter
+    from backend.app.browser_v2.adapters.lever import LeverAdapter
+    from backend.app.browser_v2.adapters.we_work_remotely import WeWorkRemotelyAdapter
+    from backend.app.browser_v2.adapters.wellfound import WellfoundAdapter
+    from backend.app.browser_v2.adapters.work_at_a_startup import WorkAtAStartupAdapter
+
+    adapters: list[Any] = [
+        NaukriAdapter(otp_provider=otp_provider), GreenhouseAdapter(), LeverAdapter(), HimalayasAdapter(),
+        WeWorkRemotelyAdapter(), HiringCafeAdapter(), InstahyreAdapter(), InternshalaAdapter(), WellfoundAdapter(),
+        WorkAtAStartupAdapter()]
+    return {adapter.platform: adapter for adapter in adapters}
+
+
+def job_id_from_url(platform: str, url: str) -> str | None:
+    """Stable external_job_id for a pasted job URL (CLI/MCP test-apply)."""
+    import re
+    from urllib.parse import urlsplit
+
+    from backend.app.browser_v2.adapters.common import InteractivePortalAdapter
+
+    parts = urlsplit(url)
+    if parts.scheme != "https":
+        return None
+    segments = [s for s in parts.path.split("/") if s]
+    if platform == "naukri":
+        return external_job_id(url)
+    if platform == "greenhouse":
+        return segments[2] if len(segments) >= 3 and segments[1] == "jobs" and segments[2].isdigit() else None
+    if platform == "lever":
+        return segments[1] if len(segments) >= 2 and re.fullmatch(r"[0-9a-f-]{8,64}", segments[1]) else None
+    if platform == "we_work_remotely":
+        return segments[1] if len(segments) == 2 and segments[0] == "remote-jobs" else None
+    if platform == "himalayas":
+        from backend.app.browser_v2.adapters.himalayas import job_id
+
+        return job_id(url, None, None) if "/jobs/" in parts.path else None
+    adapters = default_adapters()
+    adapter = adapters.get(platform)
+    if isinstance(adapter, InteractivePortalAdapter):
+        match = re.match(adapter.config.job_path, parts.path)
+        return match.group(1) if match else None
+    return None
+
+
 class BrowserService:
     def __init__(self, manager: BraveBrowserManager, store: Store,
                  adapters: dict[str, PortalAdapter] | None = None, *, ai: AIRuntime | None = None) -> None:
@@ -84,10 +134,28 @@ class BrowserService:
         self.store = store
         self.adapters: dict[str, PortalAdapter] = adapters or {"naukri": NaukriAdapter()}
         self.ai = ai
+        self._configured = False
+        self.mail_reader: Any = None  # Phase 6A: MailReadService (auto email-OTP, recruiter replies)
+        self.auto_login: Any = None  # Phase 6A: browser_v2.auth.AutoLogin (Keychain / Google chip)
+        self.event_bus: Any = None  # Phase 6A: events_v2 bus (lifecycle events)
         if ai is not None:
             for adapter in self.adapters.values():
                 if hasattr(adapter, "answerer"):
                     adapter.answerer = ai.answerer
+                if hasattr(adapter, "composer") and getattr(ai, "intro", None) is not None:
+                    adapter.composer = ai.intro
+                    if hasattr(adapter, "filler"):
+                        adapter.filler.composer = ai.intro
+
+    async def configure_adapters(self, profile: dict[str, Any] | None = None) -> None:
+        """Per-cycle owner preferences for adapters (e.g. Greenhouse/Lever board lists)."""
+        if profile is None:
+            profile, _ = await self.store.load_profile()
+        for adapter in self.adapters.values():
+            configure = getattr(adapter, "configure", None)
+            if callable(configure):
+                configure(profile)
+        self._configured = True
 
     def gray_zone_possible(self, title: str | None, prefs: CandidatePreferences) -> bool:
         return self.ai is not None and self.ai.jd_scorer.available and title_gray_zone(title, prefs)
@@ -120,10 +188,31 @@ class BrowserService:
         await self.store.record_auth(platform, result.status.value)
         return plain(result)
 
+    async def attempt_auto_login(self, platform: str) -> dict[str, Any]:
+        """One bounded auto re-login (30-min cooldown per portal) before the AUTH HITL."""
+        if self.auto_login is None:
+            return {"ok": False, "method": "none", "reason": "auto_login_disabled", "hitl_kind": "AUTH"}
+        adapter = self.adapter(platform)
+        async with self.manager.job() as page:
+            result = await self.auto_login.attempt(platform, page, adapter)
+        if result.ok:
+            await self.store.record_auth(platform, "OK")
+        return dict(result.public())
+
+    async def publish(self, topic: str, payload: dict[str, Any]) -> None:
+        if self.event_bus is None:
+            return
+        try:
+            await self.event_bus.publish(topic, payload)
+        except Exception:  # noqa: BLE001, S110 - events are best effort
+            pass
+
     async def discover_listings(self, platform: str, query: str, limit: int = 20,
                                 rules: PortalRules | None = None) -> list[JobListing]:
         adapter = self.adapter(platform)
         rules = rules or await self.store.get_rules(platform)
+        if not self._configured:
+            await self.configure_adapters()
         async with self.manager.job() as page:
             return await adapter.discover_jobs(page, query=query, limit=limit,
                                                job_age_days=rules.max_job_age_days)
@@ -201,7 +290,8 @@ class BrowserService:
 
     async def apply_to_job(self, platform: str, url: str, *, dry_run: bool = True) -> dict[str, Any]:
         """Filter, guard and apply to one job URL (CLI/MCP)."""
-        job_id = external_job_id(url) if platform == "naukri" else None
+        self.adapter(platform)
+        job_id = job_id_from_url(platform, url)
         if not job_id:
             raise ValueError("unrecognized_job_url")
         listing = JobListing(platform=platform, external_job_id=job_id, url=url)
@@ -318,6 +408,12 @@ class BrowserService:
                          "screenshot": result.screenshot})
             if result.reason.startswith("portal_daily_limit"):
                 await self.store.record_portal_limit(platform)
+            if result.state == S.APPLIED:
+                await self.publish("job.applied", {"platform": platform, "external_job_id": job_id,
+                                                   "company": detail.listing.company, "title": detail.listing.title})
+            elif result.state == S.QUOTA_HIT_PENDING:
+                await self.publish("job.quota_hit", {"platform": platform, "external_job_id": job_id,
+                                                     "reason": result.reason})
             if result.question is not None:
                 hitl_id = await self.store.create_hitl(
                     record, platform, result.question.kind, result.question.prompt,
@@ -325,6 +421,8 @@ class BrowserService:
                                               "title": detail.listing.title,
                                               "company": detail.listing.company,
                                               "url": detail.listing.url})
+                await self.publish("hitl.opened", {"platform": platform, "kind": result.question.kind,
+                                                   "external_job_id": job_id})
         await self.manager.maybe_recycle_between_jobs()
         return summary | plain(result) | {"hitl_request_id": hitl_id}
 
@@ -355,4 +453,21 @@ async def build_ai(store: Store, env_file: str | None = None) -> AIRuntime | Non
 async def build_service(*, require_db: bool, env_file: str | None = None) -> tuple[BrowserService, str]:
     """Postgres-backed service; dry runs may fall back to memory before migration 004."""
     store, backend = await open_store(require_db=require_db, env_file=env_file)
-    return BrowserService(BraveBrowserManager(), store, ai=await build_ai(store, env_file)), backend
+    from backend.app.ai_v2.router import load_env
+    from backend.app.browser_v2.auth import AutoLogin
+    from backend.app.events_v2.bus import build_event_bus
+    from backend.app.mail_v2.reader import MailEventStore, MailReadService
+
+    env = load_env(env_file)
+    connection = getattr(store, "connection", None)
+    events = MailEventStore(connection if connection is not None and await MailEventStore.ready(connection) else None)
+    reader = MailReadService.from_env(env, events=events)
+    adapters = default_adapters(otp_provider=reader.fetch_recent_otp if reader.any_configured else None)
+    service = BrowserService(BraveBrowserManager(), store, adapters, ai=await build_ai(store, env_file))
+    service.mail_reader = reader
+    profile, _ = await store.load_profile()
+    owner_email = profile.get("email") if isinstance(profile.get("email"), str) else None
+    if (env.get("AUTO_LOGIN_DISABLED") or "").strip().lower() not in {"1", "true", "yes", "on"}:
+        service.auto_login = AutoLogin(mail_reader=reader if reader.any_configured else None, owner_email=owner_email)
+    service.event_bus = build_event_bus(env, connection=connection)
+    return service, backend

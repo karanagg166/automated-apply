@@ -22,7 +22,8 @@ from backend.app.ai_v2.providers import (
 from backend.app.ai_v2.router import LLMRouter
 
 ROOT = Path(__file__).resolve().parents[1] / "app"
-V2_PACKAGES = (ROOT / "ai_v2", ROOT / "browser_v2", ROOT / "telegram_v2", ROOT / "enrichment_v2", ROOT / "mail_v2")
+V2_PACKAGES = (ROOT / "ai_v2", ROOT / "browser_v2", ROOT / "telegram_v2", ROOT / "enrichment_v2", ROOT / "mail_v2",
+               ROOT / "agent_v2", ROOT / "events_v2")  # Phase 6A packages included
 LOCAL_RUNTIME_MODULES = {"ollama", "llama_cpp", "llama_cpp_python", "gpt4all", "vllm", "mlx_lm", "ctransformers",
                          "transformers", "lmstudio", "exllamav2"}
 LEGACY_AI_PREFIX = "backend.app.ai"
@@ -33,8 +34,9 @@ def v2_sources():
         yield from sorted(package.rglob("*.py"))
 
 
-def test_registry_has_exactly_the_six_free_remote_providers():
-    assert set(PROVIDER_REGISTRY) == {"groq", "gemini", "mistral", "openrouter", "cloudflare", "github_models"}
+def test_registry_has_exactly_the_seven_free_remote_providers():
+    assert set(PROVIDER_REGISTRY) == {"groq", "gemini", "mistral", "openrouter", "cloudflare", "github_models",
+                                      "cerebras"}
     validate_registry(PROVIDER_REGISTRY)
     for spec in PROVIDER_REGISTRY.values():
         assert spec.base_url.startswith("https://")
@@ -110,3 +112,56 @@ def test_only_the_embedding_model_runs_locally():
     assert DEFAULT_MODEL == "BAAI/bge-small-en-v1.5" and DIMENSIONS == 384
     source = (ROOT / "ai_v2" / "embeddings.py").read_text()
     assert "TextEmbedding" in source and "generate" not in source.lower()
+
+
+# --- Phase 6A: owner-deployed custom_cloud_llm slot is HTTPS + public host only ------------------
+CUSTOM_OK = {"CUSTOM_CLOUD_LLM_BASE_URL": "https://owner--sft-model.modal.run/v1",
+             "CUSTOM_CLOUD_LLM_API_KEY": "TEST_FAKE_TOKEN_ONLY", "CUSTOM_CLOUD_LLM_MODEL": "owner/qwen-sft"}
+
+
+@pytest.mark.parametrize("url", [
+    "http://owner--sft.modal.run/v1",              # plain HTTP
+    "https://localhost:8000/v1",
+    "https://127.0.0.1/v1",
+    "https://127.1/v1",                             # loopback shorthand
+    "https://10.0.0.7/v1",                          # private LAN
+    "https://192.168.1.4:1234/v1",                  # LM Studio on the LAN
+    "https://[::1]/v1",
+    "https://macbook.local/v1",
+    "https://nas.home.arpa/v1",
+    "https://ollama.example.com/v1",                # local runtime marker
+])
+def test_custom_cloud_llm_rejects_local_private_or_insecure_endpoints(url):
+    from backend.app.ai_v2.providers import custom_cloud_spec
+
+    env = CUSTOM_OK | {"CUSTOM_CLOUD_LLM_BASE_URL": url}
+    with pytest.raises(LocalLLMForbiddenError):
+        custom_cloud_spec(env)
+    router = LLMRouter(env=env)  # refused, never registered, worker keeps running
+    assert "custom_cloud_llm" not in router.providers and "custom_cloud_llm" in router.rejected
+    assert all("custom_cloud_llm" not in chain for chain in router.chains.values())
+
+
+def test_custom_cloud_llm_rejects_local_model_names():
+    from backend.app.ai_v2.providers import custom_cloud_spec
+
+    with pytest.raises(LocalLLMForbiddenError):
+        custom_cloud_spec(CUSTOM_OK | {"CUSTOM_CLOUD_LLM_MODEL": "ollama/llama3"})
+
+
+async def test_custom_cloud_llm_is_three_env_vars_and_respects_priority():
+    fallback = LLMRouter(env=CUSTOM_OK)
+    assert fallback.providers["custom_cloud_llm"].configured
+    assert fallback.providers["custom_cloud_llm"].spec.base_url == "https://owner--sft-model.modal.run/v1/chat/completions"
+    assert fallback.chain("screening_qa")[-1] == "custom_cloud_llm"
+    first = LLMRouter(env=CUSTOM_OK | {"CUSTOM_CLOUD_LLM_PRIORITY": "first"})
+    assert all(chain[0] == "custom_cloud_llm" for chain in first.chains.values())
+    status = {p["provider"]: p["status"] for p in await first.status()}
+    assert status["custom_cloud_llm"] == "healthy"
+
+
+def test_cerebras_is_a_free_remote_openai_compatible_provider():
+    spec = PROVIDER_REGISTRY["cerebras"]
+    assert spec.base_url == "https://api.cerebras.ai/v1/chat/completions" and spec.key_envs == ("CEREBRAS_API_KEY",)
+    assert spec.tpd is not None and spec.tpd <= 1_000_000
+    assert all("cerebras" in chain for chain in TASK_CHAINS.values())

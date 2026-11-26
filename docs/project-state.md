@@ -1,3 +1,29 @@
+## Python v2 Phase 6A (working tree, uncommitted), 2026-11-26
+
+All 10 portals now have v2 adapters (`backend/app/browser_v2/adapters/`): Greenhouse and
+Lever (public board APIs plus the hosted-form filler), Himalayas, We Work Remotely and
+HiringCafe (external ATS handoff), and Instahyre, Internshala, Wellfound and YC Work at a
+Startup (persistent Brave). The nine new portals stay `enabled=false` until the owner
+switches them on. Naukri gained live OTP entry.
+
+The phase also added:
+- `agent_v2`: a LangGraph control agent behind Telegram free chat and `POST /api/v1/v2/agent/chat`;
+- `mail_v2/reader.py`: read-only inbox reading (IMAP → Gmail API → Mail.app) with auto email-OTP,
+  recruiter-reply alerts and job-alert ingestion;
+- `browser_v2/auth.py`: Keychain or Google-chip auto re-login with a 30-minute cooldown;
+- a multi-resume picker, a nightly digest and a failure-screenshot ring buffer;
+- `events_v2` (postgres / CloudAMQP / Upstash);
+- Cerebras plus an HTTPS-only `custom_cloud_llm` slot, and `export-sft-dataset`.
+
+Migration 004 was amended:
+- `portal_rules`: `quota_fallback_daily_cap`, `quota_drafts_per_cycle`, `paused_until`;
+- new `mail_events` table;
+- `telegram_v2_state.last_digest_on`.
+
+It is still **not applied** on live Supabase; the owner runs `migrate_v2_core apply` before
+the Phase 6B cutover. `rust/`, `extension/` and the LaunchAgents are unchanged. Details are
+in `LATEST_REPORT.md`.
+
 ## Latest local acceptance, 2026-11-25
 
 The interrupted-read recovery commit

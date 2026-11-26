@@ -157,3 +157,20 @@ async def test_quota_lifecycle_survives_restarts_with_exactly_one_draft(store, d
     finally:
         await restarted_connection.close()
     assert sum(1 for i in FakeIMAP.instances for c in i.calls if c[0] == "append") == 1
+
+
+async def test_phase6a_dashboard_quota_columns_drive_the_processor(store):
+    """quota_drafts_per_cycle / quota_fallback_daily_cap are live portal_rules columns (Phase 6A)."""
+    from backend.app.browser_v2.quota import fallback_daily_cap
+
+    for i in range(3):
+        await parked(store, 60 + i)
+    rules = await store.get_rules("naukri")
+    assert (rules.quota_fallback_daily_cap, rules.quota_drafts_per_cycle) == (10, 5)
+    rules = await store.update_rules("naukri", {"quota_drafts_per_cycle": 1, "quota_fallback_daily_cap": 2},
+                                     rules.revision)
+    assert fallback_daily_cap(rules) == 2
+    report = await QuotaHitProcessor(store, clock=lambda: NOW).process(rules, {}, quota_exhausted=True)
+    assert report.queued == 1 and await store.count_state(S.QUOTA_HIT_PENDING, "naukri") == 2
+    await store.update_rules("naukri", {"quota_drafts_per_cycle": 5, "quota_fallback_daily_cap": 10},
+                             rules.revision)

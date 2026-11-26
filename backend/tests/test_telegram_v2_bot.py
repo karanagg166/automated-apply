@@ -288,6 +288,7 @@ async def test_plain_text_refuses_to_guess_between_open_questions(store, fake):
     _, second = await waiting_job(store, 2)
     bot = make_bot(store, fake)
     await bot.handle_update(msg("Yes"))
+    await bot.drain_agent()  # Phase 6A: non-command free text is routed via the background agent task
     assert "won't guess" in last_reply(fake) and first.ref in last_reply(fake) and second.ref in last_reply(fake)
     assert [r.status for r in (await store.list_hitl(None))[0]] == ["OPEN", "OPEN"]
     await bot.handle_update(msg(f"/skip {first.ref}"))

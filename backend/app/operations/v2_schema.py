@@ -13,7 +13,7 @@ MIGRATION = ROOT / "supabase/fresh_public/followups/004_python_v2_core_tables.sq
 TABLES = frozenset({
     "portal_rules", "applications", "application_state_events", "hitl_requests",
     "semantic_cache", "llm_provider_usage", "enrichment_cache", "enrichment_credits",
-    "email_drafts", "worker_control", "telegram_v2_state",
+    "email_drafts", "worker_control", "telegram_v2_state", "mail_events",
 })
 APPEND_ONLY = frozenset({"application_state_events"})
 KEYED_SECTIONS = ("tables", "columns", "constraints", "triggers", "policies", "service_grants")

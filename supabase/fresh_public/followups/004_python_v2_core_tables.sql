@@ -43,10 +43,21 @@ CREATE TABLE IF NOT EXISTS public.portal_rules (
     auth_status TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK (auth_status IN ('OK','AUTH_REQUIRED','UNKNOWN')),
     auth_checked_at TIMESTAMPTZ,
     portal_limit_hit_at TIMESTAMPTZ,
+    -- Phase 6A: live-editable quota fallback volume (dashboard /autopilot).
+    quota_fallback_daily_cap INT NOT NULL DEFAULT 10 CHECK (quota_fallback_daily_cap BETWEEN 0 AND 100),
+    quota_drafts_per_cycle INT NOT NULL DEFAULT 5 CHECK (quota_drafts_per_cycle BETWEEN 0 AND 50),
+    -- Phase 6A: temporary owner pause ("pause Internshala for 3 hours"); NULL = not paused.
+    paused_until TIMESTAMPTZ,
     revision INT NOT NULL DEFAULT 1 CHECK (revision >= 1),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT ck_portal_rules_delay_order CHECK (max_delay_sec >= min_delay_sec)
 );
+-- Phase 6A columns are also added to a portal_rules table created by an earlier draft of 004.
+ALTER TABLE public.portal_rules ADD COLUMN IF NOT EXISTS quota_fallback_daily_cap INT NOT NULL DEFAULT 10
+    CHECK (quota_fallback_daily_cap BETWEEN 0 AND 100);
+ALTER TABLE public.portal_rules ADD COLUMN IF NOT EXISTS quota_drafts_per_cycle INT NOT NULL DEFAULT 5
+    CHECK (quota_drafts_per_cycle BETWEEN 0 AND 50);
+ALTER TABLE public.portal_rules ADD COLUMN IF NOT EXISTS paused_until TIMESTAMPTZ;
 
 -- Phase 5: the 10-portal roster. Only naukri has a live adapter today; the other
 -- nine are seeded disabled so the dashboard can manage them before Phase 6 wires them.
@@ -237,6 +248,29 @@ CREATE TABLE IF NOT EXISTS public.telegram_v2_state (
 );
 INSERT INTO public.telegram_v2_state (singleton_key) VALUES ('primary')
 ON CONFLICT (singleton_key) DO NOTHING;
+-- Phase 6A: the nightly Telegram digest is sent at most once per local date (restart-safe).
+ALTER TABLE public.telegram_v2_state ADD COLUMN IF NOT EXISTS last_digest_on DATE;
+
+-- Phase 6A: read-only mail watcher results (recruiter replies, interview alerts, job-alert
+-- ingestion). Deduplicated by message_key (Message-ID or provider id) so a restart never
+-- re-alerts. Never stores OTP codes, full bodies or credentials; snippet is bounded.
+CREATE TABLE IF NOT EXISTS public.mail_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_key TEXT NOT NULL CHECK (length(message_key) BETWEEN 1 AND 300),
+    kind TEXT NOT NULL CHECK (kind IN ('RECRUITER_REPLY','INTERVIEW','JOB_ALERT')),
+    source TEXT NOT NULL CHECK (source IN ('imap','gmail_api','mail_app')),
+    platform TEXT,
+    company_name TEXT CHECK (company_name IS NULL OR length(company_name) <= 200),
+    sender TEXT CHECK (sender IS NULL OR length(sender) <= 200),
+    subject TEXT CHECK (subject IS NULL OR length(subject) <= 300),
+    snippet TEXT CHECK (snippet IS NULL OR length(snippet) <= 500),
+    application_id UUID REFERENCES public.applications(id),
+    received_at TIMESTAMPTZ,
+    alerted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_mail_events_message_key UNIQUE (message_key)
+);
+CREATE INDEX IF NOT EXISTS ix_mail_events_created ON public.mail_events (created_at);
 
 -- Ownership, RLS and runtime grants. Role-guarded so a disposable database
 -- without the Supabase roles can still validate the DDL.
@@ -248,7 +282,7 @@ DECLARE
     deletable CONSTANT TEXT[] := ARRAY['semantic_cache'];
     v2_tables CONSTANT TEXT[] := ARRAY['portal_rules','applications','application_state_events',
         'hitl_requests','semantic_cache','llm_provider_usage','enrichment_cache',
-        'enrichment_credits','email_drafts','worker_control','telegram_v2_state'];
+        'enrichment_credits','email_drafts','worker_control','telegram_v2_state','mail_events'];
 BEGIN
     FOREACH table_name IN ARRAY v2_tables LOOP
         IF to_regclass('public.' || table_name) IS NULL THEN

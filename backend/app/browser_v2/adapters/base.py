@@ -50,6 +50,10 @@ class JobDetail:
     salary_text: str | None = None
     location: str | None = None
     work_mode: str | None = None
+    # Phase 6A: where the application form lives and which ATS hosts it (greenhouse | lever
+    # | None). Feed/board adapters delegate supported ATS forms to the hosted-form filler.
+    apply_url: str | None = None
+    ats: str | None = None
 
 
 @dataclass(frozen=True)

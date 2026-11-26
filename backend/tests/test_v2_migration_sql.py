@@ -29,7 +29,7 @@ def test_migration_is_additive():
 
 def test_every_create_is_idempotent():
     code = re.sub(r"--.*", "", SQL)
-    assert len(re.findall(r"CREATE TABLE IF NOT EXISTS", code)) == 11
+    assert len(re.findall(r"CREATE TABLE IF NOT EXISTS", code)) == 12  # Phase 6A: + mail_events
     assert not re.search(r"CREATE TABLE (?!IF NOT EXISTS)", code)
     assert not re.search(r"CREATE (?:UNIQUE )?INDEX (?!IF NOT EXISTS)", code)
     assert "CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA extensions" in code
@@ -123,7 +123,7 @@ def test_migration_applies_twice_on_disposable_postgres(tmp_path):
         assert jobs == "2" and rules == "10"  # Phase 5: 10-portal roster, only naukri enabled
         assert platforms == ("greenhouse:false,himalayas:false,hiringcafe:false,instahyre:false,internshala:false,"
                              "lever:false,naukri:true,we_work_remotely:false,wellfound:false,work_at_a_startup:false")
-        assert policies == "10"  # 11 tables minus semantic_cache (pgvector block stripped)
+        assert policies == "11"  # 12 tables minus semantic_cache (pgvector block stripped)
         assert owner == "job_agent_owner" and events_update == "f" and apps_update == "t"
         duplicate = subprocess.run(
             [*psql, "-c", ("INSERT INTO public.applications (platform, external_job_id, state) VALUES "

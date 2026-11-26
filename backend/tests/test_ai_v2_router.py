@@ -28,8 +28,10 @@ from backend.tests.test_v2_migration_sql import PG_BIN, free_port
 FAKE = "TEST_FAKE_TOKEN_ONLY"
 ALL_KEYS = {"GROQ_API_KEY": FAKE, "GEMINI_API_KEY": FAKE, "MISTRAL_API_KEY": FAKE, "OPENROUTER_API_KEY": FAKE,
             "CLOUDFLARE_API_TOKEN": FAKE, "CLOUDFLARE_ACCOUNT_ID": "acct-test", "GITHUB_MODELS_TOKEN": FAKE}
+WITH_CEREBRAS = ALL_KEYS | {"CEREBRAS_API_KEY": FAKE}  # Phase 6A provider (kept out of the failover fixtures)
 HOSTS = {"api.groq.com": "groq", "generativelanguage.googleapis.com": "gemini", "api.mistral.ai": "mistral",
-         "openrouter.ai": "openrouter", "api.cloudflare.com": "cloudflare", "models.github.ai": "github_models"}
+         "openrouter.ai": "openrouter", "api.cloudflare.com": "cloudflare", "models.github.ai": "github_models",
+         "api.cerebras.ai": "cerebras"}
 
 
 class Answer(BaseModel):
@@ -97,7 +99,8 @@ async def test_unconfigured_providers_are_skipped_cleanly():
     assert [a["outcome"] for a in result.attempts[:2]] == ["unconfigured", "unconfigured"]
     states = {p["provider"]: p["status"] for p in await router.status()}
     assert states == {"groq": "unconfigured", "gemini": "unconfigured", "mistral": "healthy",
-                      "openrouter": "unconfigured", "cloudflare": "unconfigured", "github_models": "unconfigured"}
+                      "openrouter": "unconfigured", "cloudflare": "unconfigured", "github_models": "unconfigured",
+                      "cerebras": "unconfigured"}
 
 
 async def test_cloudflare_needs_account_id_and_github_accepts_github_token():
@@ -209,12 +212,13 @@ async def test_all_providers_failing_raises_exhausted_with_attempt_log():
     router, calls, _ = make_router({name: 503 for name in HOSTS.values()})
     with pytest.raises(AllLLMProvidersExhaustedError) as exc:
         await router.generate_json("screening_qa", "s", "u", Answer)
-    assert len(calls) == 6 and [a["outcome"] for a in exc.value.attempts] == ["http_503"] * 6
+    assert len(calls) == 6 and [a["outcome"] for a in exc.value.attempts if a["outcome"] != "unconfigured"] \
+        == ["http_503"] * 6
 
 
 def test_wire_formats_for_every_provider():
     for name, spec in PROVIDER_REGISTRY.items():
-        config = resolve_provider(spec, ALL_KEYS)
+        config = resolve_provider(spec, WITH_CEREBRAS)
         request = build_request(config, "sys", "user", max_output_tokens=50)
         assert request.url.startswith("https://") and FAKE not in request.url  # key never in the URL
         assert FAKE in json.dumps(request.headers)

@@ -68,7 +68,8 @@ def test_login_setup_defaults_to_adapter_ready_portals(monkeypatch):
     seen = {}
     monkeypatch.setattr(cli, "login_setup", lambda portals: seen.setdefault("portals", portals) and 0)
     cli.main(["login-setup"])
-    assert seen["portals"] == ["naukri"]
+    # Phase 6A: every login portal now has an adapter (feeds/ATS boards need no login).
+    assert seen["portals"] == ["instahyre", "internshala", "naukri", "wellfound", "work_at_a_startup"]
     seen.clear()
     cli.main(["login-setup", "--all"])
     assert len(seen["portals"]) == 8 and "greenhouse" not in seen["portals"]

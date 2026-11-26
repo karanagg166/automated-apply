@@ -13,7 +13,7 @@ MAX_BUTTON_CHARS = 40
 LOGIN_COMMAND = "backend/venv/bin/python -m backend.app.browser_v2.cli login-setup --portal {platform}"
 CONFLICT_MESSAGE = "Another poller — likely legacy com.automated-apply.rust — is using this bot token"
 
-HELP_TEXT = "<b>automated-apply HITL bot</b>\nAnswer: tap a button, <b>swipe-reply</b> to a question, or:\n/answer &lt;ref&gt; &lt;text&gt; — answer &amp; save to cache\n/once &lt;ref&gt; &lt;text&gt; — answer without caching\n/skip &lt;ref&gt; · /retry &lt;ref&gt;\n/resume &lt;portal&gt; — after login-setup\n/pending — open requests · /status — worker digest\n/pause · /start_worker (or /unpause)"
+HELP_TEXT = "<b>automated-apply HITL bot</b>\nAnswer: tap a button, <b>swipe-reply</b> to a question, or:\n/answer &lt;ref&gt; &lt;text&gt; — answer &amp; save to cache\n/once &lt;ref&gt; &lt;text&gt; — answer without caching\n/skip &lt;ref&gt; · /retry &lt;ref&gt;\n/resume &lt;portal&gt; — after login-setup\n/pending — open requests · /status — worker digest\n/pause · /start_worker (or /unpause)\n\n<b>Free chat</b> (control agent; never interrupts an in-flight application): just type, or /ask &lt;text&gt; — e.g. <i>raise Naukri daily limit to 60</i>, <i>pause Internshala for 3 hours</i>, <i>blacklist TCS</i>, <i>how many applied today?</i>"
 
 KIND_ICON = {"QUESTION": "❓", "AUTH": "🔐", "CAPTCHA": "🧩", "OTP": "🔢", "ERROR": "⚠️"}
 

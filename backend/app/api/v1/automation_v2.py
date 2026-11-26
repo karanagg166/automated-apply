@@ -1,7 +1,8 @@
 """Python v2 control plane: portal rules, screening facts, applications, worker control,
 AI router status, the semantic-cache curation endpoints (Phase 3), the HITL inbox +
 Telegram status (Phase 4; same HITLResolutionService as the Telegram bot) and the
-Phase 5 quota fallback: Gmail drafts (READ + DRAFT ONLY), enrichment and mail status.
+Phase 5 quota fallback: Gmail drafts (READ + DRAFT ONLY), enrichment and mail status, and
+Phase 6A: the LangGraph control agent chat, event-bus status and READ-ONLY recruiter replies.
 
 Thin handlers over browser_v2.store (v2 tables) and the existing candidate
 profile repository (screening facts live in candidate_profiles.preferences).
@@ -29,6 +30,8 @@ from backend.app.browser_v2.hitl import HITLResolutionService, Resolution
 from backend.app.browser_v2.rules import PortalRules, within_active_hours
 from backend.app.browser_v2.schemas import (
     SCREENING_FIELDS,
+    AgentChatInput,
+    AgentChatRead,
     ApplicationPage,
     ApplicationRead,
     AutomationStatus,
@@ -36,11 +39,14 @@ from backend.app.browser_v2.schemas import (
     EmailDraftPage,
     EmailDraftRead,
     EnrichmentStatusRead,
+    EventBusStatusRead,
     HitlPage,
     HitlRead,
     HitlResolutionRead,
     HitlResolveInput,
     HitlStatusName,
+    MailEventRead,
+    MailReplyPage,
     MailStatusRead,
     PortalRulesPatch,
     PortalRulesRead,
@@ -484,3 +490,46 @@ async def draft_now(application_id: str, store: StoreDep, ai: AIDep, mail: MailD
         "channel": draft.channel if draft is not None else None,
         "enrichment_status": enrichment.get("status"), "enrichment_source": enrichment.get("source"),
         "draft": draft.public() if draft is not None else None})
+
+
+# --- Phase 6A: control agent, event bus, read-only recruiter replies ----------------------
+@router.post("/agent/chat", response_model=AgentChatRead)
+async def agent_chat(data: AgentChatInput, store: StoreDep, ai: AIDep) -> AgentChatRead:
+    """The same LangGraph control agent as Telegram free chat (guardrailed tools only; it can
+    never send email, delete data or re-apply). Effects use the borrowed pooled connection."""
+    from backend.app.agent_v2.control_graph import ControlAgent
+    from backend.app.mail_v2.reader import MailEventStore
+
+    connection = getattr(store, "connection", None)
+    events = MailEventStore(connection) if connection is not None and await MailEventStore.ready(connection) else None
+    result = await ControlAgent(store, ai=ai, mail_events=events).run(data.text)
+    return AgentChatRead(reply=result["reply"], tool=result.get("tool"), source=result.get("source"),
+                         verdict=result.get("verdict"), ok=bool(result.get("ok")))
+
+
+@router.get("/events/status", response_model=EventBusStatusRead)
+async def events_status() -> EventBusStatusRead:
+    from backend.app.ai_v2.router import load_env
+    from backend.app.events_v2.bus import build_event_bus, bus_status
+
+    env = load_env()
+    bus = build_event_bus(env)
+    try:
+        status = await bus_status(bus, env)
+    finally:
+        await bus.close()
+    return EventBusStatusRead(**{k: status[k] for k in ("backend", "requested_backend", "fell_back", "healthy",
+                                                         "published", "handler_errors", "topics", "remote")})
+
+
+@router.get("/mail/replies", response_model=MailReplyPage)
+async def mail_replies(store: StoreDep, limit: Annotated[int, Query(ge=1, le=100)] = 30) -> MailReplyPage:
+    """Recruiter replies / interview alerts found by the READ-ONLY inbox watcher (newest first)."""
+    from backend.app.mail_v2.reader import MailEventStore, MailReadService
+
+    connection = getattr(store, "connection", None)
+    ready = connection is not None and await MailEventStore.ready(connection)
+    rows = await MailEventStore(connection).recent(("RECRUITER_REPLY", "INTERVIEW"), limit=limit) if ready else []
+    reader = MailReadService(mail_config())
+    return MailReplyPage(configured=reader.any_configured, tiers=reader.status()["tiers"],
+                         items=[MailEventRead(**row.public()) for row in rows])

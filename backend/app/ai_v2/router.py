@@ -27,12 +27,16 @@ from pydantic import BaseModel, ValidationError
 
 from backend.app.ai_v2.pii import scrub_pii
 from backend.app.ai_v2.providers import (
+    CUSTOM_CLOUD_NAME,
     PROVIDER_REGISTRY,
     TASK_CHAINS,
+    LocalLLMForbiddenError,
     ProviderConfig,
     ProviderResponseError,
     ProviderSpec,
     build_request,
+    custom_cloud_priority,
+    custom_cloud_spec,
     extract_json_object,
     parse_response,
     resolve_provider,
@@ -106,10 +110,13 @@ class LLMRouter:
                  transport: httpx.AsyncBaseTransport | None = None,
                  clock: Callable[[], datetime] | None = None,
                  timeout_sec: float = DEFAULT_TIMEOUT_SEC) -> None:
-        self.registry = dict(registry or PROVIDER_REGISTRY)
-        validate_registry(self.registry)
-        self.chains = dict(chains or TASK_CHAINS)
         self.env = dict(env if env is not None else load_env())
+        self.registry = dict(registry or PROVIDER_REGISTRY)
+        self.chains = dict(chains or TASK_CHAINS)
+        self.rejected: dict[str, str] = {}
+        if registry is None:
+            self._add_custom_cloud()
+        validate_registry(self.registry)
         self.usage = usage or MemoryUsageStore()
         self.transport = transport
         self.clock = clock or (lambda: datetime.now(UTC))
@@ -118,6 +125,21 @@ class LLMRouter:
         self._secrets: tuple[str, ...] = ()
         self.providers: dict[str, ProviderConfig] = {
             name: resolve_provider(spec, self.env) for name, spec in self.registry.items()}
+
+    def _add_custom_cloud(self) -> None:
+        """Phase 6A owner-deployed endpoint: HTTPS + public host or it is refused (never local)."""
+        try:
+            spec = custom_cloud_spec(self.env)
+        except LocalLLMForbiddenError as exc:
+            self.rejected[CUSTOM_CLOUD_NAME] = str(exc)
+            logger.warning("custom_cloud_llm refused: %s", exc)
+            return
+        if spec is None:
+            return
+        self.registry[CUSTOM_CLOUD_NAME] = spec
+        first = custom_cloud_priority(self.env) == "first"
+        self.chains = {task: ((CUSTOM_CLOUD_NAME, *chain) if first else (*chain, CUSTOM_CLOUD_NAME))
+                       for task, chain in self.chains.items()}
 
     # --- configuration --------------------------------------------------------------
     def register_secrets(self, secrets: Iterable[str]) -> None:
@@ -161,6 +183,13 @@ class LLMRouter:
                 "tpd_limit": spec.tpd, "circuit_open_until": snapshot.circuit_open_until,
                 "last_error": snapshot.last_error, "consecutive_failures": self.failures.get(name, 0),
                 "key_envs": list(spec.key_envs) + list(spec.required_envs)})
+        for name, problem in self.rejected.items():  # e.g. a localhost custom_cloud_llm URL
+            output.append({
+                "provider": name, "label": "Custom cloud LLM (refused)", "status": "unconfigured", "model": "",
+                "problem": f"refused: {problem}", "api_style": "openai", "requests_today": 0,
+                "requests_this_minute": 0, "tokens_today": 0, "rpm_limit": 0, "rpd_limit": 0, "tpd_limit": None,
+                "circuit_open_until": None, "last_error": None, "consecutive_failures": 0,
+                "key_envs": ["CUSTOM_CLOUD_LLM_BASE_URL", "CUSTOM_CLOUD_LLM_API_KEY", "CUSTOM_CLOUD_LLM_MODEL"]})
         return output
 
     @staticmethod

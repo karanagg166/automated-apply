@@ -22,7 +22,8 @@ TOOL_NAMES = ("check_portal_session", "discover_portal_jobs", "inspect_job_form"
               "recycle_browser", "lookup_semantic_cache", "save_semantic_cache_entry", "get_llm_router_status",
               "list_open_hitl_requests", "resolve_hitl_request", "get_telegram_status",
               "enrich_company_contact", "create_application_gmail_draft", "list_email_drafts",
-              "get_mail_and_enrichment_status")
+              "get_mail_and_enrichment_status", "agent_control_chat", "get_event_bus_status",
+              "list_recruiter_replies")
 # Phase 5 mail tools are READ + DRAFT ONLY (enforced by test_gmail_no_send_guardrail.py).
 DRAFT_ONLY_MAIL_TOOLS = frozenset({"create_application_gmail_draft", "list_email_drafts",
                                    "get_mail_and_enrichment_status"})
@@ -203,3 +204,34 @@ async def get_mail_and_enrichment_status() -> dict[str, Any]:
     processor = await quota_processor()
     assert processor.enrichment is not None and processor.mail is not None
     return plain({"mail": processor.mail.status(), "enrichment": await processor.enrichment.status()})
+
+
+# --- Phase 6A: control agent, event bus, read-only recruiter-reply feed ----------------------
+@mcp.tool()
+async def agent_control_chat(text: str) -> dict[str, Any]:
+    """Send one owner message to the LangGraph control agent (same guardrailed tools as Telegram
+    free chat: portal rules, preferences, status, semantic-cache teaching, worker control)."""
+    from backend.app.agent_v2.control_graph import ControlAgent
+
+    svc = await service()
+    reader = getattr(svc, "mail_reader", None)
+    agent = ControlAgent(svc.store, ai=svc.ai, mail_events=getattr(reader, "events", None),
+                         event_bus=getattr(svc, "event_bus", None))
+    return plain(await agent.run(text[:2000]))
+
+
+@mcp.tool()
+async def get_event_bus_status() -> dict[str, Any]:
+    """Active lifecycle event bus backend (postgres | cloudamqp | upstash_redis) and health."""
+    from backend.app.events_v2.bus import bus_status
+
+    return plain(await bus_status(getattr(await service(), "event_bus", None)))
+
+
+@mcp.tool()
+async def list_recruiter_replies(limit: int = 20) -> dict[str, Any]:
+    """Recent recruiter replies / interview alerts detected by the READ-ONLY inbox watcher."""
+    reader = getattr(await service(), "mail_reader", None)
+    events = getattr(reader, "events", None)
+    rows = await events.recent(("RECRUITER_REPLY", "INTERVIEW"), limit=max(1, min(limit, 100))) if events else []
+    return {"items": [plain(row.public()) for row in rows], "permission": "READ_ONLY"}

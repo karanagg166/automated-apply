@@ -84,14 +84,52 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
         ProviderSpec("github_models", "GitHub Models", "openai", "https://models.github.ai/inference/chat/completions",
                      "openai/gpt-4.1-mini", ("GITHUB_MODELS_TOKEN", "GITHUB_TOKEN"), "GITHUB_MODELS_MODEL",
                      rpm=10, rpd=140, tpd=None),
+        # Phase 6A: Cerebras free tier (1M tokens/day); conservative local caps below it.
+        ProviderSpec("cerebras", "Cerebras (free tier)", "openai", "https://api.cerebras.ai/v1/chat/completions",
+                     "llama-3.3-70b", ("CEREBRAS_API_KEY",), "CEREBRAS_MODEL",
+                     rpm=25, rpd=12_000, tpd=900_000),
     )
 }
 
+# Phase 6A: an owner-deployed OpenAI-compatible endpoint (e.g. a fine-tuned open model on
+# Modal). Enabled by 3 env vars, zero code changes; HTTPS + public host only (never
+# localhost / LAN / private IPs / local runtimes). Placement: CUSTOM_CLOUD_LLM_PRIORITY.
+CUSTOM_CLOUD_NAME = "custom_cloud_llm"
+CUSTOM_CLOUD_ENVS = ("CUSTOM_CLOUD_LLM_BASE_URL", "CUSTOM_CLOUD_LLM_API_KEY", "CUSTOM_CLOUD_LLM_MODEL")
+
+
+def custom_cloud_spec(env: Mapping[str, str]) -> ProviderSpec | None:
+    """The custom slot's spec, or None when CUSTOM_CLOUD_LLM_BASE_URL is unset.
+
+    Raises LocalLLMForbiddenError for a non-HTTPS / local / private endpoint or model.
+    """
+    base = (env.get("CUSTOM_CLOUD_LLM_BASE_URL") or "").strip()
+    if not base:
+        return None
+    url = base.rstrip("/")
+    if not url.endswith("/chat/completions"):
+        url += "/chat/completions"
+    model = (env.get("CUSTOM_CLOUD_LLM_MODEL") or "").strip() or "custom-model"
+    spec = ProviderSpec(CUSTOM_CLOUD_NAME, "Custom cloud LLM (owner-deployed)", "openai", url, model,
+                        ("CUSTOM_CLOUD_LLM_API_KEY",), "CUSTOM_CLOUD_LLM_MODEL", rpm=30, rpd=5_000, tpd=None,
+                        json_mode=(env.get("CUSTOM_CLOUD_LLM_JSON_MODE") or "true").strip().lower()
+                        not in {"0", "false", "no", "off"})
+    assert_remote_free_endpoint(spec)
+    return spec
+
+
+def custom_cloud_priority(env: Mapping[str, str]) -> str:
+    value = (env.get("CUSTOM_CLOUD_LLM_PRIORITY") or "fallback").strip().lower()
+    return "first" if value == "first" else "fallback"
+
 # Failover order per task (AGENTS.md §4.3). Unknown names are ignored.
 TASK_CHAINS: dict[str, tuple[str, ...]] = {
-    "screening_qa": ("groq", "gemini", "mistral", "openrouter", "cloudflare", "github_models"),
-    "jd_scoring": ("gemini", "groq", "mistral", "openrouter", "cloudflare", "github_models"),
-    "email_draft": ("gemini", "groq", "mistral", "openrouter", "cloudflare", "github_models"),
+    "screening_qa": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models"),
+    "jd_scoring": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
+    "email_draft": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
+    # Phase 6A: short portal intro / cover notes and the control agent's intent parser.
+    "cover_note": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
+    "agent_intent": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models"),
 }
 
 LOCAL_GENERATIVE_MARKERS = re.compile(
@@ -109,6 +147,13 @@ def assert_remote_free_endpoint(spec: ProviderSpec) -> None:
         raise LocalLLMForbiddenError(f"local_generative_llm_forbidden:{spec.name}")
     if parts.scheme != "https" or not host or host in LOCAL_HOSTS or host.endswith((".local", ".localhost",
                                                                                     ".internal", ".lan")):
+        raise LocalLLMForbiddenError(f"non_remote_endpoint_forbidden:{spec.name}")
+    if re.fullmatch(r"[0-9.]+", host):
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:  # "127.1"-style shorthand is a loopback address in disguise
+            raise LocalLLMForbiddenError(f"ambiguous_numeric_host_forbidden:{spec.name}") from None
+    if host.endswith((".home.arpa", ".home", ".corp", ".intranet", ".private")):
         raise LocalLLMForbiddenError(f"non_remote_endpoint_forbidden:{spec.name}")
     try:
         address = ipaddress.ip_address(host)
