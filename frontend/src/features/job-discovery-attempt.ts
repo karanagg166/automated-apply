@@ -138,7 +138,7 @@ export async function inspectDiscovery(): Promise<JobDiscoveryRun> {
     return get(attempt);
   });
 }
-/** Original PUT needs explicit consent. An existing retained finding uses the local-only completion endpoint. */
+/** Original PUT needs explicit consent. An existing saved run is only read back, never re-dispatched. */
 export async function recoverDiscovery(
   input: Record<string, unknown>,
   mayStart = false,
@@ -162,17 +162,7 @@ export async function recoverDiscovery(
       } catch (error) {
         if (!(error instanceof ApiError) || error.status !== 404) throw error;
       }
-      if (saved) {
-        if (discoveryComplete(saved) || saved.usage?.finding_retained !== true)
-          return saved;
-        return validateDiscoveryRun(
-          await api<JobDiscoveryRun>(`${path(attempt.requestId)}/complete`, {
-            method: "POST",
-            body: JSON.stringify({}),
-          }),
-          attempt,
-        );
-      }
+      if (saved) return saved;
       if (!mayStart || input.source !== attempt.source)
         throw new Error(
           "The original search has no saved admission yet. Review and authorize that same source before retrying.",

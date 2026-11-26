@@ -13,7 +13,6 @@ from backend.app.db.session import get_db_session
 from backend.app.integrations.connection_service import ConnectionService
 from backend.app.integrations.registry import connector_registry
 from backend.app.integrations.token_store import ConnectionError
-from backend.app.mcp.registry import mcp_status
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["Integrations"])
 COOKIE = "gmail_oauth_browser"
@@ -33,11 +32,6 @@ def connection_service(session: AsyncSession = Depends(get_db_session)):
 @router.get("", dependencies=[Depends(require_api_token)])
 async def integrations(session: AsyncSession = Depends(get_db_session)):
     return await connector_registry(session)
-
-
-@router.get("/mcp/status", dependencies=[Depends(require_api_token)])
-async def mcp_integration_status():
-    return mcp_status()
 
 
 @router.post("/gmail/connect/start", dependencies=[Depends(require_api_token)])

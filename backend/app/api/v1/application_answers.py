@@ -13,9 +13,9 @@ from backend.app.ai.schemas import (
     ResolveRequest,
 )
 from backend.app.api.v1.profile import ProtectedProfileRoute
-from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.core.config import get_settings
 from backend.app.core.security import require_api_token
+from backend.app.dashboard.owner_approval import require_owner_approval
 from backend.app.db.session import get_db_session
 from backend.app.knowledge.reuse import ApproveReuse
 from backend.app.repositories.candidate_knowledge import CandidateKnowledgeRepository

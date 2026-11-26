@@ -134,31 +134,3 @@ class CohereProvider:
         value, usage = await self.json(SYSTEM_INSTRUCTION,
             json.loads(build_payload(question, grounded_context, instructions)), ModelAnswer)
         return ProviderAnswer(content=value, usage=usage)
-
-    async def propose_tools(self, system, data, definitions):
-        """Parse actual V2 function arguments. Returned proposals carry no execution grant."""
-        from backend.app.agent.contracts import ToolCall
-        from backend.app.agent.tools import REGISTRY
-
-        result = await self.chat([
-            {"role": "system", "content": system},
-            {"role": "user", "content": json.dumps(data, ensure_ascii=False)},
-        ], tools=definitions)
-        try:
-            calls = result.message["tool_calls"]
-            if result.finish_reason != "tool_call" or not 1 <= len(calls) <= 16:
-                raise ValueError
-            proposals, identities = [], set()
-            allowed = {d["function"]["name"] for d in definitions}
-            for call in calls:
-                if call["type"] != "function" or not isinstance(call["id"], str) or call["id"] in identities:
-                    raise ValueError
-                identities.add(call["id"])
-                name, arguments = call["function"]["name"], call["function"]["arguments"]
-                if name not in REGISTRY or name not in allowed or not isinstance(arguments, str):
-                    raise ValueError
-                args = REGISTRY[name].model_validate_json(arguments)
-                proposals.append(ToolCall(name=name, arguments=args.model_dump(mode="json")))
-            return proposals, result.usage
-        except (KeyError, TypeError, ValueError, ValidationError):
-            raise ProviderError("invalid_tool_proposal", usage=result.usage) from None

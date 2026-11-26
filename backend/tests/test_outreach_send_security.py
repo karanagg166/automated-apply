@@ -1,19 +1,18 @@
 """No MCP sending boundary, sender spoofing, accidental authorization or secret logging."""
 
+import importlib.util
 import uuid
 
 import pytest
 
-from backend.app.mcp.permissions import TOOL_CAPABILITIES, allowed_capabilities
-from backend.app.mcp.registry import mcp
+from backend.app.main import app
 
 
-@pytest.mark.asyncio
-async def test_no_mcp_send_tool_or_capability():
-    tools = await mcp.list_tools()
-    assert not any("send" in tool.name for tool in tools)
-    assert "send_email" not in allowed_capabilities()
-    assert "send_email" not in TOOL_CAPABILITIES.values()
+def test_no_mcp_send_tool_or_capability():
+    # The legacy FastMCP HTTP server (and its tool registry) was retired in Phase 9E;
+    # it must stay gone and nothing may be mounted at /mcp again.
+    assert importlib.util.find_spec("backend.app.mcp") is None
+    assert not any(getattr(route, "path", "").startswith("/mcp") for route in app.routes)
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,5 @@
 "use client";
 import { Badge, Button, ErrorState, Field, Notice } from "@/components/ui";
-import { type ExtensionTask } from "@/features/extension-assistant";
 import { patch, post, readable, type Schema } from "@/lib/api";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clipboard } from "lucide-react";
@@ -13,14 +12,12 @@ export function AnswerField({
   onReviewed,
   onDirty,
   checked,
-  task,
 }: {
   field: Schema<"PacketField">;
   packet: Packet;
   onReviewed: (checked: boolean) => void;
   onDirty: (id: string, dirty: boolean) => void;
   checked: boolean;
-  task?: ExtensionTask | null;
 }) {
   const client = useQueryClient(),
     [answer, setAnswer] = useState(field.effective_answer || ""),
@@ -96,7 +93,6 @@ export function AnswerField({
   const isReviewed = Boolean(checked || field.review_status === "reviewed");
   const reviewStatus = getFieldReviewStatus({
     field,
-    task,
     isReviewed,
     isDirty: dirty,
     exceedsLimit,
@@ -158,7 +154,6 @@ export function AnswerField({
             Download the selected private resume and upload the actual file on
             the official website during manual handoff. The dedicated browser
             can attach the approved canonical PDF when upload checks pass.
-            Chrome extension attachments remain manual.
           </Notice>
         ) : field.field_type === "multi_select" ? (
           <fieldset>

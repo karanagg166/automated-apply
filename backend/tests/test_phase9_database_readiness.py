@@ -2,11 +2,7 @@
 
 import copy
 import json
-import os
 import ssl
-import subprocess
-import sys
-from pathlib import Path
 
 import pytest
 
@@ -68,8 +64,3 @@ def test_wrapped_driver_diagnostics(sqlstate, code):
     assert diagnostic_error(wrapper) == code
 
 
-@pytest.mark.skipif(not os.environ.get("PROFILE_TEST_DATABASE_URL"), reason="Isolated localhost PostgreSQL required")
-def test_restricted_runtime_postgresql():
-    script = Path(__file__).resolve().parents[1] / "scripts/verify_phase9_runtime.py"
-    result = subprocess.run([sys.executable, str(script)], capture_output=True, text=True, timeout=120)
-    assert result.returncode == 0, result.stdout + result.stderr

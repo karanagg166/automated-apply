@@ -39,16 +39,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
-it("limits startup UUID gateway to original PUT, saved GET and local completion POST", () => {
+it("limits startup UUID gateway to original PUT and saved GET (local completion retired)", () => {
   const path = "startups/discovery/runs/10000000-0000-0000-0000-000000000001";
   expect(permittedRoute(path, "PUT")).toBe(true);
   expect(permittedRoute(path, "GET")).toBe(true);
   expect(permittedRoute(path, "POST")).toBe(false);
-  expect(permittedRoute(`${path}/complete`, "POST")).toBe(true);
+  expect(permittedRoute(`${path}/complete`, "POST")).toBe(false);
   expect(permittedRoute(`${path}/complete`, "PUT")).toBe(false);
   expect(permittedRoute(`${path}/retry`, "POST")).toBe(false);
 });
-it("allows only keyed acknowledged-read GET/PUT and local completion POST gateway paths", () => {
+it("allows only keyed acknowledged-read GET/PUT gateway paths (local completion retired)", () => {
   const parent = "10000000-0000-0000-0000-000000000001",
     read = "20000000-0000-0000-0000-000000000002";
   const path = `discovery/runs/${parent}/reads/${read}`;
@@ -56,7 +56,7 @@ it("allows only keyed acknowledged-read GET/PUT and local completion POST gatewa
   expect(permittedRoute(path, "PUT")).toBe(true);
   expect(permittedRoute(path, "POST")).toBe(false);
   expect(permittedRoute(path, "DELETE")).toBe(false);
-  expect(permittedRoute(`${path}/complete`, "POST")).toBe(true);
+  expect(permittedRoute(`${path}/complete`, "POST")).toBe(false);
   expect(permittedRoute(`${path}/complete`, "GET")).toBe(false);
   for (const bad of [
     `${path}/retry`,

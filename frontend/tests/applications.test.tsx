@@ -316,9 +316,6 @@ describe("Applications Pipeline & Detail Views", () => {
         if (path === `application-packets/${mockPacket.id}/events`) {
           return Promise.resolve([]);
         }
-        if (path === "browser-applications/policy") {
-          return Promise.resolve({ origins: [], digest: "test-digest" });
-        }
         return Promise.reject(new Error(`Unhandled GET path: ${path}`));
       });
     });
@@ -333,7 +330,7 @@ describe("Applications Pipeline & Detail Views", () => {
         }),
       ).toBeInTheDocument();
       expect(
-        screen.getAllByText("Acme Distributed Systems").length,
+        screen.getAllByText(/Acme Distributed Systems/).length,
       ).toBeGreaterThanOrEqual(1);
       expect(
         screen.getAllByText("Backend Core Resume 2026").length,
@@ -343,14 +340,6 @@ describe("Applications Pipeline & Detail Views", () => {
         screen.getAllByText("https://careers.acme.example.com/apply/123")
           .length,
       ).toBeGreaterThanOrEqual(1);
-      expect(
-        screen.getByText(
-          /Isolated testing can attach an approved canonical PDF after upload checks/,
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Chrome extension attachments remain manual/),
-      ).toBeInTheDocument();
       expect(
         screen.queryByText(/unless explicitly reviewed for overwrite/),
       ).not.toBeInTheDocument();
@@ -608,9 +597,6 @@ describe("Applications Pipeline & Detail Views", () => {
         if (path === `application-packets/${unknownPacket.id}/events`) {
           return Promise.resolve([]);
         }
-        if (path === "browser-applications/policy") {
-          return Promise.resolve({ origins: [], digest: "test-digest" });
-        }
         return Promise.reject(new Error(`Unhandled GET path: ${path}`));
       });
 
@@ -660,9 +646,6 @@ describe("Applications Pipeline & Detail Views", () => {
         if (path === `application-packets/${narrativePacket.id}/events`) {
           return Promise.resolve([]);
         }
-        if (path === "browser-applications/policy") {
-          return Promise.resolve({ origins: [], digest: "test-digest" });
-        }
         return Promise.reject(new Error(`Unhandled GET path: ${path}`));
       });
 
@@ -688,9 +671,6 @@ describe("Applications Pipeline & Detail Views", () => {
         }
         if (path === `application-packets/${approvedPacket.id}/events`) {
           return Promise.resolve([]);
-        }
-        if (path === "browser-applications/policy") {
-          return Promise.resolve({ origins: [], digest: "test-digest" });
         }
         return Promise.reject(new Error(`Unhandled GET path: ${path}`));
       });
@@ -792,9 +772,6 @@ describe("Applications Pipeline & Detail Views", () => {
         if (path === `application-packets/${mockPacket.id}/events`) {
           return Promise.resolve([]);
         }
-        if (path === "browser-applications/policy") {
-          return Promise.resolve({ origins: [], digest: "test-digest" });
-        }
         return Promise.reject(new Error(`Unhandled GET path: ${path}`));
       });
       renderWithClient(<ApplicationDetail id={mockPacket.id} />);
@@ -825,59 +802,3 @@ describe("Applications Pipeline & Detail Views", () => {
     });
   });
 });
-
-it.each(["pending", "sent", "delivery_unknown", "delivery_not_sent"])(
-  "saves the displayed %s packet question revision without an implicit resume",
-  async (state) => {
-    const current = { ...mockPacket, revision: 7 };
-    const question = {
-      id: "q-1",
-      packet_id: current.id,
-      packet_revision: 7,
-      execution_id: "execution-1",
-      question: "Willing to relocate?",
-      state,
-      answer: null,
-      employer: "Acme",
-      role: "Engineer",
-      answer_type: "choice",
-      options: ["Yes", "No"],
-      expires_at: "2099-01-01T00:00:00Z",
-    };
-    let answered = false;
-    vi.mocked(api).mockImplementation(async (path) => {
-      if (path === `application-packets/${current.id}`) return current;
-      if (path.endsWith("/events")) return [];
-      if (path === "execution/questions") return answered ? [] : [question];
-      if (path === "browser-applications/policy")
-        return { origins: [], digest: "test" };
-      throw Error(path);
-    });
-    vi.mocked(post).mockImplementation(async () => {
-      answered = true;
-      return {};
-    });
-    renderWithClient(<ApplicationDetail id={current.id} />);
-    await screen.findByText("Willing to relocate?");
-    await userEvent.selectOptions(
-      screen.getByLabelText("Your verified answer"),
-      "Yes",
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: "Submit Answer from Dashboard" }),
-    );
-    expect(
-      await screen.findByText(
-        "Answer saved. Review and approve the updated packet before filling.",
-      ),
-    ).toBeVisible();
-    expect(post).toHaveBeenCalledWith("execution/questions/q-1/answer", {
-      answer: "Yes",
-      expected_revision: 7,
-    });
-    expect(
-      vi.mocked(post).mock.calls.some(([path]) => path.endsWith("/control")),
-    ).toBe(false);
-    expect(patch).not.toHaveBeenCalled();
-  },
-);

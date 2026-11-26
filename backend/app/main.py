@@ -18,8 +18,6 @@ from backend.app.db.session import (
     get_session_factory,
 )
 from backend.app.integrations.logging import install_oauth_log_filter
-from backend.app.mcp.auth import MCPBoundary
-from backend.app.mcp.registry import mcp
 from backend.app.operations.api_lifecycle import runtime_lifespan
 from backend.app.operations.health import database_connectivity, database_health
 
@@ -33,7 +31,6 @@ async def lifespan(app: FastAPI):
     async with runtime_lifespan(
         app,
         settings=settings,
-        mcp_app=mcp_app,
         get_engine=get_engine,
         get_session_factory=get_session_factory,
         database_health=database_health,
@@ -125,26 +122,6 @@ async def readiness_check() -> dict[str, Any]:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
-
-
-# API v1 Endpoints
-
-
-# Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.
-mcp_app = mcp.http_app(
-    path="/",
-    transport="http",
-    stateless_http=True,
-    json_response=True,
-    host_origin_protection=True,
-    allowed_hosts=settings.MCP_ALLOWED_HOSTS,
-    allowed_origins=settings.MCP_ALLOWED_ORIGINS,
-)
-app.mount("/mcp", mcp_app)
-app.add_middleware(MCPBoundary)
-
-
-# Candidate facts and answer drafts share the Phase 1 authentication boundary.
 
 
 from backend.app.core.timing import RequestTimingMiddleware

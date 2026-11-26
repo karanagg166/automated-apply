@@ -172,17 +172,7 @@ export async function recoverStartup(
       } catch (e) {
         if (!(e instanceof ApiError) || e.status !== 404) throw e;
       }
-      if (saved) {
-        if (startupComplete(saved) || saved.usage?.finding_retained !== true)
-          return saved;
-        return validate(
-          await api<StartupRun>(`${path(attempt.requestId)}/complete`, {
-            method: "POST",
-            body: "{}",
-          }),
-          attempt,
-        );
-      }
+      if (saved) return saved;
       if (!mayStart || input.source !== attempt.source) throw review();
     }
     return validate(

@@ -12,18 +12,6 @@ import {
   Select,
   Skeleton,
 } from "@/components/ui";
-import { BrowserAssistant } from "@/features/browser-assistant";
-import {
-  ExecutionQuestionAnswer,
-  isPendingExecutionQuestion,
-  type ExecutionQuestion,
-} from "@/features/execution-question-answer";
-import {
-  ExtensionAssistant,
-  challengeMessages,
-  retainedFieldCount,
-  type ExtensionTask,
-} from "@/features/extension-assistant";
 import { api, dateLabel, patch, post, readable, type Schema } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, Check, FileCheck2, Plus } from "lucide-react";
@@ -84,13 +72,7 @@ const QUESTION_TEMPLATES = [
   },
 ] as const;
 
-export function ApplicationDetail({
-  id,
-  nativeRuntime = false,
-}: {
-  id: string;
-  nativeRuntime?: boolean;
-}) {
+export function ApplicationDetail({ id }: { id: string }) {
   const [dirtyFields, setDirtyFields] = useState<string[]>([]);
   const onDirty = useCallback((fieldId: string, dirty: boolean) => {
     setDirtyFields((current) =>
@@ -117,7 +99,6 @@ export function ApplicationDetail({
       useState<Schema<"QuestionInput">["field_type"]>("textarea"),
     [templateIdx, setTemplateIdx] = useState(0),
     [notice, setNotice] = useState("");
-  const [answerSuccess, setAnswerSuccess] = useState("");
   useEffect(() => {
     if (!dirtyFields.length) return;
     const protect = (event: BeforeUnloadEvent) => {
@@ -137,35 +118,6 @@ export function ApplicationDetail({
     queryFn: () =>
       api<Schema<"ApplicationEventRead">[]>(`application-packets/${id}/events`),
   });
-  const executionQuestions = useQuery({
-    queryKey: ["execution-questions", id],
-    queryFn: () => api<ExecutionQuestion[]>("execution/questions"),
-    refetchInterval: 5000,
-  });
-  const extensionTask = useQuery({
-    queryKey: ["extension-task", id],
-    queryFn: ({ signal }) =>
-      api<ExtensionTask | null>(`browser/extension-tasks/application/${id}`, {
-        signal,
-      }),
-    retry: false,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: false,
-  });
-  useEffect(() => {
-    if (
-      Array.isArray(executionQuestions.data) &&
-      executionQuestions.data.some(
-        (q) =>
-          q.packet_id === id &&
-          q.state === "answered" &&
-          q.packet_revision >= (packet.data?.revision ?? Infinity),
-      )
-    ) {
-      void client.invalidateQueries({ queryKey: ["packet", id] });
-      void client.invalidateQueries({ queryKey: ["packet-events", id] });
-    }
-  }, [executionQuestions.data, packet.data?.revision, client, id]);
   useEffect(() => {
     setReviewed([]);
     setResumeConfirmed(false);
@@ -175,25 +127,12 @@ export function ApplicationDetail({
   const changed = (p?: unknown) => {
     if (p && typeof p === "object" && "revision" in p)
       client.setQueryData(["packet", id], p);
-    client.invalidateQueries({ queryKey: ["execution-questions", id] });
     client.invalidateQueries({ queryKey: ["packet", id] });
     client.invalidateQueries({ queryKey: ["packet-events", id] });
     client.invalidateQueries({ queryKey: ["packets"] });
     client.invalidateQueries({ queryKey: ["jobs"] });
     client.invalidateQueries({ queryKey: ["overview"] });
   };
-  const askOwner = useMutation({
-    mutationFn: (fieldId: string) =>
-      post(`execution/packets/${id}/questions/${fieldId}`, {
-        expected_revision: packet.data!.revision,
-      }),
-    onSuccess: () => {
-      changed();
-      setNotice(
-        "Question queued for your bound private Telegram chat. Reply to that exact message.",
-      );
-    },
-  });
   const review = useMutation({
     mutationFn: (action: "review" | "approve") =>
       post<Packet>(`application-packets/${id}/review`, {
@@ -312,36 +251,9 @@ export function ApplicationDetail({
     "submission_unknown",
   ].includes(p.lifecycle_state);
 
-  const task = extensionTask.data;
-  const identityMatches =
-    task?.application_id === id && task?.job_id === p.job_id;
-  const currentTask = task && identityMatches ? task : null;
-  const taskStale = Boolean(
-    currentTask && currentTask.packet_revision !== p.revision,
-  );
-  const challengeState =
-    extensionTask.isError || taskStale
-      ? "UNKNOWN"
-      : currentTask?.challenge_state || "UNKNOWN";
-  const formChanged = Boolean(
-    currentTask &&
-    currentTask.current_url &&
-    currentTask.target_url &&
-    currentTask.current_url !== currentTask.target_url,
-  );
-
   const reviewedCount = p.fields.filter(
     (f) => f.review_status === "reviewed",
   ).length;
-
-  const pendingExecQuestion = Array.isArray(executionQuestions.data)
-    ? executionQuestions.data.find(
-        (q) =>
-          q.packet_id === id &&
-          q.packet_revision === p.revision &&
-          isPendingExecutionQuestion(q),
-      )
-    : undefined;
 
   const unresolved = p.fields.some(
     (field) =>
@@ -353,53 +265,25 @@ export function ApplicationDetail({
           Date.parse(field.provenance.answer_expires_at) <= Date.now())),
   );
   const approved = p.approved_revision === p.revision && !p.readiness.stale;
-  const nextAction = extensionTask.isError
-    ? "Connection unverified. Refresh saved extension status before continuing in Chrome."
-    : dirtyFields.length
-      ? "Save your edited answers before continuing."
-      : currentTask?.challenge_state === "UNKNOWN"
-        ? challengeMessages.UNKNOWN
-        : pendingExecQuestion
-          ? "Answer the missing questions, then review the updated packet."
-          : unresolved
-            ? "Answer the missing questions, then review the updated packet."
-            : currentTask?.challenge_state === "CHALLENGE_BLOCKING" ||
-                currentTask?.challenge_state === "WIDGET_PRESENT_UNVERIFIED"
-              ? "Complete security verification on the employer portal, then inspect and review again in Chrome."
-              : currentTask?.state === "PAUSED"
-                ? "Application paused. Resume in the Chrome extension panel once ready."
-                : terminal
-                  ? "Check the recorded submission status and its evidence below."
-                  : p.readiness.stale || taskStale
-                    ? "Refresh the packet and review the changed context."
-                    : approved
-                      ? currentTask?.state === "FILLED_VERIFIED"
-                        ? "Review verified retained fields and complete remaining manual steps on official portal."
-                        : currentTask?.next_action
-                          ? currentTask.next_action
-                          : "Review the actual form and approve supported fields in the browser assistant."
-                      : "Review answers, confirm the resume and destination, then approve the current packet.";
+  const nextAction = dirtyFields.length
+    ? "Save your edited answers before continuing."
+    : unresolved
+      ? "Answer the missing questions, then review the updated packet."
+      : terminal
+        ? "Check the recorded submission status and its evidence below."
+        : p.readiness.stale
+          ? "Refresh the packet and review the changed context."
+          : approved
+            ? "Open the manual handoff and complete the application on the official portal."
+            : "Review answers, confirm the resume and destination, then approve the current packet.";
 
   const progressSteps = [
     { label: "Packet prepared", done: true },
     {
       label: "Required answers resolved",
-      done: !pendingExecQuestion && !unresolved,
+      done: !unresolved,
     },
     { label: "Current packet approved", done: approved },
-    {
-      label: "Retained fill recorded for current packet",
-      done: Boolean(
-        !taskStale &&
-        currentTask?.verified_receipts?.some(
-          (r) =>
-            r.packet_revision === p.revision &&
-            (!currentTask?.profile_binding_id ||
-              r.profile_binding_id === currentTask.profile_binding_id) &&
-            retainedFieldCount(r) > 0,
-        ),
-      ),
-    },
     {
       label: "Official portal submission (Manual)",
       done: [
@@ -409,39 +293,18 @@ export function ApplicationDetail({
     },
   ];
 
-  const timelineItems = [
-    ...(events.data || []).map((e) => ({
+  const timelineItems = (events.data || [])
+    .map((e) => ({
       key: `event-${e.id}`,
       title: readable(e.event_type),
-      description: "",
       timestamp: e.created_at,
       revision: e.packet_revision,
-    })),
-    ...(currentTask?.verified_receipts || []).map((r, idx) => ({
-      key: `receipt-${r.plan_id || idx}`,
-      title:
-        retainedFieldCount(r) > 0
-          ? "Fill verified (retained after blur)"
-          : "Fill receipt — manual review required",
-      description: `${r.profile_binding_id ? `Chrome profile ${r.profile_binding_id}; ` : ""}${retainedFieldCount(r)} field(s) verified retained (${r.verification_method}); ${r.results.map((res) => `${res.field_id}: ${res.status}`).join(", ") || "outcome unknown"}. Page-local IDs belong to this receipt's snapshot; submission unconfirmed.`,
-      timestamp: r.recorded_at,
-      revision: r.packet_revision,
-    })),
-  ].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+    }))
+    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 
-  const lastVerified = currentTask?.verified_receipts
-    ?.filter(
-      (r) =>
-        (!currentTask?.profile_binding_id ||
-          r.profile_binding_id === currentTask.profile_binding_id) &&
-        retainedFieldCount(r) > 0,
-    )
-    .at(-1);
-  const lastSuccessfulActivity = lastVerified
-    ? `${dateLabel(lastVerified.recorded_at)} · Verified retained fill`
-    : events.data?.length
-      ? `${dateLabel(events.data[0].created_at)} · ${readable(events.data[0].event_type)}`
-      : `${dateLabel(p.updated_at)} · Packet saved`;
+  const lastSuccessfulActivity = events.data?.length
+    ? `${dateLabel(events.data[0].created_at)} · ${readable(events.data[0].event_type)}`
+    : `${dateLabel(p.updated_at)} · Packet saved`;
 
   return (
     <>
@@ -515,109 +378,16 @@ export function ApplicationDetail({
             <Badge tone={terminal ? "green" : "neutral"}>
               {readable(p.lifecycle_state)}
             </Badge>
-            {currentTask && (
-              <Badge
-                tone={
-                  currentTask.browser_connection === "connected"
-                    ? "green"
-                    : "neutral"
-                }
-              >
-                Chrome: {readable(currentTask.state)}
-              </Badge>
-            )}
           </div>
         </div>
       </section>
 
-      {taskStale && currentTask && (
-        <Notice>
-          Extension task belongs to packet revision{" "}
-          {currentTask.packet_revision}, but the saved application packet is at
-          revision {p.revision}. Your saved answers and in-progress edits are
-          preserved. Re-inspect this step in Chrome to synchronize.
-        </Notice>
-      )}
-      {formChanged && currentTask && (
-        <Notice>
-          Form page changed: observed {currentTask.current_url} (target was{" "}
-          {currentTask.target_url}). Your saved answers are preserved. Inspect
-          the current step in Chrome.
-        </Notice>
-      )}
       {dirtyFields.length > 0 && (
         <Notice>
-          You have unsaved answer edits. Save your answers before resuming or
-          inspecting.
+          You have unsaved answer edits. Save your answers before reviewing or
+          approving.
         </Notice>
       )}
-
-      {!terminal &&
-        !p.readiness.stale &&
-        p.fields
-          .filter(
-            (field) =>
-              field.field_type !== "file" &&
-              ((field.required && !field.effective_answer) ||
-                (field.provenance?.answer_expires_at &&
-                  Date.parse(field.provenance?.answer_expires_at) <=
-                    Date.now())),
-          )
-          .map((field) => (
-            <div className="panel panel-body spaced" key={`ask-${field.id}`}>
-              <p>{field.question}</p>
-              <Button
-                disabled={
-                  askOwner.isPending ||
-                  (!!pendingExecQuestion &&
-                    Date.parse(pendingExecQuestion.expires_at) > Date.now())
-                }
-                onClick={() => askOwner.mutate(field.id)}
-              >
-                Ask me on Telegram: {field.question}
-              </Button>
-            </div>
-          ))}
-      {askOwner.isError && <ErrorState error={askOwner.error} />}
-
-      {/* In-Dashboard Telegram Question Answering Card */}
-      {pendingExecQuestion && (
-        <div
-          className="panel panel-body stack spaced"
-          style={{
-            borderLeft: "4px solid var(--amber, #f59e0b)",
-            background: "var(--surface-sunken, rgba(0,0,0,0.02))",
-            marginTop: "0.75rem",
-          }}
-          aria-label="Waiting for Your Answer"
-        >
-          <div className="split">
-            <Badge tone="amber">Waiting for Your Answer</Badge>
-            <small className="muted">Backend paused preparation</small>
-          </div>
-          <h3>{pendingExecQuestion.question}</h3>
-          <p className="text-xs muted">
-            Answer the existing question here. The application follows its saved
-            review or automatic policy.
-          </p>
-          <ExecutionQuestionAnswer
-            key={`${pendingExecQuestion.id}:${pendingExecQuestion.packet_revision}`}
-            question={pendingExecQuestion}
-            onSaved={() => {
-              setAnswerSuccess(
-                pendingExecQuestion.queue_work_id
-                  ? "Answer saved. The worker will refresh the account, resume, job and original form before continuing this application."
-                  : "Answer saved. Review and approve the updated packet before filling.",
-              );
-              changed();
-            }}
-          />
-        </div>
-      )}
-      {executionQuestions.isError && (
-        <ErrorState error={executionQuestions.error} />
-      )}
-      {answerSuccess && <Notice>{answerSuccess}</Notice>}
 
       {p.lifecycle_state === "needs_input" && (
         <Notice>
@@ -735,57 +505,8 @@ export function ApplicationDetail({
             </li>
           </ul>
         </section>
-
-        <section
-          className="panel panel-body"
-          aria-label="Security & Verification State"
-        >
-          <h3>Security &amp; verification status</h3>
-          <p style={{ margin: "0.25rem 0 0.5rem" }}>
-            {currentTask
-              ? challengeMessages[challengeState]
-              : "Security state unverified. Inspect the exact application in Chrome before continuing."}
-          </p>
-          <div className="split" style={{ marginTop: "0.5rem" }}>
-            <small className="muted">
-              Challenge status: <strong>{challengeState}</strong>
-            </small>
-            <Badge
-              tone={
-                challengeState === "NONE" ||
-                challengeState === "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
-                  ? "green"
-                  : "amber"
-              }
-            >
-              {challengeState === "NONE" ? "Clear" : readable(challengeState)}
-            </Badge>
-          </div>
-          <div
-            style={{
-              marginTop: "0.75rem",
-              borderTop: "1px solid var(--line)",
-              paddingTop: "0.5rem",
-            }}
-          >
-            <small className="muted">
-              Preserved fields: Existing website answers and manual inputs are
-              preserved and never overwritten by Automated Apply.
-            </small>
-          </div>
-        </section>
       </div>
 
-      <ExtensionAssistant
-        packet={p}
-        hasUnsavedAnswers={dirtyFields.length > 0}
-      />
-      <BrowserAssistant
-        packet={p}
-        nativeRuntime={nativeRuntime}
-        hasUnsavedAnswers={dirtyFields.length > 0}
-        onRefresh={() => refresh.mutate()}
-      />
       {notice && <Notice>{notice}</Notice>}
 
       {p.lifecycle_state === "submission_unknown" && (
@@ -826,7 +547,6 @@ export function ApplicationDetail({
                   )
                 }
                 onDirty={onDirty}
-                task={taskStale || extensionTask.isError ? null : currentTask}
               />
             ))}
             {!terminal && (
@@ -1171,32 +891,11 @@ export function ApplicationDetail({
                   {timelineItems.map((item) => (
                     <div key={item.key}>
                       <strong>{item.title}</strong>
-                      {item.description && (
-                        <p
-                          style={{
-                            margin: "2px 0",
-                            fontSize: "10px",
-                            color: "var(--muted)",
-                          }}
-                        >
-                          {item.description}
-                        </p>
-                      )}
                       <time>
                         {dateLabel(item.timestamp)} · revision {item.revision}
                       </time>
                     </div>
                   ))}
-                  {!timelineItems.length &&
-                    events.data?.map((event) => (
-                      <div key={event.id}>
-                        {readable(event.event_type)}
-                        <time>
-                          {dateLabel(event.created_at)} · revision{" "}
-                          {event.packet_revision}
-                        </time>
-                      </div>
-                    ))}
                 </div>
               )}
               {lastSuccessfulActivity && (

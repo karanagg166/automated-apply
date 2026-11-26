@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.profile import ProtectedProfileRoute
 from backend.app.core.config import get_settings
-from backend.app.core.security import require_api_token
+from backend.app.core.security import owner_ui, require_api_token
 from backend.app.db.session import get_db_session
-from backend.app.integrations.gmail.job_alerts import AlertPolicy
+from backend.app.integrations.gmail.job_alerts import RETIRED, AlertPolicy
 from backend.app.integrations.gmail.mailboxes import (
     Consent,
     Generation,
@@ -47,24 +47,16 @@ async def accounts(svc=Depends(service)):
 
 
 @router.put("/accounts/{slot}/job-alerts")
-async def configure_alerts(slot: Slot, data: AlertPolicy, request: Request, svc=Depends(service)):
-    from backend.app.agent.router import owner_ui
-    from backend.app.integrations.gmail.job_alerts import configure
-
+async def configure_alerts(slot: Slot, data: AlertPolicy, request: Request):
+    # The alert intake fed the retired v1 Naukri execution queue (Phase 9E).
     owner_ui(request)
-    return await operation(configure(svc.session, svc.settings, slot, data))
+    raise HTTPException(409, RETIRED)
 
 
 @router.post("/accounts/{slot}/job-alerts/sync")
-async def sync_alerts(slot: Slot, request: Request, svc=Depends(service)):
-    from backend.app.agent.router import owner_ui
-    from backend.app.db.session import get_session_factory
-    from backend.app.integrations.gmail.job_alerts import poll
-
+async def sync_alerts(slot: Slot, request: Request):
     owner_ui(request)
-    # Release the request's session before the worker claims its own lease.
-    await svc.session.commit()
-    return await operation(poll(get_session_factory(), svc.settings, slot, force=True))
+    raise HTTPException(409, RETIRED)
 
 
 @router.post("/accounts/{slot}/connect")

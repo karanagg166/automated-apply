@@ -1,13 +1,13 @@
 """Five more zero-cost discovery sources for the v2 worker (AGENTS.md §4.2 Tiers 2-3).
 
-Each wraps the reviewed, read-only v1 client in `services.job_sources` (fixed hosts,
+Each wraps a read-only v2 client from `adapters.feed_clients` (fixed hosts,
 size-capped JSON, allowlisted boards) as a v2 `FeedAdapter`, so discovery, dedup,
 filters, the semantic-cache/LLM resolver, Telegram HITL and the never-replay state
 machine are shared with every other portal:
 
 | platform | source | apply path |
 |---|---|---|
-| remotive | remotive.com/api/remote-jobs (<= 4 fetches/day, persisted) | employer link read from the listing page -> Greenhouse/Lever handoff or external |
+| remotive | remotive.com/api/remote-jobs (<= 4 fetches/day, persisted in watcher_state) | employer link read from the listing page -> Greenhouse/Lever handoff or external |
 | arbeitnow | arbeitnow.com/api/job-board-api | employer link read from the listing page |
 | hacker_news | hn.algolia.com "Who is hiring" | first employer link in the comment |
 | ashby | api.ashbyhq.com (allowlisted boards) | hosted Ashby form -> manual handoff (`external_unsupported_ats`) |
@@ -24,11 +24,21 @@ import html as html_lib
 import json
 import re
 import time
+from collections.abc import Callable
+from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from backend.app.browser_v2.adapters.common import html_to_text
+from backend.app.browser_v2.adapters.feed_clients.arbeitnow import ArbeitnowClient
+from backend.app.browser_v2.adapters.feed_clients.ashby import AshbyClient
+from backend.app.browser_v2.adapters.feed_clients.hacker_news import HackerNewsClient
+from backend.app.browser_v2.adapters.feed_clients.remotive import RemotiveClient
+from backend.app.browser_v2.adapters.feed_clients.smartrecruiters import (
+    SmartRecruitersClient,
+)
 from backend.app.browser_v2.adapters.feeds import (
     FeedAdapter,
     FeedJob,
@@ -36,16 +46,18 @@ from backend.app.browser_v2.adapters.feeds import (
     fetch_all_pages,
 )
 from backend.app.browser_v2.adapters.greenhouse import MAX_BOARDS, board_map
+from backend.app.browser_v2.store.phase9_records import WatcherState
 
 DAY_SEC = 24 * 3600
 REMOTIVE_MAX_FETCHES_PER_DAY = 4
+REMOTIVE_BUDGET_SOURCE = "remotive:budget"
 HREF = re.compile(r"""href\s*=\s*["']([^"']+)["']""", re.IGNORECASE)
 BARE_URL = re.compile(r"https://[^\s<>\"')]+")
 EMPLOYER_HINT = re.compile(r"greenhouse|lever\.co|ashbyhq|smartrecruiters|workable|careers?|jobs?|apply", re.IGNORECASE)
 
 
 def to_feed_job(job: Any, company: str | None = None, *, apply_url: str | None = None) -> FeedJob:
-    """v1 NormalizedJob -> FeedJob (plain-text JD, https apply link only)."""
+    """RawPosting (or any object with its attributes) -> FeedJob (plain-text JD, https apply link only)."""
     link = apply_url if apply_url is not None else (job.application_url or None)
     return FeedJob(external_job_id=str(job.source_job_id), url=job.original_url, title=job.title,
                    company=job.company_name or company, apply_url=link if link and link.startswith("https://")
@@ -69,24 +81,27 @@ def employer_link(raw_html: str | None, *, exclude_hosts: frozenset[str]) -> str
 
 
 class FetchBudget:
-    """Persisted per-source fetch cap (survives worker restarts): Remotive asks for <= 4/day."""
+    """Per-source fetch cap: Remotive asks for <= 4/day.
+
+    In memory by default (no local state files); an explicit `path` keeps the legacy JSON stamp
+    file. The worker binds `StoreFetchBudget` (watcher_state) via `RemotiveAdapter.use_store`.
+    """
 
     def __init__(self, name: str, max_per_day: int, path: Path | None = None) -> None:
         self.name = name
         self.max_per_day = max_per_day
         self._path = path
+        self._stamps: list[float] = []
 
     @property
-    def path(self) -> Path:
-        if self._path is None:
-            from backend.app.browser_v2 import profile as brave_profile
-
-            self._path = brave_profile.runtime_dir() / "feed-budget.json"
+    def path(self) -> Path | None:
         return self._path
 
     def _load(self) -> dict[str, list[float]]:
+        if self._path is None:
+            return {self.name: list(self._stamps)}
         try:
-            data = json.loads(self.path.read_text())
+            data = json.loads(self._path.read_text())
             return data if isinstance(data, dict) else {}
         except (OSError, ValueError):
             return {}
@@ -100,13 +115,63 @@ class FetchBudget:
 
     def record(self, now: float | None = None) -> None:
         now = time.time() if now is None else now
+        stamps = [*self.recent(now), now]
+        if self._path is None:
+            self._stamps = stamps
+            return
         data = self._load()
-        data[self.name] = [*self.recent(now), now]
+        data[self.name] = stamps
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            self.path.write_text(json.dumps(data))
+            self._path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            self._path.write_text(json.dumps(data))
         except OSError:  # an unwritable stamp file must not stop discovery; the TTL still applies
             pass
+
+
+class StoreFetchBudget:
+    """Fetch cap persisted in `watcher_state` (row `source`, e.g. "remotive:budget").
+
+    `budget_day`/`budget_used` count the current UTC day; an hour window also stamps the bucket
+    start in `last_poll_at` of that dedicated row. Shared by the adapter and the Phase 9B watcher.
+    """
+
+    def __init__(self, store: Any, source: str, limit: int, *, window: str = "day",
+                 clock: Callable[[], datetime] | None = None) -> None:
+        if window not in ("day", "hour"):
+            raise ValueError("window must be day or hour")
+        self.store = store
+        self.source = source
+        self.limit = limit
+        self.window = window
+        self.clock = clock or (lambda: datetime.now(UTC))
+
+    def bucket(self, now: datetime) -> datetime:
+        now = now.astimezone(UTC)
+        start = now.replace(minute=0, second=0, microsecond=0)
+        return start if self.window == "hour" else start.replace(hour=0)
+
+    def used(self, state: WatcherState | None, bucket: datetime) -> int:
+        if state is None or state.budget_day != bucket.date():
+            return 0
+        if self.window == "hour" and state.last_poll_at != bucket:
+            return 0
+        return state.budget_used
+
+    async def remaining(self) -> int:
+        bucket = self.bucket(self.clock())
+        return max(0, self.limit - self.used(await self.store.get_watcher_state(self.source), bucket))
+
+    async def acquire(self, count: int = 1) -> bool:
+        bucket = self.bucket(self.clock())
+        state = await self.store.get_watcher_state(self.source)
+        used = self.used(state, bucket)
+        if used + count > self.limit:
+            return False
+        base = state or WatcherState(source=self.source)
+        await self.store.save_watcher_state(replace(
+            base, budget_day=bucket.date(), budget_used=used + count,
+            last_poll_at=bucket if self.window == "hour" else base.last_poll_at))
+        return True
 
 
 class SourceFeedAdapter(FeedAdapter):
@@ -145,27 +210,34 @@ class RemotiveAdapter(SourceFeedAdapter):
     feed_ttl_sec = DAY_SEC / REMOTIVE_MAX_FETCHES_PER_DAY  # 6 h
     origin_hosts = frozenset({"remotive.com", "www.remotive.com"})
 
-    def __init__(self, *, budget: FetchBudget | None = None, **kwargs: Any) -> None:
+    def __init__(self, *, budget: FetchBudget | StoreFetchBudget | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.budget = budget or FetchBudget("remotive", REMOTIVE_MAX_FETCHES_PER_DAY)
+
+    def use_store(self, store: Any) -> None:
+        """Persist the daily cap in watcher_state (shared with the Phase 9B Remotive watcher)."""
+        self.budget = StoreFetchBudget(store, REMOTIVE_BUDGET_SOURCE, REMOTIVE_MAX_FETCHES_PER_DAY, clock=self.clock)
+
+    async def spend(self) -> bool:
+        if isinstance(self.budget, StoreFetchBudget):
+            return await self.budget.acquire()
+        if not self.budget.allow():
+            return False
+        self.budget.record()
+        return True
 
     async def get_cached(self, key: str, loader: Any) -> Any:
         hit = self._feed_cache.get(key)
         if hit is not None and time.monotonic() - hit[0] < self.feed_ttl_sec:
             return hit[1]
-        if not self.budget.allow():
+        if not await self.spend():
             return hit[1] if hit is not None else []  # daily cap reached: stale cache or nothing
-        self.budget.record()
         value = await loader()
         self._feed_cache[key] = (time.monotonic(), value)
         return value
 
     async def load_jobs(self, client: Any) -> list[FeedJob]:
-        from backend.app.services.job_sources.direct_api import (
-            RemotiveAdapter as Source,
-        )
-
-        source = Source(http_client=client)
+        source = RemotiveClient(client)
         # One request per read (Remotive paginates locally over the same download).
         jobs = await source.fetch_jobs(category="software-dev", limit=100, page=1)
         return [to_feed_job(job, apply_url=None) for job in jobs if job.source_job_id]
@@ -178,11 +250,7 @@ class ArbeitnowAdapter(SourceFeedAdapter):
     origin_hosts = frozenset({"arbeitnow.com", "www.arbeitnow.com"})
 
     async def load_jobs(self, client: Any) -> list[FeedJob]:
-        from backend.app.services.job_sources.direct_api import (
-            ArbeitnowAdapter as Source,
-        )
-
-        source = Source(http_client=client)
+        source = ArbeitnowClient(client)
         jobs = await fetch_all_pages(source, lambda limit, page: source.fetch_jobs(page=page, limit=limit),
                                      max_pages=3)
         return [to_feed_job(job, apply_url=None) for job in jobs if job.source_job_id]
@@ -195,25 +263,10 @@ class HackerNewsAdapter(SourceFeedAdapter):
     feed_ttl_sec = 3 * 60 * 60
 
     async def load_jobs(self, client: Any) -> list[FeedJob]:
-        from backend.app.services.job_sources.direct_api import (
-            HackerNewsHiringAdapter as Source,
-        )
-
-        raw: dict[str, str] = {}
-
-        class Capturing(Source):
-            """The v1 client keeps only tag-stripped text: keep each comment's HTML for its hrefs."""
-
-            async def request(self, client: Any, url: Any, params: Any = None) -> Any:
-                data = await super().request(client, url, params)
-                for hit in (data or {}).get("hits", []) if isinstance(data, dict) else []:
-                    if isinstance(hit, dict) and hit.get("comment_text"):
-                        raw[str(hit.get("objectID"))] = str(hit["comment_text"])
-                return data
-
-        source = Capturing(http_client=client)
+        source = HackerNewsClient(client)
         jobs = await fetch_all_pages(source, lambda limit, page: source.fetch_jobs(limit=limit, page=page),
                                      max_pages=3)
+        raw = source.comment_html  # the posting keeps tag-stripped text: each comment's HTML has the hrefs
         exclude = frozenset({"news.ycombinator.com", "hn.algolia.com"})
         return [to_feed_job(job, apply_url=employer_link(raw.get(str(job.source_job_id)) or job.description,
                                                          exclude_hosts=exclude) or "")
@@ -273,9 +326,7 @@ class AshbyAdapter(_BoardSource):
     setting, preference = "ASHBY_BOARDS", "ashby_boards"
 
     def source(self, client: Any) -> Any:
-        from backend.app.services.job_sources.public_ats import AshbyAdapter as Source
-
-        return Source(http_client=client)
+        return AshbyClient(client)
 
 
 class SmartRecruitersAdapter(_BoardSource):
@@ -283,8 +334,4 @@ class SmartRecruitersAdapter(_BoardSource):
     setting, preference = "SMARTRECRUITERS_BOARDS", "smartrecruiters_boards"
 
     def source(self, client: Any) -> Any:
-        from backend.app.services.job_sources.smartrecruiters import (
-            SmartRecruitersAdapter as Source,
-        )
-
-        return Source(http_client=client)
+        return SmartRecruitersClient(client)

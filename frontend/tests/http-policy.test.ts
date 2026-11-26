@@ -15,12 +15,13 @@ describe("shared request security policy", () => {
     expect(maximumBodyBytes("discovery/runs")).toBe(1048576);
   });
   it("signs only exact sensitive owner operations", () => {
+    // The legacy browser-assistant routes were retired in Phase 9E.
     expect(
       requiresOwnerApproval(
         `browser-applications/${id}/authorize-submission`,
         "POST",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       requiresOwnerApproval(
         `application-answers/missing/${id}/approve`,
@@ -32,18 +33,19 @@ describe("shared request security policy", () => {
     ).toBe(false);
     expect(
       requiresOwnerApproval(
-        `browser-applications/${id}/authorize-submission/extra`,
+        `application-answers/missing/${id}/approve/extra`,
         "POST",
       ),
     ).toBe(false);
   });
   it("retains the closed gateway allowlist", () => {
+    // Retired v1 execution routes are no longer proxied (Phase 9E).
     expect(
       permittedRoute(
         `execution/questions/${id}/delivery-reconciliation`,
         "POST",
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       permittedRoute(
         `execution/questions/${id}/delivery-reconciliation`,

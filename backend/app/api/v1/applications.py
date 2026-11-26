@@ -7,8 +7,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.profile import ProtectedProfileRoute
-from backend.app.browser.contracts import PrepareBrowser
-from backend.app.core.security import require_api_token
+from backend.app.core.security import owner_ui, require_api_token
 from backend.app.db.session import get_db_session
 from backend.app.schemas.applications import (
     AnswerEdit,
@@ -22,6 +21,7 @@ from backend.app.schemas.applications import (
     PacketPreview,
     PacketRead,
     PlatformCapability,
+    PrepareBrowser,
     PrepareInput,
     QuestionsAdd,
     Readiness,
@@ -100,8 +100,7 @@ async def intake_url(
     request: Request,
     session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
-    from backend.app.agent.router import owner_ui
-    from backend.app.browser.service import prepare_packet
+    from backend.app.services.applications.intake import prepare_packet
     from backend.app.services.applications.platforms.owner_page import manual_page_url
 
     owner_ui(request)

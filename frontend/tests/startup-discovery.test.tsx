@@ -224,31 +224,19 @@ it("requires paid startup opt-in and ready cost preview without calling job appl
     vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
   ).toBe(true);
 });
-it("recovers retained startup observations with empty local complete and clears pointer only after terminal review", async () => {
+it("reviews a saved startup search with GETs only and clears its pointer only after terminal review", async () => {
   localStorage.setItem(
     "startup-discovery-attempt:v1",
     JSON.stringify({ requestId: id, source: "hacker_news" }),
   );
-  let finished = false;
-  reply = async (_path, options) => {
-    if (options?.method === "POST") {
-      expect(options.body).toBe("{}");
-      finished = true;
-      return completed;
-    }
-    return finished
-      ? completed
-      : { ...pending, usage: { finding_retained: true } };
-  };
+  reply = async () => completed;
   const user = userEvent.setup();
   mount();
-  await user.click(
-    await screen.findByRole("button", {
-      name: "Complete saved startup search",
-    }),
-  );
   await screen.findByText(/^run result: success$/i);
   expect(localStorage.getItem("startup-discovery-attempt:v1")).not.toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Complete saved startup search" }),
+  ).not.toBeInTheDocument();
   await user.click(
     screen.getByRole("button", {
       name: "Review result and prepare new startup search",
@@ -258,6 +246,6 @@ it("recovers retained startup observations with empty local complete and clears 
     expect(localStorage.getItem("startup-discovery-attempt:v1")).toBeNull(),
   );
   expect(
-    vi.mocked(api).mock.calls.some(([, options]) => options?.method === "PUT"),
-  ).toBe(false);
+    vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+  ).toBe(true);
 });

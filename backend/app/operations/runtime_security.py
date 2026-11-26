@@ -11,6 +11,7 @@ APPEND_ONLY = frozenset({
     "provider_usage_logs", "startup_shortlist_entries", "agent_policy_events", "agent_operations",
     "rust_agent_events", "rust_agent_control_events",
     "application_state_events",
+    "agent_audit_log",  # Python v2 Phase 9 (followup 005)
 })
 
 
@@ -24,6 +25,9 @@ def runtime_privileges(tables):
     # The dashboard deletes wrong/stale semantic-cache answers (Python v2, migration 004).
     if "semantic_cache" in privileges:
         privileges["semantic_cache"].add("DELETE")
+    # Phase 9: the agent's sliding-window memory prunes old turns and /forget clears a chat.
+    if "agent_conversation_turns" in privileges:
+        privileges["agent_conversation_turns"].add("DELETE")
     return privileges
 
 

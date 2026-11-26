@@ -104,7 +104,6 @@ async def test_integration_endpoints_auth_and_safe_status(async_client, phase2_a
     for path in (
         "/api/v1/integrations",
         "/api/v1/integrations/gmail/status",
-        "/api/v1/integrations/mcp/status",
     ):
         assert (await async_client.get(path)).status_code == 401
         response = await async_client.get(path, headers=phase2_auth)

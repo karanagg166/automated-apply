@@ -17,20 +17,21 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
-def test_final_postgres_gate_includes_native_browser_after_brave_build():
-    stages = dict(runner.STAGES)
-    assert list(stages).index("extension-brave-final") < list(stages).index(
-        "rust-postgres"
-    )
-    assert stages["rust-postgres"][-1] == "--with-browser"
+def test_retired_rust_extension_and_cutover_stages_are_gone():
+    commands = [" ".join(command) for _, command in runner.STAGES]
+    for retired in ("rust.", "cargo", "extension", "run-local-rust", "local-rust-launch"):
+        assert not any(retired in command for command in commands), retired
+    assert set(runner.PREREQUISITES) <= {name for name, _ in runner.STAGES}
 
 
-def test_combined_gate_rehearses_the_reviewed_schema_with_no_manifest_write():
-    stages = dict(runner.STAGES)
-    assert stages["rust-migration-catalog"][-2:] == (
-        "-m",
-        "rust.scripts.verify_live_migration",
+def test_fixture_stages_reference_only_existing_files():
+    stage = importlib.util.spec_from_file_location(
+        "fixture_stage", Path(__file__).resolve().parents[1] / "scripts/run_fixture_stage.py"
     )
+    assert stage is not None
+    source = Path(stage.origin).read_text()
+    for retired in ("playwright.extension", "playwright.naukri", "browser_acceptance", "extension/tests"):
+        assert retired not in source, retired
 
 
 @pytest.mark.parametrize(
@@ -120,9 +121,9 @@ def test_keep_going_runs_independent_stages_and_skips_failed_artifact_dependenci
     assert not runner.run_stages(
         (
             ("frontend-build", ("build",)),
-            ("frontend-cutover-bundle", ("bundle",)),
-            ("frontend-cutover-e2e", ("e2e",)),
-            ("extension-tests", ("independent",)),
+            ("frontend-e2e", ("e2e",)),
+            ("frontend-browser-e2e", ("browser",)),
+            ("frontend-tests", ("independent",)),
         ),
         tmp_path,
         invoke,
@@ -136,7 +137,7 @@ def test_keep_going_runs_independent_stages_and_skips_failed_artifact_dependenci
     rows = report["stages"]
     assert [row["status"] for row in rows] == ["FAIL", "NOT TESTED", "NOT TESTED", "PASS"]
     assert rows[1]["unmet_prerequisites"] == ["frontend-build"]
-    assert rows[2]["unmet_prerequisites"] == ["frontend-cutover-bundle"]
+    assert rows[2]["unmet_prerequisites"] == ["frontend-build"]
 
 
 def test_timeout_is_a_failure_and_never_replays_or_runs_the_next_stage(tmp_path):
@@ -169,23 +170,6 @@ def test_real_command_timeout_terminates_the_owned_process_group(tmp_path):
                 check=False,
                 timeout=0.05,
             )
-
-
-def test_complete_stack_harness_owns_its_lock_without_outer_double_acquisition(
-    monkeypatch,
-):
-    calls = []
-    monkeypatch.setattr(
-        runner, "bounded_run", lambda command, **kwargs: calls.append(command)
-    )
-    monkeypatch.setattr(
-        runner.fcntl,
-        "flock",
-        lambda *_args: pytest.fail("nested heavy lock would deadlock"),
-    )
-    command = ["uv", "run", "python", "scripts/run_fixture_stage.py", "extension-stack"]
-    runner.coordinated_run(command)
-    assert calls == [command]
 
 
 def test_heavy_lock_contention_cannot_start_another_stage(monkeypatch):

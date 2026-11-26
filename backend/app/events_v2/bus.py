@@ -31,7 +31,9 @@ import httpx
 logger = logging.getLogger(__name__)
 
 TOPICS = ("job.applied", "job.quota_hit", "hitl.opened", "hitl.resolved", "mail.recruiter_reply",
-          "portal.auth_required", "agent.action")
+          "portal.auth_required", "agent.action", "job.ats_handoff",
+          # Phase 9B: early-bird priority lane, worker wake-ups, circuit breaker, profile sync.
+          "job.priority_discovered", "worker.wake", "portal.circuit_open", "profile.updated", "profile.sync")
 NOTIFY_CHANNEL = "automated_apply_events"
 STREAM = "automated-apply:events"
 QUEUE = "automated-apply.events"

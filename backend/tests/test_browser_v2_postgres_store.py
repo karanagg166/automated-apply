@@ -23,6 +23,7 @@ from backend.app.browser_v2.store import (
     RulesNotFound,
     WorkerState,
 )
+from backend.app.operations.v2_schema import PHASE9_MIGRATION
 from backend.scripts.migrate_v2_core import MIGRATION, strip_pgvector
 from backend.tests.test_v2_migration_sql import PG_BIN, free_port
 
@@ -64,6 +65,8 @@ def database(tmp_path_factory):
         migration = tmp / "004.sql"
         migration.write_text(strip_pgvector(MIGRATION.read_text()))
         subprocess.run([*psql, "-f", str(migration)], check=True, capture_output=True, text=True)
+        # Phase 9 (followup 005) on top of 004: the store reads the priority / circuit columns.
+        subprocess.run([*psql, "-f", str(PHASE9_MIGRATION)], check=True, capture_output=True, text=True)
         yield f"postgresql://postgres@127.0.0.1:{port}/postgres"
     finally:
         server.terminate()

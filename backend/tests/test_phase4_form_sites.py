@@ -2,10 +2,11 @@
 
 import pytest
 
-from backend.app.browser.service import target
-from backend.app.browser.site_policy import application_page_url
 from backend.app.core.config import Settings
-from backend.app.services.applications.platforms.owner_page import manual_page_url
+from backend.app.services.applications.platforms.owner_page import (
+    application_page_url,
+    manual_page_url,
+)
 
 ATS_URLS = [
     "https://job-boards.greenhouse.io/fictional/jobs/12345",
@@ -24,7 +25,6 @@ def test_shared_url_eligibility_covers_documented_host_shapes(url):
     settings = Settings(_env_file=None)
     assert application_page_url(url) == url
     assert manual_page_url(url, settings) == url
-    assert target(url, settings) == url
 
 
 @pytest.mark.parametrize("url", [
@@ -46,6 +46,6 @@ def test_generic_html_or_react_employer_requires_exact_origin_grant():
     url = "https://fictional-employer.example/careers/apply"
     assert manual_page_url(url, Settings(_env_file=None)) is None
     settings = Settings(_env_file=None, BROWSER_ALLOWED_ORIGINS=["https://fictional-employer.example:443"])
-    assert manual_page_url(url, settings) == target(url, settings) == url
+    assert manual_page_url(url, settings) == url
     assert manual_page_url("https://other.example/careers/apply", settings) is None
     assert manual_page_url(url + "?session=private", settings) is None

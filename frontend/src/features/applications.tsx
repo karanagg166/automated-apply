@@ -7,7 +7,6 @@ import {
   PageTitle,
   Skeleton,
 } from "@/components/ui";
-import { BrowserIntake } from "@/features/browser-assistant";
 import { api, dateLabel, readable, type Schema } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, List, Plus, Rows3 } from "lucide-react";
@@ -21,11 +20,7 @@ export {
 } from "./application-field-review";
 export { pipelineColumn } from "./application-pipeline";
 type Packet = Schema<"PacketRead">;
-export function Applications({
-  nativeRuntime = false,
-}: {
-  nativeRuntime?: boolean;
-}) {
+export function Applications() {
   const [view, setView] = useState("board"),
     [offset, setOffset] = useState(0);
   const query = useQuery({
@@ -79,7 +74,6 @@ export function Applications({
           </div>
         }
       />
-      <BrowserIntake nativeRuntime={nativeRuntime} />
       {query.isPending ? (
         <Skeleton />
       ) : query.isError ? (

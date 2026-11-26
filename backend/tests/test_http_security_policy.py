@@ -6,11 +6,11 @@ from uuid import UUID
 
 from fastapi.routing import APIRoute, iter_route_contexts
 
-from backend.app.browser.owner_approval import (
+from backend.app.core.http_policy import maximum_body_bytes, requires_owner_approval
+from backend.app.dashboard.owner_approval import (
     require_owner_approval,
     verify_owner_approval,
 )
-from backend.app.core.http_policy import maximum_body_bytes, requires_owner_approval
 from backend.app.main import app
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -34,8 +34,8 @@ def test_registered_owner_approval_dependencies_match_shared_contract():
         sample = context.path
         for parameter in route.param_convertors:
             sample = sample.replace("{" + parameter + "}", str(UUID(int=1)))
-        # Browser routes verify the signature as a dependency, then claim the
-        # nonce inside the browser operation's database transaction.
+        # Only the two answer-approval routes remain owner-signed after the
+        # Phase 9E browser-assistant retirement.
         guarded = any(
             d.call in (require_owner_approval, verify_owner_approval)
             for d in route.dependant.dependencies
@@ -46,14 +46,13 @@ def test_registered_owner_approval_dependencies_match_shared_contract():
                 method,
             )
         observed += guarded
-    assert observed == 8
+    assert observed == 2
 
 
 def test_request_body_classes_cover_sensitive_and_nested_application_routes():
     assert maximum_body_bytes("/api/v1/dashboard/resumes") == 5 * 1024 * 1024
     assert maximum_body_bytes("/api/v1/local-agent/chrome") == 256 * 1024
     for path in (
-        "/api/v1/browser-applications",
         "/api/v1/application-packets/a/review",
         "/api/v1/jobs/a/application-preview",
         "/api/v1/application-answers/generate",

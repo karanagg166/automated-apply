@@ -250,7 +250,9 @@ async def test_pipeline_d_imap_failure_falls_back_and_no_email_job_gets_no_draft
     assert (second.state, second.reason) == (S.DRAFTED_AND_QUEUED, "quota_hit_queued_no_email")
     assert [d["channel"] for d in store.drafts] == ["mail_app"] and len(runner.requests) == 1
     assert runner.requests[0]["recipient"] == "careers@company1.com"
-    assert store.events[-1]["payload"]["draft_reason"] == "quota_hit_no_recruiter_email"
+    # Phase 9B: the queue runs newest-discovered first, so look the event up by job, not by position.
+    no_email = next(e for e in store.events if e["reason"] == "quota_hit_queued_no_email")["payload"]
+    assert no_email["draft_reason"] == "quota_hit_no_recruiter_email"
     assert report.portals[0].drafted == 1 and report.portals[0].queued_for_retry == 2
     fell_back = next(e for e in store.events if e["reason"] == "quota_hit_drafted_and_queued")["payload"]
     assert fell_back["fell_back"] is True and fell_back["channel"] == "mail_app"

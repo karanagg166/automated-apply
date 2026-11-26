@@ -188,28 +188,9 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="automated-apply-phase7-ui-") as directory:
         setup_environment(directory)
         asyncio.run(seed())
-        from contextlib import asynccontextmanager, suppress
-
         import uvicorn
 
-        from backend.app.agent.executor import run_worker
-        from backend.app.core.config import get_settings
-        from backend.app.db.session import get_session_factory
         from backend.app.main import app
-        original_lifespan = app.router.lifespan_context
-
-        @asynccontextmanager
-        async def fixture_lifespan(application):
-            async with original_lifespan(application):
-                stop = asyncio.Event()
-                task = asyncio.create_task(run_worker(get_session_factory(), get_settings(), stop))
-                try:
-                    yield
-                finally:
-                    stop.set()
-                    with suppress(asyncio.CancelledError):
-                        await task
-        app.router.lifespan_context = fixture_lifespan
 
         uvicorn.run(
             app,

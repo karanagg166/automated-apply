@@ -68,7 +68,7 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, "locks");
 });
 describe("durable job discovery", () => {
-  it("recovers a native paid result using saved GET and local completion without renewed paid opt-in or PUT", async () => {
+  it("recovers a native paid result using only its saved GET without renewed paid opt-in or PUT", async () => {
     localStorage.setItem(
       key,
       JSON.stringify({ requestId: request, source: "naukri" }),
@@ -84,22 +84,18 @@ describe("durable job discovery", () => {
         billing_final: false,
       },
     };
-    vi.mocked(api).mockResolvedValueOnce({
+    const retained = {
       ...paid,
       status: "running",
       finished_at: null,
       rankings_complete: false,
       local_intake_complete: false,
-    });
-    vi.mocked(api).mockResolvedValueOnce(paid);
+    };
+    vi.mocked(api).mockResolvedValueOnce(retained);
     expect(
       await recoverDiscovery({ source: "naukri", allow_paid: false }),
-    ).toEqual(paid);
-    expect(api).toHaveBeenNthCalledWith(1, path);
-    expect(api).toHaveBeenNthCalledWith(2, `${path}/complete`, {
-      method: "POST",
-      body: "{}",
-    });
+    ).toEqual(retained);
+    expect(api).toHaveBeenCalledExactlyOnceWith(path);
     expect(
       vi
         .mocked(api)
@@ -201,25 +197,20 @@ describe("durable job discovery", () => {
     ).toEqual(["PUT", "GET"]);
     expect(readDiscoveryAttempt()?.requestId).toBe(request);
   });
-  it("completes a retained finding using an empty local-only POST and the original UUID", async () => {
+  it("returns a saved retained finding for the original UUID without a write or changed request", async () => {
     pointer();
-    vi.mocked(api)
-      .mockResolvedValueOnce({
-        ...pending(),
-        usage: { finding_retained: true },
-      })
-      .mockResolvedValueOnce(completed());
+    const retained = {
+      ...pending(),
+      usage: { finding_retained: true },
+    };
+    vi.mocked(api).mockResolvedValueOnce(retained);
     expect(
       await recoverDiscovery({
         source: "changed_source",
         query: { keywords: ["CHANGED_PRIVATE_CANARY"] },
       }),
-    ).toEqual(completed());
-    expect(api).toHaveBeenNthCalledWith(1, path);
-    expect(api).toHaveBeenNthCalledWith(2, `${path}/complete`, {
-      method: "POST",
-      body: "{}",
-    });
+    ).toEqual(retained);
+    expect(api).toHaveBeenCalledExactlyOnceWith(path);
   });
   it("never turns unknown provider work into another GET batch or local completion", async () => {
     pointer();

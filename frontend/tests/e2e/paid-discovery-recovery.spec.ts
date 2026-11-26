@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./owner-session";
-test("paid discovery retains its UUID and full reservation across response loss and reload, then completes locally", async ({
+test("paid discovery retains its UUID and full reservation across response loss and reload, then recovers with saved GETs", async ({
   page,
   context,
 }, testInfo) => {
@@ -26,8 +26,7 @@ test("paid discovery retains its UUID and full reservation across response loss 
     },
   };
   let puts = 0,
-    gets = 0,
-    completes = 0;
+    gets = 0;
   const saved = new Map<string, Record<string, unknown>>();
   await context.route("**/api/backend/**", async (route) => {
     const request = route.request();
@@ -57,7 +56,7 @@ test("paid discovery retains its UUID and full reservation across response loss 
         },
       });
     }
-    const match = /^discovery\/runs\/([a-f0-9-]{36})(\/complete)?$/.exec(path);
+    const match = /^discovery\/runs\/([a-f0-9-]{36})$/.exec(path);
     if (!match) return route.fallback();
     const id = match[1];
     if (request.method() === "PUT") {
@@ -94,22 +93,8 @@ test("paid discovery retains its UUID and full reservation across response loss 
     const result = saved.get(id);
     if (!result)
       return route.fulfill({ status: 404, json: { detail: "No admission" } });
-    if (match[2]) {
-      expect(request.method()).toBe("POST");
-      expect(request.postDataJSON()).toEqual({});
-      completes += 1;
-      Object.assign(result, {
-        status: "success",
-        counts: { discovered: 1, inserted: 1, updated: 0, skipped: 0 },
-        job_ids: ["30000000-0000-0000-0000-000000000001"],
-        finished_at: "2026-11-17T00:00:02Z",
-        local_intake_complete: true,
-        rankings_complete: true,
-      });
-    } else {
-      expect(request.method()).toBe("GET");
-      gets += 1;
-    }
+    expect(request.method()).toBe("GET");
+    gets += 1;
     return route.fulfill({ json: result });
   });
   await login(page);
@@ -144,15 +129,23 @@ test("paid discovery retains its UUID and full reservation across response loss 
     page.getByText(/Retained reservation: \$0.100001/),
   ).toBeVisible();
   expect(puts).toBe(1);
-  expect(completes).toBe(0);
   expect(gets).toBeGreaterThan(0);
   await expect(
     page.getByRole("checkbox", { name: "Allow this paid discovery" }),
   ).not.toBeChecked();
-  await page.getByRole("button", { name: "Complete saved discovery" }).click();
+  // The server finishes the retained finding on its own; the dashboard only reads it back.
+  for (const result of saved.values())
+    Object.assign(result, {
+      status: "success",
+      counts: { discovered: 1, inserted: 1, updated: 0, skipped: 0 },
+      job_ids: ["30000000-0000-0000-0000-000000000001"],
+      finished_at: "2026-11-17T00:00:02Z",
+      local_intake_complete: true,
+      rankings_complete: true,
+    });
+  await page.getByRole("button", { name: "Recover saved discovery" }).click();
   await expect(page.getByText("Saved (New): 1")).toBeVisible();
   expect(puts).toBe(1);
-  expect(completes).toBe(1);
   expect(
     await page.evaluate(() =>
       JSON.parse(localStorage.getItem("job-discovery-attempt:v1")!),

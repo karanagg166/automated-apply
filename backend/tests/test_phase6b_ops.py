@@ -79,7 +79,9 @@ class FakeLaunchd:
         if command[:2] == ["/usr/bin/pmset", "-g"]:
             return cutover.Result(0, PMSET_NONE)
         if "backend.scripts.migrate_v2_core" in command:
-            return cutover.Result(0, json.dumps({"v2_tables_present": self.tables, "counts": {}}))
+            phase9 = {"status": "applied" if self.tables else "missing"}
+            return cutover.Result(0, json.dumps({"v2_tables_present": self.tables, "counts": {},
+                                                 "phase9": phase9}))
         if "health-check" in command:
             return cutover.Result(0, json.dumps({"status": "ok", "counts": {"ok": 1}, "checks": []}))
         return cutover.Result(0)
@@ -191,6 +193,15 @@ def test_plan_blocks_apply_when_migration_004_missing(world):
     assert report["applied"] is False and report["reason"] == "prerequisites_failed"
     assert (paths.launch_agents / "com.automated-apply.rust.plist").exists()
     assert not launchd.commands("bootout") and not paths.backup_root.exists()
+
+
+def test_plan_blocks_when_phase9_migration_missing(world):
+    paths, launchd = world
+    ok, detail, blocking = cutover.phase9_migration_applied({"phase9": {"status": "missing"}})
+    assert not ok and blocking and "apply-phase9" in detail
+    assert cutover.phase9_migration_applied({})[2] is False  # old check output: warning only
+    plan = cutover.build_plan(paths, launchd)
+    assert {p.name: p.ok for p in plan.prerequisites}["migration_005"] is True
 
 
 def test_apply_snapshot_then_rollback_round_trip(world):

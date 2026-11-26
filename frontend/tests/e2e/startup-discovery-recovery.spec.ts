@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./owner-session";
-test("startup response loss retains original UUID across reload and finishes company results locally without another PUT", async ({
+test("startup response loss retains original UUID across reload and reads finished company results back without another PUT", async ({
   page,
   context,
 }, testInfo) => {
@@ -16,8 +16,7 @@ test("startup response loss retains original UUID across reload and finishes com
   const child = "20000000-0000-0000-0000-000000000002";
   let saved: Record<string, unknown> | null = null;
   let puts = 0,
-    gets = 0,
-    completes = 0;
+    gets = 0;
   await context.route("**/api/backend/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace("/api/backend/", "");
@@ -34,8 +33,7 @@ test("startup response loss retains original UUID across reload and finishes com
           message: "Fictional startup preview only",
         },
       });
-    const match =
-      /^startups\/discovery\/runs\/([a-f0-9-]{36})(\/complete)?$/.exec(path);
+    const match = /^startups\/discovery\/runs\/([a-f0-9-]{36})$/.exec(path);
     if (!match) return route.fallback();
     if (request.method() === "PUT") {
       puts += 1;
@@ -71,20 +69,8 @@ test("startup response loss retains original UUID across reload and finishes com
         status: 404,
         json: { detail: "No original admission" },
       });
-    if (match[2]) {
-      expect(request.method()).toBe("POST");
-      expect(request.postDataJSON()).toEqual({});
-      completes += 1;
-      Object.assign(saved, {
-        status: "success",
-        local_intake_complete: true,
-        finished_at: "2026-11-17T00:03:00Z",
-        counts: { companies_observed: 1, companies_matching: 1 },
-      });
-    } else {
-      expect(request.method()).toBe("GET");
-      gets += 1;
-    }
+    expect(request.method()).toBe("GET");
+    gets += 1;
     return route.fulfill({ json: saved });
   });
   await login(page);
@@ -115,16 +101,21 @@ test("startup response loss retains original UUID across reload and finishes com
     .getByRole("tab", { name: "Startup discovery", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "Complete saved startup search" }),
+    page.getByRole("button", { name: "Refresh saved startup search" }),
   ).toBeVisible();
   expect(puts).toBe(1);
-  expect(completes).toBe(0);
   expect(gets).toBeGreaterThan(0);
+  // The server finishes the retained finding on its own; the dashboard only reads it back.
+  Object.assign(saved!, {
+    status: "success",
+    local_intake_complete: true,
+    finished_at: "2026-11-17T00:03:00Z",
+    counts: { companies_observed: 1, companies_matching: 1 },
+  });
   await page
-    .getByRole("button", { name: "Complete saved startup search" })
+    .getByRole("button", { name: "Refresh saved startup search" })
     .click();
   await expect(page.getByText("Run result: Success")).toBeVisible();
-  expect(completes).toBe(1);
   expect(puts).toBe(1);
   expect(
     await page.evaluate(() =>

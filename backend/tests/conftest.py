@@ -86,7 +86,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 import backend.app.db.session as db_session_module
-from backend.app.core.config import get_settings
 from backend.app.main import app
 from backend.app.models.base import Base
 
@@ -177,39 +176,6 @@ def phase2_auth(monkeypatch):
     get_settings.cache_clear()
 
 
-@pytest.fixture
-def mcp_auth(monkeypatch):
-    monkeypatch.setenv("MCP_REMOTE_ENABLED", "true")
-    monkeypatch.setenv("MCP_API_TOKEN", "fictional-mcp-owner-token-at-least-32-characters")
-    monkeypatch.setenv("MCP_REQUIRE_TLS", "true")
-    get_settings.cache_clear()
-    yield {"Authorization": "Bearer fictional-mcp-owner-token-at-least-32-characters",
-           "Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
-    get_settings.cache_clear()
-
-
-@pytest_asyncio.fixture
-async def mcp_client(mcp_auth):
-    import asyncio
-
-    from backend.app.main import app, mcp_app
-    ready, stop = asyncio.Event(), asyncio.Event()
-
-    async def serve_lifespan():
-        async with mcp_app.lifespan(app):
-            ready.set()
-            await stop.wait()
-
-    task = asyncio.create_task(serve_lifespan())
-    await ready.wait()
-    try:
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://localhost") as client:
-            yield client
-    finally:
-        stop.set()
-        await task
-
-
 @pytest_asyncio.fixture
 async def outreach_target(db_session, phase2_profile):
     from backend.tests.phase4a_fakes import target
@@ -230,20 +196,6 @@ async def oauth_bundle(db_session):
 async def application_target(db_session, phase2_profile):
     from backend.tests.phase5a_fakes import target
     return await target(db_session, phase2_profile)
-
-
-@pytest.fixture
-def isolated_browser_campaign_executor(monkeypatch):
-    """Wire campaign tests to their dedicated driver, never the owner's profile."""
-    from backend.app.browser import queue
-
-    enqueue = queue.enqueue
-
-    async def enqueue_isolated(*args, **kwargs):
-        kwargs.setdefault("executor", "isolated_browser")
-        return await enqueue(*args, **kwargs)
-
-    monkeypatch.setattr(queue, "enqueue", enqueue_isolated)
 
 
 @pytest.fixture

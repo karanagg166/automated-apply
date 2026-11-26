@@ -38,6 +38,8 @@ const rules: PortalRules = {
   quota_drafts_per_cycle: 5,
   allow_unknown_posting_age: false,
   allow_unknown_posting_age_default: false,
+  circuit_failures: 0,
+  circuit_level: 0,
 };
 
 const profile: ScreeningProfile = {

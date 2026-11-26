@@ -95,6 +95,13 @@ SETTABLE: dict[str, tuple[str, Callable[[str], Any]]] = {
     "willing_to_relocate": ("willing_to_relocate", _parse_bool),
     "relocation_locations": ("relocation_locations", _parse_list),
     "work_authorization": ("work_authorization", _parse_text),
+    # Phase 9B
+    "max_required_experience_years": ("max_required_experience_years", _parse_float),
+    "headline": ("headline", _parse_text),
+    "internship_months": ("internship_months", _parse_int),
+    "graduation_month": ("graduation_month", _parse_text),
+    "open_to_internships": ("open_to_internships", _parse_bool),
+    "notify_early_bird": ("notify_early_bird", _parse_bool),
 }
 
 

@@ -11,6 +11,10 @@
   the caller's single v2 store connection (`SerializedConnection` in the worker).
 - Runs as a background task from Telegram/dashboard: it never touches the browser, so an
   in-flight application is never interrupted; rule changes apply on the next cycle.
+
+Phase 9C: `run_chat` is the LLM-first path (agent_v2.chat + agent_v2.react: audited tool
+registry, confirmations, memory); `run` keeps the deterministic graph and its return shape and
+is also the fallback when no LLM provider can answer.
 """
 
 from __future__ import annotations
@@ -24,8 +28,10 @@ from langgraph.graph import END, START, StateGraph
 from backend.app.agent_v2.intent import Intent, llm_parse, parse
 from backend.app.agent_v2.tools import (
     AgentTools,
+    AuditedToolRunner,
     GuardrailViolation,
     NeedsConfirmation,
+    ToolContext,
     ToolResult,
 )
 
@@ -47,6 +53,7 @@ FORBIDDEN_ARG_KEYS = frozenset({"send", "send_email", "delete", "drop", "replay"
 class AgentState(TypedDict, total=False):
     text: str
     now: datetime
+    use_llm: bool
     intent: Intent | None
     plan: dict[str, Any]
     verdict: str  # ok | rejected | confirm
@@ -57,12 +64,15 @@ class AgentState(TypedDict, total=False):
 
 class ControlAgent:
     def __init__(self, store: Any, *, ai: Any = None, mail_events: Any = None, event_bus: Any = None,
-                 clock: Any = None) -> None:
+                 clock: Any = None, wake: Any = None, profile_sync: Any = None, pending: Any = None) -> None:
         self.tools = AgentTools(store, ai=ai, mail_events=mail_events, clock=clock)
         self.router = getattr(ai, "router", None) if ai is not None else None
         self.event_bus = event_bus
         self.clock = clock or (lambda: datetime.now(UTC))
         self.graph = self._build()
+        self.context = ToolContext(store, ai=ai, mail_events=mail_events, event_bus=event_bus, clock=self.clock,
+                                   wake=wake, profile_sync=profile_sync, _legacy=self.tools)
+        self.runner = AuditedToolRunner(self.context, pending=pending)
 
     def _build(self) -> Any:
         graph = StateGraph(AgentState)
@@ -85,7 +95,7 @@ class ControlAgent:
     async def classify_intent(self, state: AgentState) -> AgentState:
         text = state.get("text") or ""
         intent = parse(text, now=state.get("now"))
-        if intent is None:
+        if intent is None and state.get("use_llm", True):
             try:
                 intent = await llm_parse(self.router, text)
             except Exception as exc:  # noqa: BLE001 - offline / provider error: deterministic help
@@ -179,11 +189,40 @@ class ControlAgent:
         return {"reply": text[:3500]}
 
     # --- entry ---------------------------------------------------------------------------------
-    async def run(self, text: str) -> dict[str, Any]:
-        final = await self.graph.ainvoke({"text": (text or "")[:2000], "now": self.clock()})
+    async def run(self, text: str, *, use_llm: bool = True) -> dict[str, Any]:
+        final = await self.graph.ainvoke({"text": (text or "")[:2000], "now": self.clock(), "use_llm": use_llm})
         intent = final.get("intent")
         result = final.get("result")
         return {"reply": final.get("reply") or HELP, "tool": intent.tool if intent else None,
                 "source": intent.source if intent else None, "verdict": final.get("verdict"),
                 "ok": bool(result.ok) if result is not None else final.get("verdict") == "help",
                 "data": result.data if result is not None else {}}
+
+    # --- Phase 9C: LLM-first chat + confirmations ------------------------------------------------
+    async def run_chat(self, text: str, *, chat_key: str, source: str) -> dict[str, Any]:
+        """LLM ReAct agent with audited tools; deterministic `run` (no LLM) as the fallback.
+        Returns the `run` keys (reply, tool, source, verdict, ok, data) plus reply_html, tools,
+        mode (llm | deterministic | confirmation), confirmation {token, tool} and hitl_resolutions."""
+        from backend.app.agent_v2.chat import AgentChat
+
+        async def deterministic(message: str) -> dict[str, Any]:
+            return await self.run(message, use_llm=False)  # never re-sends the raw text to an LLM
+
+        chat = AgentChat(self.tools.store, self.router, self.runner, fallback=deterministic, clock=self.clock)
+        return await chat.handle(text, chat_key=chat_key, source=source)
+
+    async def confirm_pending(self, token: str | None, *, chat_key: str, source: str) -> dict[str, Any]:
+        from backend.app.agent_v2.chat import AgentChat
+
+        chat = AgentChat(self.tools.store, self.router, self.runner, fallback=self.run, clock=self.clock)
+        pending = self.runner.pending.items.get(token) if token else None
+        result = await self.runner.confirm(token, chat_key=chat_key, source=source)
+        return chat.outcome_dict(result, tool=pending.tool_name if pending else None,
+                            verdict="ok" if result.ok else "rejected")
+
+    async def cancel_pending(self, token: str | None, *, chat_key: str, source: str) -> dict[str, Any]:
+        from backend.app.agent_v2.chat import AgentChat
+
+        chat = AgentChat(self.tools.store, self.router, self.runner, fallback=self.run, clock=self.clock)
+        result = await self.runner.cancel(token, chat_key=chat_key, source=source)
+        return chat.outcome_dict(result, tool=None, verdict="cancelled")

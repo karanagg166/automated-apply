@@ -17,7 +17,6 @@ async def confirm_profile(session, profile, expected_version):
     if not profile or profile.version != expected_version:
         raise ValueError("profile_changed_review_current_version")
     row = await session.get(OwnerPreference, "phase1_profile_confirmation", with_for_update=True)
-    was_current = confirmation_matches(profile, row.value if row else {})
     value = {"profile_id": str(profile.id), "profile_version": profile.version,
         "confirmed_at": datetime.now(timezone.utc).isoformat()}
     if row:
@@ -25,10 +24,6 @@ async def confirm_profile(session, profile, expected_version):
     else:
         session.add(OwnerPreference(key="phase1_profile_confirmation", value=value))
     await session.flush()
-    if not was_current:
-        from backend.app.execution.queue_reconsideration import request
-
-        await request(session, "owner_profile_version_confirmed")
     return value
 
 

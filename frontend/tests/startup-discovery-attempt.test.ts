@@ -114,22 +114,17 @@ it("response loss retains original pointer and reload inspection is saved GET on
   expect(api).toHaveBeenLastCalledWith(path);
   expect(startupAttempt()?.requestId).toBe(parent);
 });
-it("retained findings finish through empty local completion without a second PUT or changed request", async () => {
+it("retained findings are returned from the saved GET without a second PUT or changed request", async () => {
   pointer();
-  vi.mocked(api)
-    .mockResolvedValueOnce({ ...pending(), usage: { finding_retained: true } })
-    .mockResolvedValueOnce(complete());
+  const retained = { ...pending(), usage: { finding_retained: true } };
+  vi.mocked(api).mockResolvedValueOnce(retained);
   expect(
     await recoverStartup({
       source: "instahyre",
       query: { keywords: ["changed"] },
     }),
-  ).toEqual(complete());
-  expect(api).toHaveBeenNthCalledWith(1, path);
-  expect(api).toHaveBeenNthCalledWith(2, `${path}/complete`, {
-    method: "POST",
-    body: "{}",
-  });
+  ).toEqual(retained);
+  expect(api).toHaveBeenCalledExactlyOnceWith(path);
 });
 it("unknown child remains saved and cannot release pointer or dispatch a new source", async () => {
   pointer();

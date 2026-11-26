@@ -1,6 +1,6 @@
 """Bounded, user-supplied career facts and separately stored search preferences."""
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
@@ -129,7 +129,7 @@ class Certification(ProfileSchema):
 class CompensationFact(ProfileSchema):
     amount: Decimal = Field(
         ge=0,
-        le=Decimal("1000000000000"),
+        le=Decimal(1000000000000),
         max_digits=15,
         decimal_places=2,
         allow_inf_nan=False,
@@ -227,6 +227,16 @@ class JobSearchPreferences(ProfileSchema):
     smartrecruiters_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     # Phase 8: per-portal rule overrides edited from /autopilot (portal rules PATCH).
     portal_rule_overrides: dict[PortalKey, PortalRuleOverride] = Field(default_factory=dict, max_length=20)
+    # Phase 9B: hard experience ceiling for the filter, profile headline, internship facts and
+    # early-bird notifications.
+    max_required_experience_years: float | None = Field(default=None, ge=0, le=30, allow_inf_nan=False)
+    headline: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=250)] | None = None
+    internship_months: int | None = Field(default=None, ge=0, le=60)
+    graduation_month: Annotated[str, StringConstraints(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")] | None = None
+    open_to_internships: StrictBool | None = None
+    notify_early_bird: StrictBool | None = None
+    # Phase 9D: per-portal profile-sync switches, e.g. {"naukri": {"live": true}} (default: dry-run only).
+    profile_sync: dict[PortalKey, dict[ShortText, StrictBool]] | None = None
 
     @model_validator(mode="after")
     def unique_authorization_countries(self):
@@ -297,4 +307,4 @@ class CandidateProfileRead(CandidateProfileCreate):
     @field_validator("created_at", "updated_at")
     @classmethod
     def utc_timestamps(cls, value):
-        return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value

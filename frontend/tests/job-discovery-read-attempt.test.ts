@@ -145,10 +145,10 @@ it("unknown read outcome and same-key recovery return saved state without anothe
   ).toBe(true);
   expect(readDiscoveryReadAttempt()?.readId).toBe(read);
 });
-it("complete pages recover locally then finish original discovery without another provider read", async () => {
+it("a retained saved read re-reads the original discovery with saved GETs only", async () => {
   pointer();
-  let merged = false;
-  const complete = {
+  let reads = 0;
+  const finished = {
     ...owner(),
     status: "success",
     finished_at: "2026-11-17T00:02:00Z",
@@ -156,28 +156,17 @@ it("complete pages recover locally then finish original discovery without anothe
     rankings_complete: true,
   };
   vi.mocked(api).mockImplementation(async (target, options) => {
-    if (target === base)
-      return { ...owner(), usage: { finding_retained: merged } };
-    if (target === path && !options)
-      return { ...saved(), local_merge_available: true };
-    if (target === `${path}/complete`) {
-      merged = true;
-      return { ...saved(), finding_retained: true };
-    }
-    if (target === `${base}/complete`) return complete;
+    if (options) throw new Error("Unexpected write");
+    if (target === base) return reads++ ? finished : owner();
+    if (target === path) return { ...saved(), finding_retained: true };
     throw new Error("Unexpected request");
   });
   const result = await recoverDiscoveryRead(false);
-  expect(result.run).toEqual(complete);
+  expect(result.run).toEqual(finished);
+  expect(result.read?.finding_retained).toBe(true);
   expect(
-    vi
-      .mocked(api)
-      .mock.calls.filter(([, options]) => options?.method === "POST")
-      .map(([p]) => p),
-  ).toEqual([`${path}/complete`, `${base}/complete`]);
-  expect(
-    vi.mocked(api).mock.calls.some(([, options]) => options?.method === "PUT"),
-  ).toBe(false);
+    vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+  ).toBe(true);
 });
 it("unknown original paid start cannot be converted into a read or another start", async () => {
   vi.mocked(api).mockResolvedValue({ ...owner(), provider_run_id: null });

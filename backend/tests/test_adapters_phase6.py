@@ -325,11 +325,14 @@ async def test_himalayas_delegates_greenhouse_and_classifies_unknown_ats(web, tm
         await adapter.discover_jobs(None, query="backend engineer", limit=10, job_age_days=7)
     assert len(calls) == 1 and "q=backend+engineer" in calls[0]  # 30-minute polite cache
     site.add(GH_JOB, gh_form())
-    acme = await adapter.inspect_job(page, jobs[0])
+    by_company = {(job.company or "").lower(): job for job in jobs}  # discovery is newest-first (Phase 9B)
+    acme_listing = next(job for name, job in by_company.items() if "acme" in name)
+    beta_listing = next(job for name, job in by_company.items() if "beta" in name)
+    acme = await adapter.inspect_job(page, acme_listing)
     assert acme.apply_mode == "direct" and acme.ats == "greenhouse"
     dry = await adapter.apply_job(page, acme, facts(tmp_path), dry_run=True, hitl_answers=AUTH_ANSWER)
     assert dry.state is S.SCORED and dry.reason == "dry_run_stopped_before_submit"
-    beta = await adapter.inspect_job(page, jobs[1])
+    beta = await adapter.inspect_job(page, beta_listing)
     other = await adapter.apply_job(page, beta, facts(tmp_path), dry_run=False)
     assert beta.apply_mode == "external" and other.state is S.FILTERED_OUT
     assert other.reason == "external_unsupported_ats:beta.wd1.myworkdayjobs.com" and not other.clicked_apply

@@ -1,7 +1,6 @@
 {
   "schema_version": 1,
   "private_prefixes": [
-    "/api/v1/browser",
     "/api/v1/local-agent",
     "/api/v1/dashboard",
     "/api/v1/operations",
@@ -26,13 +25,11 @@
     "resume": 5242880
   },
   "application_prefixes": [
-    "/api/v1/browser",
     "/api/v1/applications",
     "/api/v1/application-packets"
   ],
   "application_path_fragment": "/application-",
   "owner_approval": [
-    "^browser-applications/[a-f0-9-]{36}/(authorize-submission|consent|opportunity-approve|company-source-preview|advance-step|resume-page)$",
     "^application-answers/drafts/[a-f0-9-]{36}/approve-reuse$",
     "^application-answers/missing/[a-f0-9-]{32,36}/approve$"
   ],
@@ -98,20 +95,12 @@
       "methods": ["POST"]
     },
     {
-      "pattern": "^startups\\/discovery\\/runs\\/[a-f0-9-]{36}\\/complete$",
-      "methods": ["POST"]
-    },
-    {
       "pattern": "^startups\\/discovery\\/runs\\/[a-f0-9-]{36}$",
       "methods": ["GET", "PUT"]
     },
     {
       "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}\\/reads\\/[a-f0-9-]{36}$",
       "methods": ["GET", "PUT"]
-    },
-    {
-      "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}\\/reads\\/[a-f0-9-]{36}\\/complete$",
-      "methods": ["POST"]
     },
     {
       "pattern": "^integrations\\/gmail\\/local\\/accounts$",
@@ -147,66 +136,6 @@
     },
     {
       "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/messages\\/[A-Za-z0-9_-]{1,200}\\/read$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/naukri$",
-      "methods": ["GET", "PUT"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/profile-sync$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/profile-sync\\/policy$",
-      "methods": ["PUT"]
-    },
-    {
-      "pattern": "^execution\\/queue$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^execution\\/queue\\/policy$",
-      "methods": ["PUT"]
-    },
-    {
-      "pattern": "^execution\\/queue\\/control$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/automation\\/policy$",
-      "methods": ["PUT"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/automation\\/control$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/jobs$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^execution\\/naukri\\/(import|apply)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/[a-f0-9-]{36}\\/control$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/questions$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^execution\\/packets\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^execution\\/questions\\/[a-f0-9-]{36}\\/(approve-reuse|answer|delivery-reconciliation)$",
       "methods": ["POST"]
     },
     {
@@ -278,90 +207,6 @@
       "methods": ["POST"]
     },
     {
-      "pattern": "^browser-applications$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser-applications\\/policy$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser-applications\\/[a-f0-9-]{36}$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser-applications\\/[a-f0-9-]{36}\\/operation$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser-applications\\/[a-f0-9-]{36}\\/(open|actions|submission-preview|authorize-submission|submit|recover-submission|consent|opportunity-preview|opportunity-approve|company-source-preview|step-preview|advance-step|page-preview|resume-page)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/submissions$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser\\/submissions\\/[a-f0-9-]{36}\\/(approve|execute|reconcile)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/submissions\\/stop$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/plans$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser\\/chrome-profiles$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser\\/chrome-profiles\\/(select|commands)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/chrome-profiles\\/[a-f0-9-]{36}\\/disconnect$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/extension-tasks$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser\\/extension-tasks\\/application\\/[a-f0-9-]{36}$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^browser\\/extension-tasks\\/[a-f0-9-]{36}\\/control$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/plans\\/[a-f0-9-]{36}\\/(review|next)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^browser\\/stop$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^agent\\/(campaigns|status)$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^agent\\/commands$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^agent\\/campaigns\\/[a-f0-9-]{36}$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^agent\\/campaigns\\/[a-f0-9-]{36}\\/(approve|cancel)$",
-      "methods": ["POST"]
-    },
-    {
       "pattern": "^local-agent\\/search-preferences$",
       "methods": ["GET", "PUT"]
     },
@@ -372,10 +217,6 @@
     {
       "pattern": "^local-agent\\/policy$",
       "methods": ["GET", "PUT"]
-    },
-    {
-      "pattern": "^local-agent\\/commands$",
-      "methods": ["POST"]
     },
     {
       "pattern": "^local-agent\\/profile-confirmation$",
@@ -638,20 +479,8 @@
       "methods": ["GET"]
     },
     {
-      "pattern": "^rust-agent\\/research\\/people\\/status$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^rust-agent\\/research\\/people\\/requests\\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
-      "methods": ["GET", "PUT"]
-    },
-    {
       "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}$",
       "methods": ["PUT"]
-    },
-    {
-      "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}\\/complete$",
-      "methods": ["POST"]
     }
   ]
 }

@@ -140,7 +140,7 @@ class AppleMail:
         if not isinstance(body, str) or len(body.encode()) > 262144:
             raise ConnectionError("apple_mail_body_limit")
         parsed = content_evidence({"mimeType": "text/plain", "body": {"data": base64.urlsafe_b64encode(body.encode()).decode()}})
-        from backend.app.execution.naukri import normalized_url
+        from backend.app.services.applications.platforms.naukri import normalized_url
         candidates = []
         for link in parsed["links"]:
             try:

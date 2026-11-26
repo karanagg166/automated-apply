@@ -13,7 +13,6 @@ async def application_lifespan(
     app,
     *,
     settings,
-    mcp_app,
     get_engine,
     get_session_factory,
     database_health,
@@ -46,14 +45,8 @@ async def application_lifespan(
         project_refresh = asyncio.create_task(
             refresh_loop(settings, get_session_factory())
         )
-    if settings.ENVIRONMENT == "testing" and settings.BROWSER_MOCK_SUBMISSION_ENABLED:
-        from backend.app.browser.submissions import reconcile_expired
-
-        async with get_session_factory()() as session:
-            await reconcile_expired(session)
     try:
-        async with mcp_app.lifespan(app):
-            yield
+        yield
     finally:
         await drain_readiness()
         if gmail_retention is not None:
@@ -65,14 +58,6 @@ async def application_lifespan(
             with suppress(asyncio.CancelledError):
                 await project_refresh
         logger.info("Shutting down Job Pulse Agent API...")
-        from backend.app.browser.runner import browser
-
-        for packet_id in list(browser.sessions):
-            try:
-                async with asyncio.timeout(5):
-                    await browser.close(packet_id)
-            except Exception:
-                logger.warning("Dedicated browser shutdown interrupted")
         await close_db_engine()
 
 

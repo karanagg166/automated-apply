@@ -206,7 +206,10 @@ async def test_ten_portals_one_cycle_dedup_quota_hitl_relogin_chat_and_never_rep
     # Telegram HITL: dispatch, owner swipe-reply, cache learns, priority re-queue.
     assert await bot.dispatch_once() == 1
     prompt = next(p for m, p in fake.calls if m == "sendMessage" and ONCALL in p["text"])
-    await bot.handle_update({"update_id": 2, **msg("Yes", reply_to=prompt.get("message_id", 101))})
+    assert prompt  # the HITL card was sent; swipe-reply to the message id Telegram returned for it
+    open_rows, _ = await store.list_hitl("OPEN", limit=20)
+    card = next(row for row in open_rows if row.kind == "QUESTION" and row.telegram_msg_id is not None)
+    await bot.handle_update({"update_id": 2, **msg("Yes", reply_to=card.telegram_msg_id)})
     rows, _ = await ai.cache.store.list_entries("screening_qa", None, 10, 0)
     assert [(r.source, r.answer_text) for r in rows] == [("user", "Yes")]
     assert st(store, "wellfound", "wellfound-1") is S.SCORED

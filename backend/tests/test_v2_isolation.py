@@ -28,18 +28,22 @@ V2_PACKAGES = (
     "agent_v2",
     "events_v2",
 )
-V2_EXTRA_FILES = ("backend/app/api/v1/automation_v2.py",)
+V2_EXTRA_FILES = ("backend/app/api/v1/automation_v2.py", "backend/app/api/v1/v2")
 LEGACY = (
     "backend.app.execution",
     "backend.app.browser",
     "backend.app.agent",
+    "backend.app.mcp",
     "backend.app.mcp_server",
 )
 
 
 def v2_files() -> list[Path]:
     files = [p for pkg in V2_PACKAGES for p in sorted((REPO / "backend/app" / pkg).rglob("*.py"))]
-    return files + [REPO / f for f in V2_EXTRA_FILES]
+    for extra in V2_EXTRA_FILES:
+        target = REPO / extra
+        files.extend(sorted(target.rglob("*.py")) if target.is_dir() else [target])
+    return files
 
 
 def module_name(path: Path) -> str:
@@ -131,29 +135,39 @@ def test_importing_every_v2_module_loads_no_legacy_module_transitively() -> None
     assert result["legacy"] == []
 
 
+# Outcomes of the frozen legacy ``backend.app.browser.asset_policy`` / ``company_source_policy``
+# captured before those modules were retired (Phase 9E); core policy must keep matching them.
+ASSET_ERROR = "Asset origins require permitted credential-free HTTPS origins without paths or queries"
+SOURCE_ERROR = (
+    "Company sources require exact public HTTPS pages without credentials, query strings or account/API paths"
+)
+LEGACY_RESTRICTED_HOSTS = frozenset(
+    {"accounts.google.com", "instahyre.com", "internshala.com", "linkedin.com", "naukri.com", "wellfound.com"}
+)
+
+
 @pytest.mark.parametrize(
-    ("value", "testing"),
+    ("value", "testing", "expected"),
     [
-        ("https://cdn.example.com", False),
-        ("https://cdn.example.com/", False),
-        ("https://cdn.example.com:8443", False),
-        ("http://127.0.0.1:9000", True),
-        ("http://127.0.0.1:9000", False),
-        ("http://cdn.example.com", False),
-        ("https://user:pw@cdn.example.com", False),
-        ("https://cdn.example.com/path", False),
-        ("https://cdn.example.com?q=1", False),
-        ("https://www.naukri.com", False),
-        ("https://jobs.linkedin.com", False),
-        ("https://10.0.0.5", False),
-        ("https://intranet.local", False),
-        ("https://cdn.example.com.", False),
-        ("https://localhost", False),
+        ("https://cdn.example.com", False, ("ok", "https://cdn.example.com:443")),
+        ("https://cdn.example.com/", False, ("ok", "https://cdn.example.com:443")),
+        ("https://cdn.example.com:8443", False, ("ok", "https://cdn.example.com:8443")),
+        ("http://127.0.0.1:9000", True, ("ok", "http://127.0.0.1:9000")),
+        ("http://127.0.0.1:9000", False, ("err", ASSET_ERROR)),
+        ("http://cdn.example.com", False, ("err", ASSET_ERROR)),
+        ("https://user:pw@cdn.example.com", False, ("err", ASSET_ERROR)),
+        ("https://cdn.example.com/path", False, ("err", ASSET_ERROR)),
+        ("https://cdn.example.com?q=1", False, ("err", ASSET_ERROR)),
+        ("https://www.naukri.com", False, ("err", ASSET_ERROR)),
+        ("https://jobs.linkedin.com", False, ("err", ASSET_ERROR)),
+        ("https://10.0.0.5", False, ("err", ASSET_ERROR)),
+        ("https://intranet.local", False, ("err", ASSET_ERROR)),
+        ("https://cdn.example.com.", False, ("err", ASSET_ERROR)),
+        ("https://localhost", False, ("err", ASSET_ERROR)),
     ],
 )
-def test_origin_policy_matches_frozen_legacy_asset_origin(value: str, testing: bool) -> None:
-    legacy = pytest.importorskip("backend.app.browser.asset_policy")
-    assert origin_policy.RESTRICTED_HOSTS == frozenset(legacy.RESTRICTED_HOSTS)
+def test_origin_policy_matches_frozen_legacy_asset_origin(value: str, testing: bool, expected: tuple[str, str]) -> None:
+    assert origin_policy.RESTRICTED_HOSTS == LEGACY_RESTRICTED_HOSTS
 
     def outcome(fn: object) -> tuple[str, str]:
         try:
@@ -161,35 +175,40 @@ def test_origin_policy_matches_frozen_legacy_asset_origin(value: str, testing: b
         except ValueError as exc:
             return ("err", str(exc))
 
-    assert outcome(origin_policy.asset_origin) == outcome(legacy.asset_origin)
+    assert outcome(origin_policy.asset_origin) == expected
 
 
 @pytest.mark.parametrize(
-    ("value", "testing"),
+    ("value", "testing", "expected"),
     [
-        ("https://example.com", False),
-        ("https://example.com/careers", False),
-        ("https://example.com/about/team.html", False),
-        ("https://example.com/api/jobs", False),
-        ("https://example.com/login", False),
-        ("https://example.com/robots.txt", False),
-        ("https://example.com/careers?x=1", False),
-        ("https://example.com/../etc", False),
-        ("https://example.com//double", False),
-        ("http://127.0.0.1:8080/about", True),
-        ("https://www.naukri.com/careers", False),
+        ("https://example.com", False, ("ok", "https://example.com:443/")),
+        ("https://example.com/careers", False, ("ok", "https://example.com:443/careers")),
+        ("https://example.com/about/team.html", False, ("ok", "https://example.com:443/about/team.html")),
+        ("https://example.com/api/jobs", False, ("err", SOURCE_ERROR)),
+        ("https://example.com/login", False, ("err", SOURCE_ERROR)),
+        ("https://example.com/robots.txt", False, ("err", SOURCE_ERROR)),
+        ("https://example.com/careers?x=1", False, ("err", SOURCE_ERROR)),
+        ("https://example.com/../etc", False, ("err", SOURCE_ERROR)),
+        ("https://example.com//double", False, ("err", SOURCE_ERROR)),
+        ("http://127.0.0.1:8080/about", True, ("ok", "http://127.0.0.1:8080/about")),
+        ("https://www.naukri.com/careers", False, ("err", SOURCE_ERROR)),
     ],
 )
-def test_origin_policy_matches_frozen_legacy_source_url(value: str, testing: bool) -> None:
-    legacy = pytest.importorskip("backend.app.browser.company_source_policy")
-
+def test_origin_policy_matches_frozen_legacy_source_url(value: str, testing: bool, expected: tuple[str, str]) -> None:
     def outcome(fn: object) -> tuple[str, str]:
         try:
             return ("ok", fn(value, testing=testing))  # type: ignore[operator]
         except ValueError as exc:
             return ("err", str(exc))
 
-    assert outcome(origin_policy.source_url) == outcome(legacy.source_url)
+    assert outcome(origin_policy.source_url) == expected
+
+
+def test_retired_legacy_packages_stay_deleted() -> None:
+    """Phase 9E removed the v1 runtime; nothing may recreate or import it."""
+    for legacy in (*LEGACY, "backend.app.mcp"):
+        assert not (REPO / (legacy.replace(".", "/") + ".py")).exists(), legacy
+        assert not (REPO / legacy.replace(".", "/")).exists(), legacy
 
 
 def test_settings_still_normalizes_origins_via_core_policy() -> None:

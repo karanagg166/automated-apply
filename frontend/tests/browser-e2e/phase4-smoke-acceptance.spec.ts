@@ -1,6 +1,5 @@
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { readFileSync, existsSync } from "node:fs";
 
 const backend = "http://127.0.0.1:8767/api/v1";
 const headers = { Authorization: "Bearer fictional-browser-demo-owner-token" };
@@ -345,67 +344,6 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
         "The assistant never invents facts when evidence is missing.",
       ),
     ).toBeVisible();
-  });
-
-  test("8. Application packet review, Universal Form Assistant, and browser connection status", async ({
-    page,
-  }) => {
-    // Read pre-seeded packet from test fixture
-    let packetId = "";
-    if (existsSync("../reports/browser-mock.private.json")) {
-      const data = JSON.parse(
-        readFileSync("../reports/browser-mock.private.json", "utf8"),
-      );
-      packetId = data.packet_id || data.opportunity_packet_id;
-    }
-
-    if (!packetId) {
-      test.skip();
-      return;
-    }
-
-    await loginOwner(page);
-    await page.goto(`/applications/${packetId}`);
-    await page
-      .getByLabel("Application browser", { exact: true })
-      .selectOption("isolated");
-
-    // Verify Universal Form Assistant Card
-    const detector = page.getByLabel("Universal Form Assistant Detection");
-    await expect(detector).toBeVisible();
-    await expect(
-      detector.getByText("UNIVERSAL FORM ASSISTANT — DETECTED PLATFORM:"),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "URL recognition does not verify a vendor adapter, site permission, or compatibility",
-      ),
-    ).toBeVisible();
-
-    // Verify manual controls notice
-    await expect(
-      page.getByText("Manual Entry Required (Non-Automated):"),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "Legal consent, sensitive disclosures, CAPTCHA and submission",
-      ),
-    ).toBeVisible();
-
-    // Verify non-submission guarantee notice
-    await expect(
-      page.getByText("Manual Handoff & Non-Submission Guarantee:"),
-    ).toBeVisible();
-    await expect(
-      page.getByText("It NEVER submits your application to the employer."),
-    ).toBeVisible();
-
-    // Verify browser profile consent checkbox
-    const profileCheckbox = page.getByLabel(
-      "I approve a dedicated browser profile",
-      { exact: false },
-    );
-    await expect(profileCheckbox).toBeVisible();
   });
 
   test("9. Responsive layout (mobile viewport) and keyboard accessibility audit", async ({

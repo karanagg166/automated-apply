@@ -169,3 +169,58 @@ def build_safe_llm_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
         "projects": projects[:8],
     }
     return {k: v for k, v in safe.items() if v not in (None, [], {})}
+
+
+# --- Phase 9C: reversible placeholders for the owner's own agent chat ------------------------------
+# Square brackets (not <...>): the router strips anything that looks like an HTML tag before dispatch.
+_PLACEHOLDER = re.compile(r"\[(?:PHONE|EMAIL|PRIVATE|CODE)_\d{1,3}\]")
+_CODE = re.compile(r"(?<![\w.+-])\d{4,8}(?![\w.-])")
+
+
+def scrub_with_map(text: str, secrets: Iterable[str] = (), *, mask_codes: bool = False,
+                   allowed_email_domains: Iterable[str] = ()) -> tuple[str, dict[str, str]]:
+    """Replace the phones / personal emails / explicit secrets the owner typed with numbered
+    placeholders (``[PHONE_1]``, ``[EMAIL_1]``, ``[PRIVATE_1]``; ``[CODE_1]`` for 4-8 digit codes when
+    ``mask_codes``) so an external LLM never sees them, plus the mapping to restore them locally.
+    Anything else sensitive (tokens, PAN, Aadhaar, ...) is irreversibly redacted by `scrub_pii`."""
+    if not text:
+        return text, {}
+    mapping: dict[str, str] = {}
+    reverse: dict[tuple[str, str], str] = {}
+    allowed = SAFE_EMAIL_DOMAINS | {d.lower().lstrip("@") for d in allowed_email_domains}
+
+    def token(kind: str, value: str) -> str:
+        key = (kind, value.lower() if kind == "EMAIL" else value)
+        if key not in reverse:
+            placeholder = f"[{kind}_{sum(1 for k in reverse if k[0] == kind) + 1}]"
+            reverse[key] = placeholder
+            mapping[placeholder] = value
+        return reverse[key]
+
+    # Whole emails and phones first (an owner name inside an address must not split it), then secrets.
+    result = _EMAIL.sub(lambda m: m.group(0) if m.group(0).rsplit("@", 1)[-1].lower() in allowed
+                        else token("EMAIL", m.group(0)), text)
+    result = _PHONE.sub(lambda m: token("PHONE", m.group(0)), result)
+    variants = sorted({v for s in secrets if isinstance(s, str) and s.strip() for v in _secret_variants(s)},
+                      key=len, reverse=True)
+    for secret in variants:
+        result = re.sub(rf"(?<![\w@\[]){re.escape(secret)}(?![\w@\]])", lambda m: token("PRIVATE", m.group(0)),
+                        result, flags=re.IGNORECASE)
+    if mask_codes:
+        result = _CODE.sub(lambda m: token("CODE", m.group(0)), result)
+    return scrub_pii(result), mapping
+
+
+def rehydrate(value: Any, mapping: Mapping[str, str]) -> Any:
+    """Restore placeholders produced by `scrub_with_map` inside strings, lists and dict values."""
+    if not mapping:
+        return value
+    if isinstance(value, str):
+        return _PLACEHOLDER.sub(lambda m: mapping.get(m.group(0), m.group(0)), value)
+    if isinstance(value, list):
+        return [rehydrate(item, mapping) for item in value]
+    if isinstance(value, tuple):
+        return tuple(rehydrate(item, mapping) for item in value)
+    if isinstance(value, dict):
+        return {key: rehydrate(item, mapping) for key, item in value.items()}
+    return value
