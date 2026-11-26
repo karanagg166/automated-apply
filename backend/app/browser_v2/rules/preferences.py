@@ -97,6 +97,22 @@ def evaluate_experience(experience_text: str | None, prefs: CandidatePreferences
     return FilterResult(Decision.PASS)
 
 
+# Phase 9 go-live: role matching is seniority-insensitive ("Backend Engineer" matches "Senior Backend
+# Engineer"), and ATS boards publish no years-of-experience. For an entry-level owner the title is the
+# only signal, so these markers filter the job when the experience ceiling is <= 1 year.
+_SENIOR_TITLE = re.compile(
+    r"\b(senior|sr|staff|principal|lead|leader|manager|director|head|architect|vp|vice president|chief|"
+    r"distinguished|fellow|intermediate|experienced|mid[- ]level)\b"
+    r"|\b(?:engineer|developer|sde|swe|programmer)[\s,-]*(?:ii|iii|iv|v|2|3|4)\b"
+    r"|\b(?:ii|iii|iv)\s*$", re.IGNORECASE)
+ENTRY_LEVEL_CEILING_YEARS = 1.0
+
+
+def senior_title_marker(title: str | None) -> str | None:
+    match = _SENIOR_TITLE.search(title or "")
+    return match.group(0).strip().lower() if match else None
+
+
 def evaluate_preferences(*, title: str | None, company: str | None, description: str | None,
                          salary_text: str | None, work_mode: str | None,
                          prefs: CandidatePreferences, require_description: bool = False) -> FilterResult:
@@ -120,6 +136,10 @@ def evaluate_preferences(*, title: str | None, company: str | None, description:
             return FilterResult(Decision.FILTERED, (f"excluded_keyword_in_description: {word}",))
     if prefs.target_roles and title and not any(_role_matches(title, role) for role in prefs.target_roles):
         return FilterResult(Decision.FILTERED, (f"{TITLE_MISMATCH_PREFIX}: {title}",))
+    ceiling = prefs.max_required_experience_years
+    marker = senior_title_marker(title) if ceiling is not None and ceiling <= ENTRY_LEVEL_CEILING_YEARS else None
+    if marker:
+        return FilterResult(Decision.FILTERED, (f"title_seniority_above_profile: {marker}",))
     salary = parse_salary_lpa(salary_text)
     if prefs.min_ctc is not None and salary and salary.maximum_lpa is not None \
             and salary.maximum_lpa < prefs.min_ctc:

@@ -294,5 +294,15 @@ class ExecutorMixin(WorkerLoop):
 
     @staticmethod
     def backlog_listing(record: Any) -> JobListing:
+        # Phase 9: carry the stored posting time so backlog/priority rows keep a known age.
+        posted_at = getattr(record, "posted_at", None)
+        age = None
+        if posted_at is not None:
+            from datetime import UTC, datetime
+
+            moment = posted_at if posted_at.tzinfo else posted_at.replace(tzinfo=UTC)
+            age = max((datetime.now(UTC) - moment).days, 0)
         return JobListing(platform=record.platform, external_job_id=record.external_job_id,
-                          url=record.job_url or "", title=record.role_title, company=record.company_name)
+                          url=record.job_url or "", title=record.role_title, company=record.company_name,
+                          posted_text=posted_at.isoformat() if posted_at is not None else None,
+                          posted_age_days=age, posted_at=posted_at)

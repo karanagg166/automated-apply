@@ -23,7 +23,7 @@ from backend.app.browser_v2.adapters.feed_clients.http import (
 )
 from backend.app.browser_v2.adapters.feed_clients.models import RawPosting
 
-MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024  # Greenhouse boards with content=true reach 10-20 MiB (Anthropic, Databricks)
 REQUEST_TIMEOUT_SEC = 15.0
 RETRY_PAUSE_SEC = 0.1
 RECORD_ERRORS: tuple[type[Exception], ...] = (ValueError, TypeError, KeyError, AttributeError, OverflowError)
