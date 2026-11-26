@@ -58,7 +58,7 @@ async def test_migration_reapplies_twice_over_live_data_with_phase6a_objects(pg)
     assert columns["quota_fallback_daily_cap"]["column_default"] == "10"
     assert columns["quota_drafts_per_cycle"]["column_default"] == "5"
     assert columns["paused_until"]["is_nullable"] == "YES"
-    assert await pg.fetchval("SELECT count(*) FROM public.portal_rules") == 10
+    assert await pg.fetchval("SELECT count(*) FROM public.portal_rules") == 15
     assert await pg.fetchval("SELECT to_regclass('public.mail_events') IS NOT NULL")
     assert await pg.fetchval("SELECT count(*) FROM information_schema.columns WHERE table_name='telegram_v2_state' "
                              "AND column_name='last_digest_on'") == 1

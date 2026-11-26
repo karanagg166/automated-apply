@@ -942,12 +942,29 @@ class PostgresStore:
         value = _json(raw) if raw is not None else {}
         return value if isinstance(value, dict) else {}
 
+    async def ensure_rule_rows(self) -> None:
+        """Phase 8b: seed (disabled) rows for registry portals added after migration 004, once per store.
+        The runtime role has INSERT on portal_rules; ON CONFLICT keeps every owner edit."""
+        if getattr(self, "_rules_seeded", False):
+            return
+        self._rules_seeded = True
+        from backend.app.browser_v2.portals import PORTALS
+
+        try:
+            await self.connection.execute(
+                "INSERT INTO public.portal_rules (platform, enabled) SELECT p, false FROM unnest($1::text[]) AS p "
+                "ON CONFLICT (platform) DO NOTHING", sorted(PORTALS))
+        except Exception:  # noqa: BLE001, S110 - missing grant: the registry portals simply stay unlisted
+            pass
+
     async def get_rules(self, platform: str) -> PortalRules:
+        await self.ensure_rule_rows()
         row = await self.connection.fetchrow("SELECT * FROM public.portal_rules WHERE platform=$1", platform)
         rules = PortalRules.from_row(dict(row)) if row else PortalRules(platform=platform)
         return apply_overrides(rules, await self.rule_overrides())
 
     async def list_rules(self) -> list[PortalRules]:
+        await self.ensure_rule_rows()
         rows = await self.connection.fetch("SELECT * FROM public.portal_rules ORDER BY platform")
         overrides = await self.rule_overrides()
         return [apply_overrides(PortalRules.from_row(dict(row)), overrides) for row in rows]

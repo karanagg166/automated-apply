@@ -223,6 +223,8 @@ class JobSearchPreferences(ProfileSchema):
     resume_files: dict[ShortText, ResumeFileSpec | LocalPath] = Field(default_factory=dict, max_length=10)
     greenhouse_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     lever_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
+    ashby_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
+    smartrecruiters_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     # Phase 8: per-portal rule overrides edited from /autopilot (portal rules PATCH).
     portal_rule_overrides: dict[PortalKey, PortalRuleOverride] = Field(default_factory=dict, max_length=20)
 

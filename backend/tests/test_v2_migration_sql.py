@@ -120,9 +120,11 @@ def test_migration_applies_twice_on_disposable_postgres(tmp_path):
                           has_table_privilege('job_agent_runtime','public.applications','UPDATE')"""
         out = subprocess.run([*psql, "-c", query], check=True, capture_output=True, text=True).stdout.strip()
         jobs, rules, platforms, policies, owner, events_update, apps_update = out.split("|")
-        assert jobs == "2" and rules == "10"  # Phase 5: 10-portal roster, only naukri enabled
-        assert platforms == ("greenhouse:false,himalayas:false,hiringcafe:false,instahyre:false,internshala:false,"
-                             "lever:false,naukri:true,we_work_remotely:false,wellfound:false,work_at_a_startup:false")
+        assert jobs == "2" and rules == "15"  # Phase 8b: 15-portal roster, only naukri enabled
+        assert platforms == ("arbeitnow:false,ashby:false,greenhouse:false,hacker_news:false,himalayas:false,"
+                             "hiringcafe:false,instahyre:false,internshala:false,lever:false,naukri:true,"
+                             "remotive:false,smartrecruiters:false,we_work_remotely:false,wellfound:false,"
+                             "work_at_a_startup:false")
         assert policies == "11"  # 12 tables minus semantic_cache (pgvector block stripped)
         assert owner == "job_agent_owner" and events_update == "f" and apps_update == "t"
         duplicate = subprocess.run(

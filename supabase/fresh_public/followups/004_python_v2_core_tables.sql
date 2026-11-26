@@ -71,7 +71,13 @@ INSERT INTO public.portal_rules (platform, enabled) VALUES
     ('we_work_remotely', false),
     ('hiringcafe', false),
     ('greenhouse', false),
-    ('lever', false)
+    ('lever', false),
+    -- Phase 8b public sources (the v2 store also self-seeds these idempotently at runtime).
+    ('ashby', false),
+    ('smartrecruiters', false),
+    ('remotive', false),
+    ('arbeitnow', false),
+    ('hacker_news', false)
 ON CONFLICT (platform) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.applications (

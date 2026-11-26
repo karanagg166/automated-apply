@@ -108,7 +108,7 @@ def within_active_hours(rules: PortalRules, now: datetime) -> bool:
     return local >= start or local < end
 
 
-# Mirrors the migration 004 seed: all 10 portals, only naukri enabled by default.
+# Mirrors the migration 004 seed (+ Phase 8b self-seed): all 15 portals, only naukri enabled by default.
 DEFAULT_RULES = {name: PortalRules(platform=name, enabled=info.default_enabled)
                  for name, info in PORTALS.items()}
 

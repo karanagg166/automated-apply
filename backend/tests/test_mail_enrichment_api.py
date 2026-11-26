@@ -167,7 +167,7 @@ async def test_drafts_list_shows_retry_status_and_filters(async_client, phase2_a
 async def test_portal_rules_expose_ten_portals_with_adapter_badges(async_client, phase2_auth, ctx):
     rows = (await async_client.get(f"{BASE}/portal-rules", headers=phase2_auth)).json()
     by = {row["platform"]: row for row in rows}
-    assert len(by) == 10 and by["naukri"]["adapter_status"] == "ready" and by["naukri"]["enabled"]
+    assert len(by) == 15 and by["naukri"]["adapter_status"] == "ready" and by["naukri"]["enabled"]
     # Phase 6A: every portal has an adapter; the nine new ones stay disabled until the owner opts in.
     assert all(row["adapter_status"] == "ready" and not row["enabled"]
                for name, row in by.items() if name != "naukri")

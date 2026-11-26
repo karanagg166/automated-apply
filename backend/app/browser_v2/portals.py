@@ -41,6 +41,12 @@ PORTALS: dict[str, PortalInfo] = {p.platform: p for p in (
     PortalInfo("hiringcafe", "HiringCafe", "feed", "https://hiring.cafe/", needs_login=False),
     PortalInfo("greenhouse", "Greenhouse (direct ATS)", "ats", None),
     PortalInfo("lever", "Lever (direct ATS)", "ats", None),
+    # Phase 8b: zero-cost public sources (discovery + Greenhouse/Lever handoff / manual handoff).
+    PortalInfo("ashby", "Ashby (direct ATS)", "ats", None),
+    PortalInfo("smartrecruiters", "SmartRecruiters (direct ATS)", "ats", None),
+    PortalInfo("remotive", "Remotive", "feed", None),
+    PortalInfo("arbeitnow", "Arbeitnow", "feed", None),
+    PortalInfo("hacker_news", "Hacker News Who is Hiring", "feed", None),
 )}
 
 # Portals whose adapter is implemented and may run live (all 10 since Phase 6A).

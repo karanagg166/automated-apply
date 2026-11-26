@@ -22,7 +22,9 @@ PORTAL_ALIASES: dict[str, str] = {
     "workatastartup": "work_at_a_startup", "waas": "work_at_a_startup", "yc": "work_at_a_startup",
     "himalayas": "himalayas", "we work remotely": "we_work_remotely", "weworkremotely": "we_work_remotely",
     "wwr": "we_work_remotely", "hiringcafe": "hiringcafe", "hiring cafe": "hiringcafe",
-    "greenhouse": "greenhouse", "lever": "lever",
+    "greenhouse": "greenhouse", "lever": "lever", "ashby": "ashby", "smartrecruiters": "smartrecruiters",
+    "smart recruiters": "smartrecruiters", "remotive": "remotive", "arbeitnow": "arbeitnow",
+    "hacker news": "hacker_news", "hackernews": "hacker_news", "hn": "hacker_news",
 }
 PORTAL_RE = re.compile(r"\b(" + "|".join(sorted((re.escape(a) for a in PORTAL_ALIASES), key=len, reverse=True))
                        + r")\b", re.IGNORECASE)
@@ -262,7 +264,8 @@ SYSTEM_PROMPT = (
     "target_roles, expected_ctc, current_ctc, min_ctc, notice_period_days, remote_policy), query_application_status "
     "(query_kind counts|why|failed|digest|drafts|applications|replies|hitl), teach_semantic_cache (question + answer), "
     "control_worker (pause|resume|status|run_once), help. Portals: naukri, instahyre, internshala, wellfound, "
-    "work_at_a_startup, himalayas, we_work_remotely, hiringcafe, greenhouse, lever. Sending email, deleting data and "
+    "work_at_a_startup, himalayas, we_work_remotely, hiringcafe, greenhouse, lever, ashby, smartrecruiters, remotive, "
+    "arbeitnow, hacker_news. Sending email, deleting data and "
     "re-applying are impossible: use tool=forbidden. If unsure use help. Reply with one JSON object only.")
 
 

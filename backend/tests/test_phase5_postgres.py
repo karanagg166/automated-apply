@@ -58,7 +58,7 @@ async def parked(store, i=1, jd="Apply via careers@acme.io"):
 
 async def test_ten_portals_are_seeded_with_only_naukri_enabled(store):
     rules = {r.platform: r for r in await store.list_rules()}
-    assert len(rules) == 10 and [p for p, r in rules.items() if r.enabled] == ["naukri"]
+    assert len(rules) == 15 and [p for p, r in rules.items() if r.enabled] == ["naukri"]
     assert {"work_at_a_startup", "we_work_remotely", "hiringcafe", "greenhouse", "lever"} <= set(rules)
 
 

@@ -176,6 +176,7 @@ class FeedJob:
 class FeedAdapter:
     platform = "feed"
     attribution: str | None = None
+    feed_ttl_sec: float = FEED_TTL_SEC
 
     def __init__(self, *, answerer: ScreeningResolver | None = None, http_client: httpx.AsyncClient | None = None,
                  receipts_root: Path | None = None, settle_ms: int = 1500, confirm_timeout_s: float = 15.0,
@@ -212,7 +213,7 @@ class FeedAdapter:
     async def get_cached(self, key: str, loader: Callable[[], Any]) -> Any:
         """Feed reads are cached for 30 minutes (free public APIs: be a polite client)."""
         hit = self._feed_cache.get(key)
-        if hit is not None and time.monotonic() - hit[0] < FEED_TTL_SEC:
+        if hit is not None and time.monotonic() - hit[0] < self.feed_ttl_sec:
             return hit[1]
         value = await loader()
         self._feed_cache[key] = (time.monotonic(), value)

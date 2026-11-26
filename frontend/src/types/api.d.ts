@@ -7212,6 +7212,14 @@ export interface components {
       lever_boards?: {
         [key: string]: string | null;
       };
+      /** Ashby Boards */
+      ashby_boards?: {
+        [key: string]: string | null;
+      };
+      /** Smartrecruiters Boards */
+      smartrecruiters_boards?: {
+        [key: string]: string | null;
+      };
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -7314,6 +7322,14 @@ export interface components {
       lever_boards?: {
         [key: string]: string | null;
       };
+      /** Ashby Boards */
+      ashby_boards?: {
+        [key: string]: string | null;
+      };
+      /** Smartrecruiters Boards */
+      smartrecruiters_boards?: {
+        [key: string]: string | null;
+      };
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -7414,6 +7430,14 @@ export interface components {
       };
       /** Lever Boards */
       lever_boards?: {
+        [key: string]: string | null;
+      };
+      /** Ashby Boards */
+      ashby_boards?: {
+        [key: string]: string | null;
+      };
+      /** Smartrecruiters Boards */
+      smartrecruiters_boards?: {
         [key: string]: string | null;
       };
       /** Portal Rule Overrides */
@@ -10098,6 +10122,14 @@ export interface components {
       lever_boards?: {
         [key: string]: string | null;
       };
+      /** Ashby Boards */
+      ashby_boards?: {
+        [key: string]: string | null;
+      };
+      /** Smartrecruiters Boards */
+      smartrecruiters_boards?: {
+        [key: string]: string | null;
+      };
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -10243,6 +10275,14 @@ export interface components {
       };
       /** Lever Boards */
       lever_boards?: {
+        [key: string]: string | null;
+      };
+      /** Ashby Boards */
+      ashby_boards?: {
+        [key: string]: string | null;
+      };
+      /** Smartrecruiters Boards */
+      smartrecruiters_boards?: {
         [key: string]: string | null;
       };
       /** Portal Rule Overrides */

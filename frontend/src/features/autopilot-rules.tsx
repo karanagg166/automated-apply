@@ -332,12 +332,12 @@ export function PortalRulesEditor() {
       <div className="section-heading">
         <h2 id="rules-heading">Portal permissions &amp; rules</h2>
         <p className="muted">
-          Caps, filters and pacing for all 10 portals (every adapter is ready;
-          new portals stay off until you enable them). Changes apply on the
-          worker’s next cycle — no restart needed. Defaults: 50/day, 10/hour,
-          jobs under 7 days old, at most 300 applicants, 45–150 s between
-          applies, 08:00–23:30 IST, quota fallback 10 jobs/day and 5 drafts per
-          cycle.
+          Caps, filters and pacing for all 15 portals and sources (every adapter
+          is ready; new portals stay off until you enable them). Changes apply
+          on the worker’s next cycle — no restart needed. Defaults: 50/day,
+          10/hour, jobs under 7 days old, at most 300 applicants, 45–150 s
+          between applies, 08:00–23:30 IST, quota fallback 10 jobs/day and 5
+          drafts per cycle.
         </p>
       </div>
       {rules.isPending ? (

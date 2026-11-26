@@ -87,6 +87,13 @@ def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
     from backend.app.browser_v2.adapters.instahyre import InstahyreAdapter
     from backend.app.browser_v2.adapters.internshala import InternshalaAdapter
     from backend.app.browser_v2.adapters.lever import LeverAdapter
+    from backend.app.browser_v2.adapters.public_sources import (
+        ArbeitnowAdapter,
+        AshbyAdapter,
+        HackerNewsAdapter,
+        RemotiveAdapter,
+        SmartRecruitersAdapter,
+    )
     from backend.app.browser_v2.adapters.we_work_remotely import WeWorkRemotelyAdapter
     from backend.app.browser_v2.adapters.wellfound import WellfoundAdapter
     from backend.app.browser_v2.adapters.work_at_a_startup import WorkAtAStartupAdapter
@@ -94,7 +101,8 @@ def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
     adapters: list[Any] = [
         NaukriAdapter(otp_provider=otp_provider), GreenhouseAdapter(), LeverAdapter(), HimalayasAdapter(),
         WeWorkRemotelyAdapter(), HiringCafeAdapter(), InstahyreAdapter(), InternshalaAdapter(), WellfoundAdapter(),
-        WorkAtAStartupAdapter()]
+        WorkAtAStartupAdapter(), AshbyAdapter(), SmartRecruitersAdapter(), RemotiveAdapter(), ArbeitnowAdapter(),
+        HackerNewsAdapter()]
     return {adapter.platform: adapter for adapter in adapters}
 
 
@@ -126,6 +134,14 @@ def job_id_from_url(platform: str, url: str) -> str | None:
         return segments[1] if len(segments) >= 2 and re.fullmatch(r"[0-9a-f-]{8,64}", segments[1]) else None
     if platform == "we_work_remotely":
         return segments[1] if len(segments) == 2 and segments[0] == "remote-jobs" else None
+    if platform == "hacker_news":
+        from urllib.parse import parse_qs as _qs
+
+        item = (_qs(parts.query).get("id") or [""])[0]
+        return item if parts.hostname == "news.ycombinator.com" and item.isdigit() else None
+    if platform == "ashby":
+        return segments[1] if parts.hostname == "jobs.ashbyhq.com" and len(segments) >= 2 and re.fullmatch(
+            r"[0-9a-f-]{8,64}", segments[1]) else None
     if platform == "himalayas":
         from backend.app.browser_v2.adapters.himalayas import job_id
 
