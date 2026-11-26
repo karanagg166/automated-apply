@@ -32,7 +32,10 @@ class WorkAtAStartupAdapter(InteractivePortalAdapter):
                    'a[href*="account.ycombinator.com/magic"], a[href*="account.ycombinator.com/authenticate"]',
         apply_text=r"^(?:apply|apply now|apply to (?:this )?(?:job|role))$",
         applied_text=r"^(?:applied|application sent)$",
-        confirm_text=r"application sent|applied successfully|you(?:'ve| have) applied|your application (?:has been|was) sent")
+        confirm_text=r"application sent|applied successfully|you(?:'ve| have) applied|your application (?:has been|was) sent",
+        # Live 2026-11-26 (Phase 8): job pages no longer show an Apply button, only a status menu
+        # ("Change status to apply"). Not clicked until calibrated in one supervised canary.
+        unsupported_apply_text=r"^change status to apply$")
 
     def search_url(self, query: str, job_age_days: int | None = None) -> str:
         return f"{ORIGIN}/companies?query={quote_plus(query)}&layout=list-compact&sortBy=created_desc"

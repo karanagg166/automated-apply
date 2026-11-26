@@ -160,6 +160,35 @@ function ScreeningFields({ profile }: { profile: ScreeningProfile }) {
           />
         </Field>
         <Field
+          label="Country"
+          hint="Answers “Country” questions (e.g. India). Empty = derived from your city or +91 phone."
+        >
+          <Input
+            value={form.country}
+            autoComplete="country-name"
+            onChange={(e) => update("country", e.target.value)}
+          />
+        </Field>
+        <Field
+          label="Current company"
+          hint="Answers “Current company” questions. Empty = asked to you."
+        >
+          <Input
+            value={form.current_company}
+            autoComplete="organization"
+            onChange={(e) => update("current_company", e.target.value)}
+          />
+        </Field>
+        <Field
+          label="English proficiency"
+          hint="For example Fluent or Professional. Empty = asked to you."
+        >
+          <Input
+            value={form.english_proficiency}
+            onChange={(e) => update("english_proficiency", e.target.value)}
+          />
+        </Field>
+        <Field
           label="Willing to relocate"
           hint="“Not set” means relocation questions are asked to you."
         >

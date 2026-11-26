@@ -43,7 +43,7 @@ class JobDetail:
     applicants: ApplicantCount
     posted_age_days: int | None
     already_applied: bool
-    apply_mode: str  # direct | external | none | ambiguous
+    apply_mode: str  # direct | external | none | ambiguous | closed (Phase 8: role no longer open)
     challenge: str | None = None
     portal_limit: str | None = None
     description: str | None = None  # plain-text JD, bounded (never raw HTML)

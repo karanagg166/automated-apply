@@ -4,11 +4,15 @@
   code (never the URL), and httpx/httpcore log records are redacted.
 - HTTP 409 (another getUpdates poller or a webhook) -> TelegramConflict.
 - Outgoing messages are throttled to <= 1 per `min_send_interval` seconds.
+- Phase 8: long texts are split into <= 4000 UTF-16-unit chunks (Telegram counts UTF-16),
+  and a `can't parse entities` 400 is retried once as plain text (tags stripped,
+  entities unescaped), so a job title with `<`, `&` or a stray tag never loses a message.
 """
 
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
 import re
 import time
@@ -22,6 +26,72 @@ TOKEN_IN_TEXT = re.compile(r"bot\d{3,}:[A-Za-z0-9_-]+")
 REDACTED = "bot<REDACTED>"
 ALLOWED_UPDATES = ["message", "callback_query"]
 MAX_MESSAGE_CHARS = 4096
+CHUNK_UNITS = 4000  # safety margin under Telegram's 4096 UTF-16 code units
+_TAG = re.compile(r"</?[a-zA-Z][^<>]*>")
+PARSE_ERROR = re.compile(r"can't parse entities|can't find end|unsupported start tag|unexpected end tag|"
+                         r"entity|parse", re.IGNORECASE)
+
+
+def utf16_len(text: str) -> int:
+    return len(text.encode("utf-16-le")) // 2
+
+
+def html_to_plain(text: str) -> str:
+    """Telegram-HTML -> plain text (fallback when Telegram rejects the markup)."""
+    return html.unescape(_TAG.sub("", text or ""))
+
+
+def _cut(text: str, units: int) -> int:
+    """Largest prefix length (in str indices) whose UTF-16 length is <= units."""
+    if utf16_len(text) <= units:
+        return len(text)
+    low, high = 0, len(text)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if utf16_len(text[:mid]) <= units:
+            low = mid
+        else:
+            high = mid - 1
+    return max(1, low)
+
+
+def split_message(text: str, limit: int = CHUNK_UNITS) -> list[str]:
+    """Split on line boundaries (then spaces, then hard cuts) into chunks <= `limit` UTF-16 units.
+
+    Our HTML is line-local (one tag pair per line), so line splits keep tags balanced; a
+    chunk that still fails to parse is resent as plain text by `send_message`.
+    """
+    text = text or ""
+    if utf16_len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    current = ""
+    for line in text.split("\n"):
+        candidate = line if not current else current + "\n" + line
+        if utf16_len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            chunks.append(current)
+            current = ""
+        while utf16_len(line) > limit:
+            cut = _cut(line, limit)
+            space = line.rfind(" ", 0, cut)
+            if space > cut // 2:
+                cut = space
+            # never split inside an HTML entity or tag
+            amp, semi = line.rfind("&", 0, cut), line.rfind(";", 0, cut)
+            if amp > semi and cut - amp <= 10:
+                cut = amp
+            lt, gt = line.rfind("<", 0, cut), line.rfind(">", 0, cut)
+            if lt > gt and lt > 0:
+                cut = lt
+            chunks.append(line[:cut].rstrip())
+            line = line[cut:].lstrip()
+        current = line
+    if current or not chunks:
+        chunks.append(current)
+    return [c for c in chunks if c.strip()] or [text[: _cut(text, limit)]]
 
 
 def redact(text: object) -> str:
@@ -76,6 +146,14 @@ class TelegramBadRequest(TelegramError):
 
 class TelegramNetworkError(TelegramError):
     pass
+
+
+def is_parse_error(exc: TelegramError) -> bool:
+    return isinstance(exc, TelegramBadRequest) and bool(PARSE_ERROR.search(exc.code))
+
+
+def is_not_modified(exc: TelegramError) -> bool:
+    return isinstance(exc, TelegramBadRequest) and "not modified" in exc.code.lower()
 
 
 class TelegramClient:
@@ -156,21 +234,55 @@ class TelegramClient:
         return [u for u in result or [] if isinstance(u, dict) and isinstance(u.get("update_id"), int)]
 
     async def send_message(self, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None = None,
-                           reply_to: int | None = None) -> dict[str, Any]:
-        payload: dict[str, Any] = {"chat_id": chat_id, "text": text[:MAX_MESSAGE_CHARS], "parse_mode": "HTML",
-                                   "disable_web_page_preview": True}
+                           reply_to: int | None = None, parse_mode: str | None = "HTML") -> dict[str, Any]:
+        """Send `text` (chunked); the keyboard rides on the last chunk, the reply on the first.
+
+        Returns the last chunk's Message (the one carrying the buttons).
+        """
+        chunks = split_message(text)
+        result: dict[str, Any] = {}
+        for index, chunk in enumerate(chunks):
+            last = index == len(chunks) - 1
+            result = await self._send_one(chat_id, chunk, reply_markup=reply_markup if last else None,
+                                          reply_to=reply_to if index == 0 else None, parse_mode=parse_mode)
+        return result
+
+    async def _send_one(self, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None,
+                        reply_to: int | None, parse_mode: str | None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if parse_mode:
+            payload["parse_mode"] = parse_mode
         if reply_markup is not None:
             payload["reply_markup"] = reply_markup
         if reply_to is not None:
             payload["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
-        return await self._throttled("sendMessage", payload)
+        try:
+            return await self._throttled("sendMessage", payload)
+        except TelegramBadRequest as exc:
+            if not parse_mode or not is_parse_error(exc):
+                raise
+            # Unescaped title/company or a split tag: resend the same content as plain text.
+            plain = {k: v for k, v in payload.items() if k != "parse_mode"}
+            plain["text"] = html_to_plain(text)[: _cut(html_to_plain(text), MAX_MESSAGE_CHARS - 96)] or "…"
+            return await self._throttled("sendMessage", plain)
 
     async def edit_message_text(self, chat_id: int, message_id: int, text: str, *,
                                 reply_markup: dict[str, Any] | None = None) -> Any:
-        payload: dict[str, Any] = {"chat_id": chat_id, "message_id": message_id, "text": text[:MAX_MESSAGE_CHARS],
-                                   "parse_mode": "HTML", "disable_web_page_preview": True,
+        body = text if utf16_len(text) <= CHUNK_UNITS else html_to_plain(text)
+        payload: dict[str, Any] = {"chat_id": chat_id, "message_id": message_id,
+                                   "text": body[: _cut(body, CHUNK_UNITS)],
+                                   "disable_web_page_preview": True,
                                    "reply_markup": reply_markup or {"inline_keyboard": []}}
-        return await self._throttled("editMessageText", payload)
+        if body is text:
+            payload["parse_mode"] = "HTML"
+        try:
+            return await self._throttled("editMessageText", payload)
+        except TelegramBadRequest as exc:
+            if "parse_mode" not in payload or not is_parse_error(exc):
+                raise
+            payload.pop("parse_mode")
+            payload["text"] = html_to_plain(text)[: _cut(html_to_plain(text), CHUNK_UNITS)] or "…"
+            return await self._throttled("editMessageText", payload)
 
     async def answer_callback_query(self, callback_id: str, text: str | None = None) -> Any:
         payload: dict[str, Any] = {"callback_query_id": callback_id}

@@ -72,7 +72,15 @@ RULE_FIELDS = (
     (re.compile(r"\bapplicants?\b", re.IGNORECASE), "max_applicants"),
     (re.compile(r"\b(?:fallback|draft)s?\b.{0,20}\b(?:daily|per day|cap)\b", re.IGNORECASE), "quota_fallback_daily_cap"),
     (re.compile(r"\bdrafts? per cycle\b", re.IGNORECASE), "quota_drafts_per_cycle"),
+    # Phase 8: a bare "limit"/"cap" ("set naukri limit 60") means the daily cap.
+    (re.compile(r"\b(?:limit|cap|max(?:imum)? applications?)\b", re.IGNORECASE), "max_applies_per_day"),
 )
+BOOL_WORDS = {"true": True, "on": True, "yes": True, "enable": True, "enabled": True, "allow": True,
+              "false": False, "off": False, "no": False, "disable": False, "disabled": False, "block": False}
+UNKNOWN_AGE = re.compile(r"\ballow[_ ]unknown[_ ](?:posting[_ ])?age\b\s*(?:=|to|:)?\s*"
+                         r"(true|false|on|off|yes|no|enabled?|disabled?)?", re.IGNORECASE)
+UNKNOWN_AGE_NATURAL = re.compile(r"\b(allow|accept|block|reject|skip|disallow)\b.{0,25}\b(?:unknown|missing|no)\b"
+                                 r".{0,15}\b(?:posting )?(?:age|date)s?\b", re.IGNORECASE)
 
 
 def parse(text: str, *, now: datetime | None = None) -> Intent | None:
@@ -89,6 +97,28 @@ def parse(text: str, *, now: datetime | None = None) -> Intent | None:
     if re.fullmatch(r"(?:/?help|\?|what can you do\??|commands?)", lowered):
         return Intent("help")
     portals = portals_in(raw)
+
+    # --- Phase 8 one-word queries -------------------------------------------------------------
+    if re.fullmatch(r"(?:show )?(?:pending|open (?:questions|requests|hitl)|what(?:'s| is) pending)\??", lowered):
+        return Intent("query_application_status", {"kind": "hitl", "limit": 10})
+    if re.fullmatch(r"(?:send |show )?(?:the |today'?s? )?(?:daily )?digest(?: now)?\??", lowered):
+        return Intent("query_application_status", {"kind": "digest"})
+    if re.fullmatch(r"why (?:did (?:it|they|jobs?|applications?) )?fail(?:ed|ing|ures?)?\??|"
+                    r"(?:show |list )?(?:recent |last )?(?:failures|failed(?: jobs| applications)?)\??", lowered):
+        return Intent("query_application_status", {"kind": "failed", "limit": 5,
+                                                   "platform": portals[0] if portals else None})
+
+    # --- Phase 8: allow_unknown_posting_age ---------------------------------------------------
+    match = UNKNOWN_AGE.search(raw)
+    if match and portals:
+        word = (match.group(1) or "true").lower()
+        return Intent("update_portal_rule", {"platforms": portals,
+                                             "changes": {"allow_unknown_posting_age": BOOL_WORDS.get(word, True)}},
+                      confirmed=confirmed)
+    match = UNKNOWN_AGE_NATURAL.search(raw)
+    if match and portals:
+        return Intent("update_portal_rule", {"platforms": portals, "changes": {
+            "allow_unknown_posting_age": match.group(1).lower() in {"allow", "accept"}}}, confirmed=confirmed)
 
     # --- teach the semantic cache -----------------------------------------------------------
     match = re.match(r"^(?:please )?remember(?: that)?:?\s+(?:my |the )?(.+?)\s+(?:is|are|=|:)\s+(.+)$", raw, re.IGNORECASE)
@@ -218,18 +248,19 @@ class LLMIntent(BaseModel):
     question: str | None = Field(default=None, max_length=500)
     answer: str | None = Field(default=None, max_length=1000)
     worker_action: Literal["pause", "resume", "status", "run_once"] | None = None
-    query_kind: Literal["counts", "why", "drafts", "applications", "replies", "hitl"] | None = None
+    query_kind: Literal["counts", "why", "failed", "digest", "drafts", "applications", "replies",
+                        "hitl"] | None = None
     company: str | None = Field(default=None, max_length=120)
     confidence: float = Field(default=0.0, ge=0, le=1)
 
 
 SYSTEM_PROMPT = (
     "You map ONE owner message for a job-application bot to ONE tool call. Tools: update_portal_rule "
-    "(rule_changes keys: enabled, auto_apply_enabled, max_applies_per_day, max_applies_per_hour, max_job_age_days, "
+    "(rule_changes keys: enabled, auto_apply_enabled, max_applies_per_day, max_applies_per_hour, max_job_age_days, allow_unknown_posting_age, "
     "max_applicants, min_delay_sec, max_delay_sec, quota_fallback_daily_cap, quota_drafts_per_cycle), "
     "update_preferences (preference_key one of company_blacklist, keywords_required, keywords_excluded, tech_stack, "
     "target_roles, expected_ctc, current_ctc, min_ctc, notice_period_days, remote_policy), query_application_status "
-    "(query_kind counts|why|drafts|applications|replies|hitl), teach_semantic_cache (question + answer), "
+    "(query_kind counts|why|failed|digest|drafts|applications|replies|hitl), teach_semantic_cache (question + answer), "
     "control_worker (pause|resume|status|run_once), help. Portals: naukri, instahyre, internshala, wellfound, "
     "work_at_a_startup, himalayas, we_work_remotely, hiringcafe, greenhouse, lever. Sending email, deleting data and "
     "re-applying are impossible: use tool=forbidden. If unsure use help. Reply with one JSON object only.")

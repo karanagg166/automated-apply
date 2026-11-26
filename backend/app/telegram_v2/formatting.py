@@ -78,11 +78,31 @@ def render_hitl(hitl: HitlRecord) -> tuple[str, dict[str, Any] | None]:
     return "\n".join(lines), ({"inline_keyboard": rows} if rows else None)
 
 
-def render_resolved(hitl: HitlRecord, outcome: str) -> str:
+OUTCOME_ICON = {"answered": "✅", "skipped": "⏭", "retried": "🔁", "resumed": "🔓", "expired": "⌛",
+                "already": "ℹ️"}
+
+
+def render_resolved(hitl: HitlRecord, outcome: str, *, icon: str = "✅") -> str:
     """Edited version of the original prompt once resolved (keyboard removed)."""
     text, _ = render_hitl(hitl)
     body = text.split("\n\nTap a button", 1)[0].split("\n\nOn the Mac run:", 1)[0]
-    return f"{body}\n\n✅ {_e(outcome, 300)}"
+    for marker in ("\n\nReply to this message with the OTP code", "\n\nSolve it in Brave",
+                   "\n\n<code>/retry"):
+        body = body.split(marker, 1)[0]
+    return f"{body}\n\n{icon} {_e(outcome, 300)}"
+
+
+def render_disambiguation(rows: list[HitlRecord]) -> str:
+    """2+ open questions and an unthreaded reply: never guess which one it answers."""
+    lines = [f"❓ <b>{len(rows)} questions are open</b>, so I won't guess which one you answered.",
+             "Swipe-reply to the question's message, or send <code>/answer &lt;ref&gt; &lt;text&gt;</code>:"]
+    for hitl in rows[:10]:
+        who = " · ".join(_e(p, 40) for p in (hitl.company, hitl.title) if p) or _e(hitl.platform, 40)
+        lines.append(f"• <code>{hitl.ref}</code> {who} — <i>{_e(hitl.prompt_text, 90)}</i>")
+    if len(rows) > 10:
+        lines.append(f"…and {len(rows) - 10} more (/pending).")
+    lines.append("To talk to the control agent instead, use <code>/ask &lt;text&gt;</code>.")
+    return "\n".join(lines)
 
 
 def _age(moment: datetime | None, now: datetime) -> str:

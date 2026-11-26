@@ -213,6 +213,22 @@ class AgentTools:
                 return ToolResult(True, "No recruiter replies or interview alerts detected yet.")
             return ToolResult(True, "\n".join(f"• {e.kind.title()}: {e.company_name or e.sender or '?'} — "
                                               f"{e.subject or ''}" for e in events))
+        if kind == "digest":
+            from backend.app.browser_v2.digest import build_digest
+
+            return ToolResult(True, await build_digest(self.store, now, ai=self.ai, mail_events=self.mail_events))
+        if kind == "failed":
+            failed: list[Any] = []
+            for state in (ApplicationState.FAILED, ApplicationState.SUBMISSION_UNKNOWN):
+                found, _ = await self.store.list_applications(ApplicationQuery(platform=platform, state=state.value,
+                                                                               limit=limit))
+                failed.extend(found)
+            failed.sort(key=lambda r: r.updated_at or now, reverse=True)
+            if not failed:
+                return ToolResult(True, "No failed or ambiguous applications. 🎉")
+            return ToolResult(True, "\n".join(
+                f"• {r.role_title or '?'} @ {r.company_name or '?'} ({portal_label(r.platform)}): {r.state.value} — "
+                f"{r.reason or 'no reason recorded'}" for r in failed[:limit]))
         if kind == "hitl":
             rows, total = await self.store.list_hitl("OPEN", limit=limit)
             if not rows:

@@ -27,9 +27,12 @@ from typing import Any, Protocol
 from backend.app.browser_v2.adapters.base import JobListing
 from backend.app.browser_v2.answers import normalize
 from backend.app.browser_v2.rules import (
+    ALL_EDITABLE_RULE_FIELDS,
     DEFAULT_RULES,
     EDITABLE_RULE_FIELDS,
+    OVERRIDE_RULE_FIELDS,
     PortalRules,
+    apply_overrides,
     dedup_key,
 )
 from backend.app.browser_v2.state import (
@@ -362,6 +365,12 @@ class Store(Protocol):
 
     async def count_open_hitl(self, platform: str | None = None) -> int: ...
 
+    async def expire_stale_hitl(self, kind: str, older_than: datetime) -> list[HitlRecord]: ...
+
+    async def claim_digest_day(self, day: date) -> bool: ...
+
+    async def release_digest_day(self, day: date, previous: date | None) -> None: ...
+
     async def requeued_applications(self, platform: str, limit: int = 20) -> list[ApplicationRecord]: ...
 
     async def hitl_answers(self, application_id: str) -> dict[str, str]: ...
@@ -451,7 +460,7 @@ class MemoryStore:
             raise RulesNotFound(platform)
         if current.revision != expected_revision:
             raise RevisionConflict(current.revision)
-        allowed = {k: v for k, v in changes.items() if k in EDITABLE_RULE_FIELDS}
+        allowed = {k: v for k, v in changes.items() if k in ALL_EDITABLE_RULE_FIELDS}
         self.rules[platform] = replace(current, **allowed, revision=current.revision + 1,
                                        updated_at=_now())
         return self.rules[platform]
@@ -582,6 +591,24 @@ class MemoryStore:
     async def count_open_hitl(self, platform=None):
         return sum(1 for h in self.hitl if h["status"] == "OPEN"
                    and (platform is None or h["platform"] == platform))
+
+    async def expire_stale_hitl(self, kind, older_than):
+        expired = []
+        for row in self.hitl:
+            if row["status"] == "OPEN" and row["kind"] == kind and row["created_at"] < older_than:
+                row["status"], row["resolved_at"], row["resolved_via"] = "EXPIRED", _now(), "worker"
+                expired.append(self._hitl_record(row))
+        return expired
+
+    async def claim_digest_day(self, day):
+        if self.telegram.last_digest_on == day:
+            return False
+        self.telegram.last_digest_on = day
+        return True
+
+    async def release_digest_day(self, day, previous):
+        if self.telegram.last_digest_on == day:
+            self.telegram.last_digest_on = previous
 
     async def requeued_applications(self, platform, limit=20):
         now = _now()
@@ -904,15 +931,43 @@ class PostgresStore:
         return cls(connection, owns_connection=False)
 
     # --- portal rules ---------------------------------------------------------------
+    async def rule_overrides(self) -> dict[str, Any]:
+        """preferences.portal_rule_overrides ({platform: {rule: value}}); {} without a profile."""
+        try:
+            raw = await self.connection.fetchval(
+                "SELECT preferences->'portal_rule_overrides' FROM public.candidate_profiles "
+                "WHERE singleton_key='primary'")
+        except Exception:  # noqa: BLE001 - profile table drift must never block the rules engine
+            return {}
+        value = _json(raw) if raw is not None else {}
+        return value if isinstance(value, dict) else {}
+
     async def get_rules(self, platform: str) -> PortalRules:
         row = await self.connection.fetchrow("SELECT * FROM public.portal_rules WHERE platform=$1", platform)
-        return PortalRules.from_row(dict(row)) if row else PortalRules(platform=platform)
+        rules = PortalRules.from_row(dict(row)) if row else PortalRules(platform=platform)
+        return apply_overrides(rules, await self.rule_overrides())
 
     async def list_rules(self) -> list[PortalRules]:
         rows = await self.connection.fetch("SELECT * FROM public.portal_rules ORDER BY platform")
-        return [PortalRules.from_row(dict(row)) for row in rows]
+        overrides = await self.rule_overrides()
+        return [apply_overrides(PortalRules.from_row(dict(row)), overrides) for row in rows]
+
+    async def _save_overrides(self, platform: str, values: dict[str, Any]) -> None:
+        current = await self.rule_overrides()
+        entry = dict(current.get(platform) or {}) | values
+        await self.update_preferences({"portal_rule_overrides": current | {platform: entry}})
 
     async def update_rules(self, platform, changes, expected_revision):
+        overrides = {c: changes[c] for c in OVERRIDE_RULE_FIELDS if c in changes}
+        if overrides:
+            # Revision-checked first so a stale dashboard form never writes the override.
+            current = await self.connection.fetchval(
+                "SELECT revision FROM public.portal_rules WHERE platform=$1", platform)
+            if current is None:
+                raise RulesNotFound(platform)
+            if current != expected_revision:
+                raise RevisionConflict(current)
+            await self._save_overrides(platform, overrides)
         columns = [c for c in EDITABLE_RULE_FIELDS if c in changes]
         values = [str(changes[c]) if c == "unknown_applicants_policy" else changes[c] for c in columns]
         assignments = "".join(f"{column}=${index + 3}, " for index, column in enumerate(columns))
@@ -921,7 +976,7 @@ class PostgresStore:
                 WHERE platform=$1 AND revision=$2 RETURNING *""",
             platform, expected_revision, *values)
         if row is not None:
-            return PortalRules.from_row(dict(row))
+            return apply_overrides(PortalRules.from_row(dict(row)), await self.rule_overrides())
         current = await self.connection.fetchval(
             "SELECT revision FROM public.portal_rules WHERE platform=$1", platform)
         if current is None:
@@ -1119,6 +1174,27 @@ class PostgresStore:
             """UPDATE public.hitl_requests SET status=$2, answer_text=$3, resolved_at=now(), resolved_via=$4
                WHERE id=$1::uuid AND status='OPEN' RETURNING id""", hitl_id, status, answer_text, via)
         return await self.get_hitl(str(closed)) if closed else None
+
+    async def expire_stale_hitl(self, kind, older_than):
+        """OPEN requests of `kind` created before `older_than` -> EXPIRED (conditional on OPEN)."""
+        ids = await self.connection.fetch(
+            """UPDATE public.hitl_requests SET status='EXPIRED', resolved_at=now(), resolved_via='worker'
+               WHERE status='OPEN' AND kind=$1 AND created_at < $2 RETURNING id""", kind, older_than)
+        rows = [await self.get_hitl(str(r["id"])) for r in ids]
+        return [r for r in rows if r is not None]
+
+    async def claim_digest_day(self, day):
+        """Atomic once-per-local-day claim (survives restarts and two concurrent senders)."""
+        await self.get_telegram_state()
+        claimed = await self.connection.fetchval(
+            """UPDATE public.telegram_v2_state SET last_digest_on=$1, updated_at=now()
+               WHERE singleton_key='primary' AND last_digest_on IS DISTINCT FROM $1 RETURNING 1""", day)
+        return bool(claimed)
+
+    async def release_digest_day(self, day, previous):
+        await self.connection.execute(
+            """UPDATE public.telegram_v2_state SET last_digest_on=$2, updated_at=now()
+               WHERE singleton_key='primary' AND last_digest_on=$1""", day, previous)
 
     async def count_open_hitl(self, platform=None):
         return await self.connection.fetchval(

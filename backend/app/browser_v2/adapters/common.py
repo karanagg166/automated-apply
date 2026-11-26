@@ -28,7 +28,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 from backend.app.browser_v2.adapters.base import (
     ApplyResult,
@@ -82,6 +82,74 @@ def classify_ats(url: str | None) -> str | None:
         return "greenhouse"
     if host in LEVER_HOSTS and LEVER_PATH.match(parts.path):
         return "lever"
+    return None
+
+
+@dataclass(frozen=True)
+class AtsHandoff:
+    """A supported hosted-ATS posting found behind another portal's external apply link."""
+
+    platform: str  # greenhouse | lever
+    external_job_id: str
+    url: str  # canonical posting URL the ATS adapter can look up (board in the path)
+    board: str | None
+    board_guessed: bool = False
+
+
+_GH_ID = re.compile(r"^\d{1,20}$")
+_LEVER_ID = re.compile(r"^[0-9a-f-]{8,64}$")
+_GENERIC_LABELS = frozenset({"www", "careers", "career", "jobs", "job", "apply", "boards", "work", "join", "hire",
+                             "hiring", "co", "com", "io", "ai", "in", "org", "net", "app", "dev", "tech"})
+
+
+def _board_guess(host: str) -> str | None:
+    """stripe.com -> stripe, careers.acme.io -> acme (only for ?gh_jid= custom career sites)."""
+    labels = [p for p in host.lower().split(".") if p and p not in _GENERIC_LABELS]
+    candidate = labels[-1] if labels else None
+    return candidate if candidate and re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,99}", candidate) else None
+
+
+def ats_handoff_target(url: str | None) -> AtsHandoff | None:
+    """Greenhouse/Lever posting behind an external apply link, deduped by its global job id.
+
+    Supports boards.greenhouse.io / job-boards.greenhouse.io /<board>/jobs/<id>, the embed form
+    (?for=<board>&token=<id>), custom career sites carrying ?gh_jid=<id> (board guessed from the
+    domain, fail-closed if wrong) and jobs.lever.co/<board>/<uuid>[/apply]. https only.
+    """
+    if not url:
+        return None
+    parts = urlsplit(url)
+    if parts.scheme != "https" or not parts.hostname:
+        return None
+    host = parts.hostname.lower()
+    params = parse_qs(parts.query)
+
+    def first(key: str) -> str | None:
+        values = params.get(key)
+        return values[0] if values else None
+
+    segments = [s for s in parts.path.split("/") if s]
+    if host in GREENHOUSE_HOSTS:
+        if parts.path.startswith("/embed/job_app"):
+            board, token = first("for"), first("token")
+            if board and token and _GH_ID.match(token):
+                return AtsHandoff("greenhouse", token, f"https://job-boards.greenhouse.io/{board}/jobs/{token}", board)
+            return None
+        if len(segments) >= 3 and segments[1] == "jobs" and _GH_ID.match(segments[2]):
+            board = segments[0]
+            return AtsHandoff("greenhouse", segments[2], f"https://job-boards.greenhouse.io/{board}/jobs/{segments[2]}",
+                              board)
+        return None
+    if host in LEVER_HOSTS:
+        if len(segments) >= 2 and _LEVER_ID.match(segments[1]):
+            return AtsHandoff("lever", segments[1], f"https://{host}/{segments[0]}/{segments[1]}", segments[0])
+        return None
+    gh_jid = first("gh_jid")
+    if gh_jid and _GH_ID.match(gh_jid):
+        board = _board_guess(host)
+        if board:
+            return AtsHandoff("greenhouse", gh_jid, f"https://job-boards.greenhouse.io/{board}/jobs/{gh_jid}", board,
+                              board_guessed=True)
     return None
 
 
@@ -409,11 +477,17 @@ class HostedFormFiller:
             await locator.press("Enter")
 
     async def _combobox_options(self, page: Any, item: dict[str, Any]) -> tuple[str, ...]:
-        locator = page.locator(f'[data-aa-field="{item["idx"]}"]')
+        """Options of THIS combobox only (live 2026-11-26 greenhouse: a page-wide [role=option] read
+        returned the phone country-code picker's list for "Are you currently based in Bangalore?")."""
+        field = f'[data-aa-field="{item["idx"]}"]'
+        locator = page.locator(field)
         try:
+            before = await page.evaluate(OPTIONS_JS, {"field": field, "scoped": False})
             await locator.click()
             await page.wait_for_timeout(self.settle_ms)
-            texts = await page.locator("[role=option]").all_inner_texts()
+            scoped = await page.evaluate(OPTIONS_JS, {"field": field, "scoped": True})
+            texts = scoped if scoped is not None else [
+                t for t in await page.evaluate(OPTIONS_JS, {"field": field, "scoped": False}) if t not in set(before)]
             await locator.press("Escape")
         except Exception:  # noqa: BLE001 - unknown widget: treat as free text
             return ()
@@ -444,7 +518,11 @@ class HostedFormFiller:
             await locator.click()
             await locator.fill(answer)
             await page.wait_for_timeout(self.settle_ms)
-            option = page.locator("[role=option]").filter(has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$"))
+            listbox = (await locator.get_attribute("aria-controls") or await locator.get_attribute("aria-owns")
+                       or "").split(" ")[0]
+            scope = page.locator(f'[id="{listbox}"]') if listbox else page
+            option = scope.locator("[role=option]").filter(
+                has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$")).filter(visible=True)
             if await option.count():
                 await option.first.click()
             else:
@@ -452,6 +530,22 @@ class HostedFormFiller:
             return True
         await locator.fill(answer)
         return True
+
+
+OPTIONS_JS = r"""
+({field, scoped}) => {
+  const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+  const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
+  if (scoped) {
+    const box = document.querySelector(field);
+    const ids = ((box && (box.getAttribute("aria-controls") || box.getAttribute("aria-owns"))) || "").split(/\s+/).filter(Boolean);
+    const lists = ids.map(id => document.getElementById(id)).filter(Boolean);
+    if (!lists.length) return null;  // no ARIA link: caller diffs visible options before/after opening
+    return lists.flatMap(l => [...l.querySelectorAll("[role=option]")].filter(visible).map(text));
+  }
+  return [...document.querySelectorAll("[role=option]")].filter(visible).map(text);
+}
+"""
 
 
 # --- confirmation + submit helpers ----------------------------------------------------------
@@ -668,11 +762,13 @@ CARDS_JS = r"""
 """
 
 DETAIL_JS = r"""
-({applyRe, appliedRe, externalRe, applySel, companySel}) => {
+({applyRe, appliedRe, externalRe, applySel, companySel, hintRe}) => {
   const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
   const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
   const body = (document.body && document.body.innerText || "").slice(0, 30000);
-  const primary = applySel ? [...document.querySelectorAll(applySel)].filter(el => visible(el) && !el.disabled) : [];
+  // Phase 8: the portal's primary selector only counts elements that also read as Apply.
+  const primary = applySel ? [...document.querySelectorAll(applySel)].filter(el => visible(el) && !el.disabled &&
+    new RegExp(applyRe, "i").test(((el.innerText || "").replace(/\s+/g, " ").trim() || el.value || "").trim())) : [];
   const pick = (sel) => { const el = [...document.querySelectorAll(sel)].find(visible); return el ? text(el) : null; };
   const desc = [...document.querySelectorAll("[class*='description' i], [class*='job-desc' i], [class*='jobDescription' i], [class*='about' i], [class*='details' i], article, main")]
     .filter(visible).map(text).sort((a, b) => b.length - a.length)[0] || "";
@@ -687,6 +783,34 @@ DETAIL_JS = r"""
       if (!visible(el) || el.closest(chrome)) continue; const t = text(el);
       if (t && t.length >= 2 && t.length <= 80 && !ACTION.test(t)) return t; } return null; };
   const apply = new RegExp(applyRe, "i"), applied = new RegExp(appliedRe, "i"), external = new RegExp(externalRe, "i");
+  // Phase 8: duplicate CTAs that trigger the SAME action (same ng-click/onclick/href/form) are one
+  // control (live instahyre: header + sticky footer "Apply"); different actions stay ambiguous.
+  const actionKey = (b) => [label(b).toLowerCase(), b.getAttribute("ng-click") || b.getAttribute("onclick") ||
+    b.getAttribute("data-action") || (b.href ? new URL(b.href, location.href).href : "") ||
+    (b.form ? (b.form.getAttribute("action") || b.form.id || "form") : "")].join("|");
+  // Live 2026-11-26 (instahyre): <a>Apply now</a> wraps <button ng-click=submitChoice(..)>Apply now</button>:
+  // one click target, so nested matches collapse to the innermost control.
+  const innermost = (list) => list.filter(b => !list.some(o => o !== b && b.contains(o)));
+  const applyControls = innermost(primary.length ? primary : controls.filter(b => apply.test(label(b)) && !b.disabled));
+  const applyActions = new Set(applyControls.map(actionKey)).size;
+  const sameAction = applyControls.length > 1 && applyActions === 1 && !actionKey(applyControls[0]).endsWith("|");
+  // Phase 8: posting date from the job page when the card had none (JSON-LD JobPosting.datePosted,
+  // <time datetime>, article:published_time).
+  let datePosted = null;
+  for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+    try {
+      const d = JSON.parse(s.textContent);
+      for (const it of (Array.isArray(d) ? d : (d["@graph"] || [d]))) {
+        if ([].concat(it["@type"] || []).some(t => String(t).includes("JobPosting")) && it.datePosted) datePosted = String(it.datePosted);
+      }
+    } catch (e) { /* ignore */ }
+  }
+  if (!datePosted) {
+    const meta = document.querySelector('meta[property="article:published_time"],meta[itemprop="datePosted"]');
+    const t = [...document.querySelectorAll("main time[datetime], article time[datetime], [class*='posted' i] time[datetime]")]
+      .find(el => !el.closest(chrome));
+    datePosted = (meta && meta.getAttribute("content")) || (t && t.getAttribute("datetime")) || null;
+  }
   return {
     url: location.href,
     title: pick("h1") || pick("h2"),
@@ -697,11 +821,44 @@ DETAIL_JS = r"""
     salary: (body.match(/(?:₹|rs\.?|inr|\$|usd)\s?[\d,.]+\s*(?:k|l|lpa|lakhs?|lacs?)?(?:\s*(?:-|–|to)\s*(?:₹|rs\.?|inr|\$|usd)?\s?[\d,.]+\s*(?:k|l|lpa|lakhs?|lacs?)?)?(?:\s*(?:\/|per)\s*(?:year|annum|month|yr|mo))?/i) || [null])[0],
     location: pick("[class*='location' i]"),
     workMode: (body.match(/\b(remote|hybrid|work from home|on-?site|in office)\b/i) || [null])[0],
-    applied: controls.some(b => applied.test(label(b))) || /you(?:'ve| have) (?:already )?applied|already applied/i.test(body),
+    // Live 2026-11-26 (internshala): "150+ candidates have already applied" is NOT our application.
+    // Body text counts only in the first person, and never while an enabled Apply control is shown.
+    applied: controls.some(b => applied.test(label(b))) || (!applyControls.length &&
+      /\byou(?:'ve| have)(?: already)? applied\b|\byou already applied\b|\balready applied to this\b/i.test(body)),
     // A portal-declared primary Apply control wins over duplicate CTAs of the same flow (live internshala: 4).
-    applyButtons: primary.length ? primary.length : controls.filter(b => apply.test(label(b)) && !b.disabled).length,
+    applyButtons: sameAction ? 1 : applyControls.length,
     externalLinks: controls.filter(b => external.test(label(b))).map(b => b.href || null).filter(Boolean).slice(0, 3),
+    datePosted,
+    closed: /no longer (?:accepting applications|available|active|open)|this (?:job|role|position|opening) (?:has been|is|was) (?:closed|filled|removed)|(?:job|position|role) (?:is )?(?:closed|expired|filled)|applications? (?:are |is )?(?:now )?closed|not accepting applications/i.test(body),
+    loginToApply: /(?:log ?in|sign ?in|sign up|create an account|register) (?:to|before you) apply/i.test(body),
+    unsupportedApply: !!hintRe && controls.some(b => new RegExp(hintRe, "i").test(label(b))),
   };
+}
+"""
+
+# Phase 8: the click path marks the control DETAIL_JS counted (same chrome exclusion, same
+# primary selector, same "same action" dedup), so a nav/sticky copy can never make it "changed".
+MARK_APPLY_JS = r"""
+({applyRe, appliedRe, applySel}) => {
+  const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+  const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
+  for (const old of document.querySelectorAll("[data-aa-apply]")) old.removeAttribute("data-aa-apply");
+  const chrome = "nav, header, [role=navigation], [role=menu], [role=menubar], [role=banner], aside";
+  const label = (b) => (text(b) || b.value || "").trim();
+  const apply = new RegExp(applyRe, "i"), applied = new RegExp(appliedRe, "i");
+  const primary = applySel ? [...document.querySelectorAll(applySel)]
+    .filter(el => visible(el) && !el.disabled && apply.test(label(el))) : [];
+  const controls = [...document.querySelectorAll("button, a, [role=button], input[type=submit]")]
+    .filter(b => visible(b) && !b.closest(chrome));
+  const actionKey = (b) => [label(b).toLowerCase(), b.getAttribute("ng-click") || b.getAttribute("onclick") ||
+    b.getAttribute("data-action") || (b.href ? new URL(b.href, location.href).href : "") ||
+    (b.form ? (b.form.getAttribute("action") || b.form.id || "form") : "")].join("|");
+  const matches = primary.length ? primary : controls.filter(b => apply.test(label(b)) && !b.disabled);
+  const found = matches.filter(b => !matches.some(o => o !== b && b.contains(o)));
+  const actions = new Set(found.map(actionKey)).size;
+  const same = found.length > 1 && actions === 1 && !actionKey(found[0]).endsWith("|");
+  if (found.length === 1 || same) found[0].setAttribute("data-aa-apply", "1");
+  return {count: same ? 1 : found.length, applied: controls.some(b => applied.test(label(b)))};
 }
 """
 
@@ -752,6 +909,9 @@ class PortalConfig:
     company_selector: str | None = None
     # CSS that proves search results have rendered (logged-in SPAs hydrate after DOMContentLoaded).
     results_selector: str | None = None
+    # Phase 8: a control that is the portal's apply UI but not yet calibrated for automation
+    # (live YC 2026-11-26: "Change status to apply" status menu) -> apply_control_unsupported_ui.
+    unsupported_apply_text: str | None = None
 
 
 class InteractivePortalAdapter:
@@ -873,7 +1033,22 @@ class InteractivePortalAdapter:
     def _detail_args(self) -> dict[str, Any]:
         return {"applyRe": self.config.apply_text, "appliedRe": self.config.applied_text,
                 "externalRe": self.config.external_text, "applySel": self.config.apply_selector,
-                "companySel": self.config.company_selector}
+                "companySel": self.config.company_selector, "hintRe": self.config.unsupported_apply_text}
+
+    async def resolve_apply_control(self, page: Any, polls: int = 12) -> dict[str, Any]:
+        """Same counting as inspection; waits (<= ~3 s) for two identical reads (SPA hydration)."""
+        args = {"applyRe": self.config.apply_text, "appliedRe": self.config.applied_text,
+                "applySel": self.config.apply_selector}
+        previous: int | None = None
+        state: dict[str, Any] = {}
+        for attempt in range(max(1, polls)):
+            state = await page.evaluate(MARK_APPLY_JS, args)
+            if state.get("applied") or (state.get("count") == 1 and previous == 1):
+                return state
+            previous = state.get("count")
+            if attempt + 1 < polls:
+                await page.wait_for_timeout(250)
+        return state
 
     async def _primary_apply(self, page: Any) -> list[Any]:
         if not self.config.apply_selector:
@@ -895,7 +1070,13 @@ class InteractivePortalAdapter:
         data = await page.evaluate(DETAIL_JS, self._detail_args())
         applicants = parse_applicants(data.get("applicants")) if data.get("applicants") else (
             listing.applicants or UNKNOWN_APPLICANTS)
-        age = parse_posted_age_days(data.get("posted")) if data.get("posted") else listing.posted_age_days
+        # Card age first (calibrated per portal), then the job page: visible "posted ..." text,
+        # then structured data (JSON-LD datePosted / <time datetime>) - Phase 8 unknown-age layer 1.
+        age = listing.posted_age_days
+        if data.get("posted"):
+            age = parse_posted_age_days(data.get("posted"))
+        if age is None and data.get("datePosted"):
+            age = parse_posted_age_days(str(data["datePosted"])[:10])
         external = data.get("externalLinks") or []
         if data.get("applied"):
             mode = "applied"
@@ -903,8 +1084,14 @@ class InteractivePortalAdapter:
             mode = "direct"
         elif external:
             mode = "external"
+        elif data.get("applyButtons"):
+            mode = "ambiguous"
+        elif data.get("unsupportedApply"):
+            mode = "unsupported_ui"
         else:
-            mode = "ambiguous" if data.get("applyButtons") else "none"
+            mode = "closed" if data.get("closed") else "none"
+        if mode == "none" and data.get("loginToApply") and auth == "unknown":
+            auth = "login"  # logged-out job page that hides Apply behind "log in to apply"
         apply_url = urljoin(listing.url, external[0]) if mode == "external" and external else None
         merged = replace(listing, title=data.get("title") or listing.title,
                          # the calibrated card value wins; detail-page text is only a fallback
@@ -980,11 +1167,21 @@ class InteractivePortalAdapter:
                                          "verified_at": datetime.now(UTC).isoformat()})
         if detail.apply_mode == "external":
             return self._result(S.FILTERED_OUT, "external_company_site", dry_run)
+        if detail.apply_mode == "closed":
+            return self._result(S.FILTERED_OUT, "job_closed", dry_run)
         if detail.apply_mode != "direct":
-            return self._result(S.FAILED, f"apply_control_{detail.apply_mode}", dry_run)
-        buttons = await self._primary_apply(page) or await visible_buttons(page, None, self.config.apply_text)
+            return self._result(S.FAILED, f"apply_control_{detail.apply_mode}", dry_run,
+                                screenshot=await self.shot(page, job_id, f"apply-{detail.apply_mode}"))
+        control = await self.resolve_apply_control(page)
+        if control.get("applied"):
+            return self._result(S.APPLIED, "already_applied_on_portal", dry_run,
+                                receipt={"source": "applied_badge_before_action", "url": detail.listing.url,
+                                         "verified_at": datetime.now(UTC).isoformat()})
+        marked = page.locator('[data-aa-apply="1"]')
+        buttons = [marked.first] if control.get("count") == 1 and await marked.count() == 1 else []
         if len(buttons) != 1:
-            return self._result(S.FAILED, "apply_control_changed", dry_run)
+            return self._result(S.FAILED, "apply_control_changed", dry_run,
+                                screenshot=await self.shot(page, job_id, "apply-control"))
         planned = f"click {name} Apply for {job_id} ({detail.listing.title} @ {detail.listing.company})"
         if dry_run and self.config.apply_click_may_submit:
             return self._result(S.SCORED, "dry_run_stopped_before_apply_click", True, planned_action=planned,

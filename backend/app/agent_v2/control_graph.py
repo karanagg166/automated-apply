@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 HELP = ("I can change portal rules (\"raise Naukri daily limit to 60\", \"enable Instahyre\", \"pause Internshala "
         "for 3 hours\", \"set max job age to 5 days\"), preferences (\"blacklist TCS and Infosys\", \"set expected "
         "CTC to 18 LPA\", \"add FastAPI to required keywords\"), answer status questions (\"how many applied "
-        "today?\", \"why did you skip Razorpay?\", \"show last 5 drafts\"), remember answers (\"remember my notice "
+        "today?\", \"why did you skip Razorpay?\", \"why failed\", \"pending\", \"digest\", \"show last 5 drafts\"), "
+        "toggle unknown posting dates (\"set instahyre allow_unknown_age true\"), remember answers (\"remember my notice "
         "period is immediate\") and control the worker (pause / resume / status / run once). I never send email, "
         "delete data or re-apply to a job.")
 ALLOWED_TOOLS = frozenset({"update_portal_rule", "update_preferences", "query_application_status",

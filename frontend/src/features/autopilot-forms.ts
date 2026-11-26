@@ -137,6 +137,7 @@ export type PortalRulesForm = {
   timezone: string;
   quota_fallback_daily_cap: string;
   quota_drafts_per_cycle: string;
+  allow_unknown_posting_age: boolean;
 };
 
 const timeValue = (value?: string | null) => (value ? value.slice(0, 5) : "");
@@ -157,6 +158,7 @@ export function rulesToForm(rules: PortalRules): PortalRulesForm {
     timezone: rules.timezone,
     quota_fallback_daily_cap: String(rules.quota_fallback_daily_cap ?? 10),
     quota_drafts_per_cycle: String(rules.quota_drafts_per_cycle ?? 5),
+    allow_unknown_posting_age: rules.allow_unknown_posting_age ?? false,
   };
 }
 
@@ -257,6 +259,11 @@ export function rulesPatch(
   }
   if (form.unknown_applicants_policy !== rules.unknown_applicants_policy)
     set("unknown_applicants_policy", form.unknown_applicants_policy);
+  if (
+    form.allow_unknown_posting_age !==
+    (rules.allow_unknown_posting_age ?? false)
+  )
+    set("allow_unknown_posting_age", form.allow_unknown_posting_age);
   for (const key of ["active_hours_start", "active_hours_end"] as const) {
     if (form[key] !== timeValue(rules[key])) set(key, form[key] || null);
   }
@@ -338,6 +345,9 @@ export type SkillRow = { skill: string; years: string };
 export type ScreeningForm = Record<ListKey, string> &
   Record<NumberKey, string> & {
     current_location: string;
+    country: string;
+    current_company: string;
+    english_proficiency: string;
     willing_to_relocate: Relocate;
     remote_policy: RemotePolicy | "";
     skill_match_mode: SkillMatchMode | "";
@@ -361,6 +371,9 @@ export function screeningToForm(profile: ScreeningProfile): ScreeningForm {
     total_experience_years: numberText(profile.total_experience_years),
     min_match_score: numberText(profile.min_match_score),
     current_location: profile.current_location || "",
+    country: profile.country || "",
+    current_company: profile.current_company || "",
+    english_proficiency: profile.english_proficiency || "",
     willing_to_relocate:
       profile.willing_to_relocate === true
         ? "yes"
@@ -427,6 +440,14 @@ export function screeningPatch(
   const location = form.current_location.trim() || null;
   if (location !== (profile.current_location || null))
     set("current_location", location);
+  for (const key of [
+    "country",
+    "current_company",
+    "english_proficiency",
+  ] as const) {
+    const text = form[key].trim() || null;
+    if (text !== (profile[key] || null)) set(key, text);
+  }
   const relocate =
     form.willing_to_relocate === "unset"
       ? null

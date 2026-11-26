@@ -202,6 +202,17 @@ function PortalRulesCard({ rules }: { rules: PortalRules }) {
             />
             Auto-apply enabled (submit without asking)
           </label>
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={form.allow_unknown_posting_age}
+              onChange={(e) =>
+                update("allow_unknown_posting_age", e.target.checked)
+              }
+            />
+            Allow jobs with an unknown posting date (portal default:{" "}
+            {rules.allow_unknown_posting_age_default ? "allowed" : "review"})
+          </label>
         </div>
         <div className="form-grid">
           {NUMBER_INPUTS.map(([key, label, hint, min, max]) => (

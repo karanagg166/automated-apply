@@ -18,6 +18,11 @@
   discoveries. A throttled Telegram summary (once per portal per day) is optional.
 - Stop/pause are honoured only between jobs and during sleeps, never
   mid-submission. Brave is recycled every 3 hours between jobs.
+- Phase 8 fairness: each cycle starts at the next portal (round-robin rotation), so a
+  slow or interrupted portal never starves the ones after it; every portal is capped at
+  MAX_INSPECTIONS_PER_PORTAL jobs per turn. A portal whose turn raises (Playwright/network
+  timeout, DOM drift) backs off for 5, 10, 20 .. 60 min (reset on success) while the
+  others keep running; 3 consecutive job errors end that portal's turn early.
 """
 
 from __future__ import annotations
@@ -78,6 +83,17 @@ DEFAULT_QUERY = "software engineer"
 QUOTA_INSPECTIONS_PER_CYCLE = 5
 MAIL_SCAN_INTERVAL_SEC = 15 * 60
 ALERT_BACKLOG_PER_CYCLE = 5  # DISCOVERED jobs (e.g. from job-alert emails) processed per portal cycle
+HITL_EXPIRY_EVERY_SEC = 15 * 60
+PORTAL_BACKOFF_BASE_SEC = 5 * 60
+PORTAL_BACKOFF_MAX_SEC = 60 * 60
+MAX_CONSECUTIVE_JOB_ERRORS = 3
+
+
+def is_transient(exc: BaseException) -> bool:
+    """Playwright/httpx/network/timeouts: retry the portal later rather than poisoning the run."""
+    module = type(exc).__module__ or ""
+    return isinstance(exc, (TimeoutError, ConnectionError, OSError)) or module.startswith(
+        ("playwright", "httpx", "httpcore"))
 
 
 def env_forces_dry_run() -> bool:
@@ -102,6 +118,7 @@ class PortalReport:
     drafted: int = 0
     queued_for_retry: int = 0
     errors: int = 0
+    consecutive_errors: int = 0
     stopped_reason: str | None = None
     outcomes: list[dict[str, Any]] = field(default_factory=list)
 
@@ -155,6 +172,10 @@ class Worker:
         self.digest = digest
         self.mail_scan_interval_sec = mail_scan_interval_sec
         self.last_mail_scan: datetime | None = None
+        self.last_hitl_expiry: datetime | None = None
+        # Phase 8: round-robin start + per-portal bounded backoff (failures, retry-at).
+        self.rotation = 0
+        self.portal_backoff: dict[str, tuple[int, datetime]] = {}
         self.housekeeping_log: list[dict[str, Any]] = []
 
     # --- control ------------------------------------------------------------------
@@ -239,7 +260,13 @@ class Worker:
         configure = getattr(self.service, "configure_adapters", None)
         if configure is not None:
             await configure(profile[0])  # Phase 6A: board lists etc. re-read every cycle
-        for rules in all_rules:
+        if all_rules:  # round-robin: this cycle starts where the last one left off
+            start = self.rotation % len(all_rules)
+            all_rules = all_rules[start:] + all_rules[:start]
+            self.rotation += 1
+        for index, rules in enumerate(all_rules):
+            if index:
+                await self.housekeeping()  # digest/expiry stay punctual during long cycles
             portal = PortalReport(platform=rules.platform)
             report.portals.append(portal)
             if not rules.enabled:
@@ -254,6 +281,10 @@ class Worker:
             if not within_active_hours(rules, self.clock()):
                 portal.skipped = "outside_active_hours"
                 continue
+            backoff = self.portal_backoff.get(rules.platform)
+            if backoff is not None and backoff[1] > self.clock() and not run_once:
+                portal.skipped = f"backoff_until:{backoff[1].isoformat(timespec='seconds')}"
+                continue
             try:
                 await self.run_portal(rules, prefs, profile, portal, dry_run=dry_run, run_once=run_once)
             except Interrupted:
@@ -263,9 +294,24 @@ class Worker:
                 logger.exception("portal %s failed", rules.platform)
                 portal.errors += 1
                 portal.skipped = f"error: {type(exc).__name__}"
+                self.back_off(rules.platform, transient=is_transient(exc))
+            else:
+                if portal.stopped_reason == "consecutive_errors":
+                    self.back_off(rules.platform, transient=True)
+                else:
+                    self.portal_backoff.pop(rules.platform, None)
             if not dry_run:
                 await self.process_quota(rules, profile[0], portal)
         return report
+
+    def back_off(self, platform: str, *, transient: bool) -> datetime:
+        """5, 10, 20, 40, 60 min (non-transient errors start at the 20 min step)."""
+        failures = self.portal_backoff.get(platform, (0, self.clock()))[0] + (1 if transient else 3)
+        delay = min(PORTAL_BACKOFF_MAX_SEC, PORTAL_BACKOFF_BASE_SEC * 2 ** (failures - 1))
+        until = self.clock() + timedelta(seconds=delay)
+        self.portal_backoff[platform] = (failures, until)
+        logger.warning("portal %s backing off %ss (failures=%s)", platform, int(delay), failures)
+        return until
 
     # --- Phase 5: quota-hit dual action -----------------------------------------------
     async def process_quota(self, rules: PortalRules, profile: dict[str, Any], portal: PortalReport) -> None:
@@ -304,19 +350,46 @@ class Worker:
                                               "alert_jobs": alerts.discovered, "tier": replies.tier})
             except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
                 logger.warning("mail watcher failed: %s", type(exc).__name__)
-        if self.digest is not None and self.notify is not None:
-            try:
-                if await self.digest.due(now):
-                    from backend.app.browser_v2.digest import build_digest
-
-                    text = await build_digest(self.store, now, ai=getattr(self.service, "ai", None),
-                                              mail_events=getattr(reader, "events", None))
-                    await self.notify(text)
-                    await self.digest.mark_sent(now)
-                    self.housekeeping_log.append({"digest": now.isoformat()})
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("digest failed: %s", type(exc).__name__)
+        await self.expire_hitl(now)
+        await self.send_digest(now, reader)
         del self.housekeeping_log[:-50]
+
+    async def expire_hitl(self, now: datetime) -> None:
+        """Phase 8: stale HITL requests expire (OTP 30 min .. QUESTION 7 days); never blocks."""
+        if self.last_hitl_expiry is not None and (now - self.last_hitl_expiry).total_seconds() < HITL_EXPIRY_EVERY_SEC:
+            return
+        self.last_hitl_expiry = now
+        try:
+            from backend.app.browser_v2.hitl import HITLResolutionService
+
+            expired = await HITLResolutionService(self.store, clock=self.clock).expire_stale(now)
+            if expired:
+                self.housekeeping_log.append({"hitl_expired": len(expired)})
+        except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
+            logger.warning("hitl expiry failed: %s", type(exc).__name__)
+
+    async def send_digest(self, now: datetime, reader: Any = None) -> None:
+        if self.digest is None or self.notify is None:
+            return
+        try:
+            if not await self.digest.due(now):
+                return
+            claimed, previous = await self.digest.claim(now)
+            if not claimed:
+                return  # another process/restart already sent today's digest
+            from backend.app.browser_v2.digest import build_digest
+
+            try:
+                text = await build_digest(self.store, now, ai=getattr(self.service, "ai", None),
+                                          mail_events=getattr(reader, "events", None))
+                await self.notify(text)
+            except Exception:
+                await self.digest.release(now, previous)  # retried on the next housekeeping tick
+                raise
+            await self.digest.mark_sent(now)
+            self.housekeeping_log.append({"digest": now.isoformat()})
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("digest failed: %s", type(exc).__name__)
 
     async def notify_quota(self, rules: PortalRules, result: QuotaReport) -> None:
         if self.notify is None or not result.queued:
@@ -535,10 +608,14 @@ class Worker:
             return "portal_wall"
         except Exception as exc:  # noqa: BLE001 - isolate one job; post-click errors are already SUBMISSION_UNKNOWN
             portal.errors += 1
+            portal.consecutive_errors += 1
             portal.outcomes.append({"external_job_id": listing.external_job_id,
-                                    "error": f"{type(exc).__name__}: {exc}"})
+                                    "error": f"{type(exc).__name__}: {str(exc)[:300]}"})
             logger.warning("job %s failed: %s", listing.external_job_id, type(exc).__name__)
+            if portal.consecutive_errors >= MAX_CONSECUTIVE_JOB_ERRORS:
+                return "consecutive_errors"  # likely a portal-wide outage: let the others run
             return None
+        portal.consecutive_errors = 0
         if not live_apply:
             self.inspected_only.add(key)
         portal.outcomes.append(plain({k: outcome.get(k) for k in (

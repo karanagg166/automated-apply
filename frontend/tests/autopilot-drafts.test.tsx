@@ -52,6 +52,8 @@ const rules: Rules[] = PORTALS.map(([platform, label, login]) => ({
   quota_fallback_daily_cap: 10,
   quota_drafts_per_cycle: 5,
   paused_until: null,
+  allow_unknown_posting_age: false,
+  allow_unknown_posting_age_default: false,
 }));
 
 const mail = (

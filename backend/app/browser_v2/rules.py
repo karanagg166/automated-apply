@@ -42,6 +42,17 @@ class PortalRules:
     quota_fallback_daily_cap: int | None = None
     quota_drafts_per_cycle: int | None = None
     paused_until: datetime | None = None  # temporary owner pause (agent / dashboard)
+    # Phase 8: None = the portal default (portals.PortalInfo.allow_unknown_age_default). Stored
+    # without a migration in candidate_profiles.preferences.portal_rule_overrides (JSONB).
+    allow_unknown_posting_age: bool | None = None
+
+    @property
+    def unknown_age_allowed(self) -> bool:
+        if self.allow_unknown_posting_age is not None:
+            return bool(self.allow_unknown_posting_age)
+        from backend.app.browser_v2.portals import unknown_age_default
+
+        return unknown_age_default(self.platform)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> PortalRules:
@@ -59,6 +70,21 @@ EDITABLE_RULE_FIELDS = (
     "max_delay_sec", "active_hours_start", "active_hours_end", "timezone",
     "quota_fallback_daily_cap", "quota_drafts_per_cycle", "paused_until",
 )
+# Owner-editable rules persisted in candidate_profiles.preferences.portal_rule_overrides
+# (JSONB) instead of a portal_rules column, so no admin SQL migration is needed.
+OVERRIDE_RULE_FIELDS = ("allow_unknown_posting_age",)
+ALL_EDITABLE_RULE_FIELDS = EDITABLE_RULE_FIELDS + OVERRIDE_RULE_FIELDS
+
+
+def apply_overrides(rules: PortalRules, overrides: dict[str, Any] | None) -> PortalRules:
+    """Overlay preferences.portal_rule_overrides[platform] onto a portal_rules row."""
+    from dataclasses import replace as _replace
+
+    entry = (overrides or {}).get(rules.platform)
+    if not isinstance(entry, dict):
+        return rules
+    value = entry.get("allow_unknown_posting_age")
+    return _replace(rules, allow_unknown_posting_age=value) if isinstance(value, bool) else rules
 DEFAULT_QUOTA_FALLBACK_DAILY_CAP = 10
 DEFAULT_QUOTA_DRAFTS_PER_CYCLE = 5
 
@@ -182,11 +208,15 @@ def evaluate_applicants(count: ApplicantCount, rules: PortalRules) -> FilterResu
 
 def evaluate_job(*, age_days: int | None, applicants: ApplicantCount, rules: PortalRules,
                  age_is_lower_bound: bool = False) -> FilterResult:
-    """Deterministic pre-apply filter. Unknown age is held for review."""
+    """Deterministic pre-apply filter. Unknown age is held for review unless the portal's
+    live-editable `allow_unknown_posting_age` rule allows it (then it is noted in reasons)."""
     if not rules.enabled:
         return FilterResult(Decision.FILTERED, ("portal_disabled",))
     if age_days is None:
-        return FilterResult(Decision.REVIEW, ("posting_age_unknown",))
+        if not rules.unknown_age_allowed:
+            return FilterResult(Decision.REVIEW, ("posting_age_unknown",))
+        applicant = evaluate_applicants(applicants, rules)
+        return FilterResult(applicant.decision, ("posting_age_unknown_allowed",) + applicant.reasons)
     if age_days > rules.max_job_age_days or (age_is_lower_bound and age_days >= rules.max_job_age_days):
         return FilterResult(Decision.FILTERED, ("posting_too_old",))
     return evaluate_applicants(applicants, rules)

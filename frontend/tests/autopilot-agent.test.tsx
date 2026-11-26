@@ -151,6 +151,8 @@ it("validates and patches the live quota fallback fields", () => {
     revision: 2,
     quota_fallback_daily_cap: 10,
     quota_drafts_per_cycle: 5,
+    allow_unknown_posting_age: false,
+    allow_unknown_posting_age_default: false,
     label: "Lever (direct ATS)",
     adapter_status: "ready" as const,
     requires_login: false,

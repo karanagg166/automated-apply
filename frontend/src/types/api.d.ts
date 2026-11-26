@@ -7125,6 +7125,12 @@ export interface components {
       availability_date?: string | null;
       /** Current Location */
       current_location?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /** Open To Relocation */
       open_to_relocation?: boolean | null;
       /** Relocation Locations */
@@ -7205,6 +7211,10 @@ export interface components {
       /** Lever Boards */
       lever_boards?: {
         [key: string]: string | null;
+      };
+      /** Portal Rule Overrides */
+      portal_rule_overrides?: {
+        [key: string]: components["schemas"]["PortalRuleOverride"];
       };
     };
     /** JobSearchPreferences */
@@ -7217,6 +7227,12 @@ export interface components {
       availability_date?: string | null;
       /** Current Location */
       current_location?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /** Open To Relocation */
       open_to_relocation?: boolean | null;
       /** Relocation Locations */
@@ -7297,6 +7313,10 @@ export interface components {
       /** Lever Boards */
       lever_boards?: {
         [key: string]: string | null;
+      };
+      /** Portal Rule Overrides */
+      portal_rule_overrides?: {
+        [key: string]: components["schemas"]["PortalRuleOverride"];
       };
     };
     /** JobSearchPreferencesUpdate */
@@ -7309,6 +7329,12 @@ export interface components {
       availability_date?: string | null;
       /** Current Location */
       current_location?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /** Open To Relocation */
       open_to_relocation?: boolean | null;
       /** Relocation Locations */
@@ -7389,6 +7415,10 @@ export interface components {
       /** Lever Boards */
       lever_boards?: {
         [key: string]: string | null;
+      };
+      /** Portal Rule Overrides */
+      portal_rule_overrides?: {
+        [key: string]: components["schemas"]["PortalRuleOverride"];
       };
     };
     /**
@@ -8571,6 +8601,14 @@ export interface components {
       };
     };
     /**
+     * PortalRuleOverride
+     * @description Python v2 portal rules kept in preferences JSONB (no portal_rules column needed).
+     */
+    PortalRuleOverride: {
+      /** Allow Unknown Posting Age */
+      allow_unknown_posting_age?: boolean | null;
+    };
+    /**
      * PortalRulesPatch
      * @description Partial update. `revision` must equal the current row (optimistic concurrency).
      */
@@ -8611,6 +8649,8 @@ export interface components {
        * @description null = resume now
        */
       paused_until?: string | null;
+      /** Allow Unknown Posting Age */
+      allow_unknown_posting_age?: boolean | null;
     };
     /** PortalRulesRead */
     PortalRulesRead: {
@@ -8696,6 +8736,18 @@ export interface components {
        * @description Portal skipped until this time (temporary pause)
        */
       paused_until?: string | null;
+      /**
+       * Allow Unknown Posting Age
+       * @description Jobs whose posting date is unknown (card AND job page) pass the age filter instead of waiting in needs_review
+       * @default false
+       */
+      allow_unknown_posting_age: boolean;
+      /**
+       * Allow Unknown Posting Age Default
+       * @description Portal default for the rule above
+       * @default false
+       */
+      allow_unknown_posting_age_default: boolean;
     };
     /** PortalStatus */
     PortalStatus: {
@@ -9870,6 +9922,12 @@ export interface components {
       skill_years?: {
         [key: string]: number;
       };
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /**
        * Version
        * @description Current candidate_profiles.version
@@ -9913,6 +9971,12 @@ export interface components {
       skill_years?: {
         [key: string]: number;
       };
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /**
        * Version
        * @description candidate_profiles.version; send back on PATCH
@@ -9947,6 +10011,12 @@ export interface components {
       availability_date?: string | null;
       /** Current Location */
       current_location?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /** Open To Relocation */
       open_to_relocation?: boolean | null;
       /** Relocation Locations */
@@ -10027,6 +10097,10 @@ export interface components {
       /** Lever Boards */
       lever_boards?: {
         [key: string]: string | null;
+      };
+      /** Portal Rule Overrides */
+      portal_rule_overrides?: {
+        [key: string]: components["schemas"]["PortalRuleOverride"];
       };
       /** Minimum Experience */
       minimum_experience?: number | null;
@@ -10084,6 +10158,12 @@ export interface components {
       availability_date?: string | null;
       /** Current Location */
       current_location?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Current Company */
+      current_company?: string | null;
+      /** English Proficiency */
+      english_proficiency?: string | null;
       /** Open To Relocation */
       open_to_relocation?: boolean | null;
       /** Relocation Locations */
@@ -10164,6 +10244,10 @@ export interface components {
       /** Lever Boards */
       lever_boards?: {
         [key: string]: string | null;
+      };
+      /** Portal Rule Overrides */
+      portal_rule_overrides?: {
+        [key: string]: components["schemas"]["PortalRuleOverride"];
       };
       /** Minimum Experience */
       minimum_experience?: number | null;

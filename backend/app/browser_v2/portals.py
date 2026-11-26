@@ -20,6 +20,9 @@ class PortalInfo:
     login_url: str | None
     default_enabled: bool = False
     needs_login: bool | None = None  # None = login_url is not None
+    # Phase 8: default for portal_rules.allow_unknown_posting_age. True only where search cards
+    # AND job pages never show a posting date (Instahyre lists only active openings).
+    allow_unknown_age_default: bool = False
 
     @property
     def requires_login(self) -> bool:
@@ -28,7 +31,8 @@ class PortalInfo:
 
 PORTALS: dict[str, PortalInfo] = {p.platform: p for p in (
     PortalInfo("naukri", "Naukri", "interactive", "https://www.naukri.com/nlogin/login", default_enabled=True),
-    PortalInfo("instahyre", "Instahyre", "interactive", "https://www.instahyre.com/login/"),
+    PortalInfo("instahyre", "Instahyre", "interactive", "https://www.instahyre.com/login/",
+               allow_unknown_age_default=True),
     PortalInfo("internshala", "Internshala", "interactive", "https://internshala.com/login/user"),
     PortalInfo("himalayas", "Himalayas", "feed", "https://himalayas.app/login", needs_login=False),
     PortalInfo("wellfound", "Wellfound", "interactive", "https://wellfound.com/login"),
@@ -47,6 +51,11 @@ LOGIN_PORTALS = frozenset(name for name, info in PORTALS.items() if info.require
 
 def adapter_status(platform: str) -> Literal["ready", "pending_phase6"]:
     return "ready" if platform in ADAPTER_READY else "pending_phase6"
+
+
+def unknown_age_default(platform: str) -> bool:
+    info = PORTALS.get(platform)
+    return bool(info and info.allow_unknown_age_default)
 
 
 def portal_label(platform: str) -> str:

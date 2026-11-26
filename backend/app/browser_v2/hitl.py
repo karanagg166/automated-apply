@@ -13,6 +13,10 @@ FastMCP all call this one service, so an answer behaves identically everywhere:
   SUBMISSION_UNKNOWN are never re-enqueued.
 - Skip cancels the request and moves the job to FILTERED_OUT.
 - Resume resets portal auth to UNKNOWN so the next tick re-checks the session.
+- Phase 8: stale requests expire (OTP 30 min, CAPTCHA 24 h, QUESTION/ERROR 7 days) so
+  nothing leaks forever; the linked WAITING_FOR_USER job becomes FILTERED_OUT
+  (`hitl_expired`, never replayed). AUTH requests never expire: they close when the
+  portal session is OK again or the owner sends /resume.
 """
 
 from __future__ import annotations
@@ -20,10 +24,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
-from backend.app.browser_v2.answers import BLOCKED, SENSITIVE, match_option
+from backend.app.browser_v2.answers import BLOCKED, SENSITIVE, match_multi, match_option
 from backend.app.browser_v2.state import (
     NEVER_REPLAY,
     TRANSITIONS,
@@ -43,6 +47,9 @@ ANSWERABLE_KINDS = frozenset({"QUESTION", "OTP", "CAPTCHA"})
 REQUEUE_FROM = frozenset({S.WAITING_FOR_USER, S.FAILED})
 REQUEUE_REASON = "hitl_resolved_requeued"
 SKIP_REASON = "skipped_by_owner_hitl"
+EXPIRED_REASON = "hitl_expired"
+HITL_TTL: dict[str, timedelta] = {"OTP": timedelta(minutes=30), "CAPTCHA": timedelta(hours=24),
+                                  "QUESTION": timedelta(days=7), "ERROR": timedelta(days=7)}
 
 
 def cacheable_question(question: str) -> bool:
@@ -136,6 +143,8 @@ class HITLResolutionService:
         options = hitl.options if hitl.kind == "QUESTION" else ()
         if options:
             mapped = match_option(text, options)
+            if mapped is None and hitl.context.get("input_kind") == "multi":
+                mapped = match_multi(text, options)  # Naukri multi-select checkboxes
             if mapped is None:
                 listed = "\n".join(f"{i}. {o}" for i, o in enumerate(options, 1))
                 return Resolution(False, "invalid_option",
@@ -231,6 +240,28 @@ class HITLResolutionService:
         await self.store.record_auth(platform, "UNKNOWN")
         return PortalResume(True, platform, f"{platform} resumed: the worker re-checks the session on its next tick.",
                             auth_status="UNKNOWN", resolved=resolved)
+
+    async def expire_stale(self, now: datetime | None = None,
+                           ttl: dict[str, timedelta] | None = None) -> list[HitlRecord]:
+        """Expire OPEN requests past their TTL; their jobs leave WAITING_FOR_USER (never replayed)."""
+        now = now or self.clock()
+        expired: list[HitlRecord] = []
+        for kind, age in (ttl or HITL_TTL).items():
+            expired.extend(await self.store.expire_stale_hitl(kind, now - age))
+        for hitl in expired:
+            if not hitl.application_id:
+                continue
+            record = await self.store.get_application(hitl.application_id)
+            if record is None or record.state is not S.WAITING_FOR_USER:
+                continue
+            try:
+                await self.store.transition(record, S.FILTERED_OUT, EXPIRED_REASON,
+                                            payload={"hitl_id": hitl.id, "kind": hitl.kind})
+            except InvalidTransition:
+                logger.info("hitl expiry transition raced ref=%s", hitl.ref)
+        if expired:
+            logger.info("hitl expired %d stale request(s)", len(expired))
+        return expired
 
     # --- helpers ------------------------------------------------------------------
     async def _requeue(self, hitl: HitlRecord, payload: dict[str, Any]) -> tuple[bool, str | None]:

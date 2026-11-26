@@ -8,11 +8,17 @@ Tier 3  None -> caller marks the job WAITING_FOR_USER (HITL)
 
 Sensitive questions (passwords, OTPs, IDs, consent, demographics) skip
 Tiers 1-2. Questions asking for private/unverified personal data skip Tier 2.
+
+Degradation contract (Workstream 3): resolve() never raises. A failing tier
+(cache backend error, zero LLM keys, every provider 429/5xx, malformed reply,
+usage-store outage) is logged and the chain falls through to the next tier and
+finally to Tier 3 (None -> HITL), so the 24/7 worker can never crash here.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, replace
@@ -30,6 +36,8 @@ from backend.app.browser_v2.answers import (
     choose_yes_no,
     resolve_answer,
 )
+
+logger = logging.getLogger(__name__)
 
 KIND = "screening_qa"
 ACCEPT_CONFIDENCE = 0.80
@@ -135,13 +143,21 @@ class ScreeningAnswerer:
         def elapsed() -> float:
             return round((time.perf_counter() - started) * 1000, 2)
 
-        deterministic = resolve_answer(question, options, facts)
+        try:
+            deterministic = resolve_answer(question, options, facts)
+        except Exception:  # a matcher bug must degrade to the next tier, never crash
+            logger.exception("screening_tier0_failed")
+            deterministic = None
         if deterministic is not None:
             return ResolvedAnswer(deterministic, 0, "profile", elapsed(), "profile_fact")
         if not question.strip() or BLOCKED.search(question) or SENSITIVE.search(question):
             return ResolvedAnswer(None, 3, "human", elapsed(), "sensitive_or_blocked_question")
         if self.cache is not None:
-            hit = await self.cache.lookup(KIND, question)
+            try:
+                hit = await self.cache.lookup(KIND, question)
+            except Exception:  # cache outage: fall through (LLM or HITL)
+                logger.exception("screening_cache_lookup_failed")
+                hit = None
             if hit is not None:
                 fitted = fit_to_options(hit.entry.answer_text, options)
                 if fitted is not None:
@@ -149,9 +165,18 @@ class ScreeningAnswerer:
                                           cache_match=hit.match, similarity=round(hit.similarity, 4))
         if PRIVATE_REQUEST.search(question):
             return ResolvedAnswer(None, 3, "human", elapsed(), "private_or_unverifiable_data")
-        if self.router is None or not self.router.any_configured:
+        try:
+            configured = self.router is not None and bool(self.router.any_configured)
+        except Exception:
+            logger.exception("screening_router_status_failed")
+            configured = False
+        if not configured:
             return ResolvedAnswer(None, 3, "human", elapsed(), "llm_unconfigured")
-        return await self._llm(question, options, context or {}, started)
+        try:
+            return await self._llm(question, options, context or {}, started)
+        except Exception as exc:  # noqa: BLE001 - any LLM/usage-store failure -> HITL, never a crash
+            logger.warning("screening_llm_failed: %s", type(exc).__name__)
+            return ResolvedAnswer(None, 3, "human", _ms(started), f"llm_error:{type(exc).__name__}")
 
     async def _llm(self, question: str, options: tuple[str, ...], context: dict[str, Any],
                    started: float) -> ResolvedAnswer:
@@ -179,10 +204,14 @@ class ScreeningAnswerer:
         cached = False
         if self.save_llm_answers and self.cache is not None and reply.cacheable \
                 and reply.confidence >= self.cache_confidence:
-            await self.cache.put(KIND, question, fitted, "llm")
-            cached = True
+            try:
+                await self.cache.put(KIND, question, fitted, "llm")
+                cached = True
+            except Exception:  # the accepted answer is still usable without caching
+                logger.exception("screening_cache_put_failed")
         return replace(human, answer=fitted, tier=2, source="llm", latency_ms=_ms(started),
                        reason="llm_accepted", cached_new=cached)
+
 
 def _ms(started: float) -> float:
     return round((time.perf_counter() - started) * 1000, 2)

@@ -300,6 +300,43 @@ class BrowserService:
                                          record_filters=record_filters), verdict
         return record, None
 
+    # --- Phase 8: smart external ATS handoff --------------------------------------------------
+    def handoff_target(self, platform: str, detail: Any) -> Any:
+        """Supported Greenhouse/Lever posting behind another portal's external apply link."""
+        from backend.app.browser_v2.adapters.common import (
+            SUPPORTED_ATS,
+            ats_handoff_target,
+        )
+
+        if platform in SUPPORTED_ATS or detail.apply_mode != "external":
+            return None
+        target = ats_handoff_target(detail.apply_url)
+        return target if target is not None and target.platform in self.adapters else None
+
+    async def hand_off(self, record: ApplicationRecord, detail: Any, target: Any, *,
+                       record_filters: bool) -> dict[str, Any]:
+        """Enqueue the posting for the greenhouse/lever adapter (DISCOVERED, deduped by the ATS job
+        id) and close the source row as FILTERED_OUT `ats_handoff:<ats>:<id>` - never applied twice."""
+        reason = f"ats_handoff:{target.platform}:{target.external_job_id}"
+        result: dict[str, Any] = {"state": S.FILTERED_OUT.value, "reason": reason, "handoff": {
+            "platform": target.platform, "external_job_id": target.external_job_id, "url": target.url,
+            "board": target.board, "board_guessed": target.board_guessed}}
+        if not record_filters:
+            return result | {"handoff_recorded": False}
+        existing = await self.store.get(target.platform, target.external_job_id)
+        if existing is None:
+            listing = detail.listing
+            existing = await self.store.upsert_discovered(JobListing(
+                platform=target.platform, external_job_id=target.external_job_id, url=target.url,
+                title=listing.title, company=listing.company, posted_text=listing.posted_text,
+                posted_age_days=detail.posted_age_days, age_is_lower_bound=listing.age_is_lower_bound,
+                applicants=detail.applicants))
+        result["handoff"]["state"] = existing.state.value
+        await self.filter_out(record, reason, record_filters=True)
+        await self.publish("job.ats_handoff", {"from": record.platform, "to": target.platform,
+                                               "external_job_id": target.external_job_id})
+        return result | {"handoff_recorded": True}
+
     async def apply_to_job(self, platform: str, url: str, *, dry_run: bool = True) -> dict[str, Any]:
         """Filter, guard and apply to one job URL (CLI/MCP)."""
         self.adapter(platform)
@@ -381,6 +418,9 @@ class BrowserService:
                 reason = format_reason(verdict)
                 await self.filter_out(record, reason, record_filters=record_filters)
                 return summary | {"state": S.FILTERED_OUT.value, "reason": reason}
+            handoff = self.handoff_target(platform, detail)
+            if handoff is not None and not detail.already_applied:
+                return summary | await self.hand_off(record, detail, handoff, record_filters=record_filters)
             hints = contact_hints(detail)
             if record_filters and record.state in {S.DISCOVERED, S.FAILED}:
                 record = await self.store.transition(record, S.SCORED, "passed_filters",

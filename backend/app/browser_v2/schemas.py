@@ -54,10 +54,19 @@ class PortalRulesRead(BaseModel):
                                                                     "daily quota is hit")
     quota_drafts_per_cycle: int = Field(default=5, description="Max Gmail drafts created per worker cycle")
     paused_until: datetime | None = Field(default=None, description="Portal skipped until this time (temporary pause)")
+    allow_unknown_posting_age: bool = Field(
+        default=False, description="Jobs whose posting date is unknown (card AND job page) pass the age filter "
+                                   "instead of waiting in needs_review")
+    allow_unknown_posting_age_default: bool = Field(default=False, description="Portal default for the rule above")
 
     @classmethod
     def from_rules(cls, rules: Any) -> PortalRulesRead:
-        from backend.app.browser_v2.portals import PORTALS, adapter_status, portal_label
+        from backend.app.browser_v2.portals import (
+            PORTALS,
+            adapter_status,
+            portal_label,
+            unknown_age_default,
+        )
 
         info = PORTALS.get(rules.platform)
         return cls(
@@ -73,7 +82,9 @@ class PortalRulesRead(BaseModel):
             auth_checked_at=rules.auth_checked_at, portal_limit_hit_at=rules.portal_limit_hit_at,
             revision=rules.revision, updated_at=rules.updated_at,
             quota_fallback_daily_cap=_effective_cap(rules), quota_drafts_per_cycle=_effective_drafts(rules),
-            paused_until=getattr(rules, "paused_until", None))
+            paused_until=getattr(rules, "paused_until", None),
+            allow_unknown_posting_age=bool(getattr(rules, "unknown_age_allowed", False)),
+            allow_unknown_posting_age_default=unknown_age_default(rules.platform))
 
 
 def _effective_cap(rules: Any) -> int:
@@ -113,6 +124,7 @@ class PortalRulesPatch(BaseModel):
     quota_fallback_daily_cap: int | None = Field(default=None, ge=0, le=100)
     quota_drafts_per_cycle: int | None = Field(default=None, ge=0, le=50)
     paused_until: datetime | None = Field(default=None, description="null = resume now")
+    allow_unknown_posting_age: StrictBool | None = None
 
     @field_validator("paused_until")
     @classmethod
@@ -155,7 +167,7 @@ SCREENING_FIELDS = (
     "target_roles", "keywords_required", "keywords_excluded", "tech_stack", "company_blacklist",
     "remote_policy", "skill_match_mode", "min_match_score", "current_ctc", "expected_ctc", "min_ctc",
     "notice_period_days", "total_experience_years", "current_location", "willing_to_relocate",
-    "skill_years",
+    "skill_years", "country", "current_company", "english_proficiency",
 )
 
 

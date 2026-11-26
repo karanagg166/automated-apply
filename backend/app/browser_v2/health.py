@@ -292,12 +292,23 @@ async def db_snapshot(settings: Any) -> dict[str, Any]:
         snapshot: dict[str, Any] = {"tables": tables, "other_connections": int(others)}
         if tables.get("worker_control"):
             row = await connection.fetchrow(
-                "SELECT desired_state, observed_state, heartbeat_at FROM public.worker_control "
+                "SELECT desired_state, observed_state, heartbeat_at, dry_run FROM public.worker_control "
                 "WHERE singleton_key='primary'")
             snapshot["worker"] = dict(row) if row else None
         if tables.get("telegram_v2_state"):
             snapshot["telegram_state"] = await connection.fetchval(
                 "SELECT polling_state FROM public.telegram_v2_state WHERE singleton_key='primary'")
+        if tables.get("applications"):  # Phase 8: never-replay fences migrated by 004
+            snapshot["never_replay"] = {r["reason"]: int(r["n"]) for r in await connection.fetch(
+                "SELECT reason, count(*) AS n FROM public.applications "
+                "WHERE state IN ('APPLIED','SUBMISSION_UNKNOWN') AND reason LIKE 'migrated_%never_replay' "
+                "GROUP BY reason")}
+            snapshot["never_replay_total"] = int(await connection.fetchval(
+                "SELECT count(*) FROM public.applications WHERE state IN ('APPLIED','SUBMISSION_UNKNOWN')"))
+        if tables.get("portal_rules"):  # Phase 8: per-portal session readiness
+            snapshot["portals"] = [dict(r) for r in await connection.fetch(
+                "SELECT platform, enabled, auto_apply_enabled, auth_status, auth_checked_at "
+                "FROM public.portal_rules ORDER BY platform")]
         return snapshot
     finally:
         await connection.close()
@@ -317,7 +328,77 @@ def db_checks(snapshot: Mapping[str, Any] | None, error: str | None = None,
     if worker is not None:
         checks.append(evaluate_heartbeat(worker.get("heartbeat_at"), worker.get("desired_state"),
                                          worker.get("observed_state"), now))
+    if "never_replay" in snapshot:
+        checks.append(evaluate_fences(snapshot.get("never_replay") or {}, snapshot.get("never_replay_total")))
+    if "portals" in snapshot:
+        checks.append(evaluate_portal_sessions(snapshot.get("portals") or []))
+    if worker is not None and "portals" in snapshot:
+        checks.append(evaluate_live_mode(worker.get("dry_run"), snapshot.get("portals") or []))
     return checks
+
+
+def evaluate_live_mode(dry_run: Any, portals: Iterable[Mapping[str, Any]]) -> Check:
+    """Go-live gate: a 24/7 worker with dry_run=true or no auto-apply portal never clicks Apply."""
+    auto = [p["platform"] for p in portals if p.get("enabled") and p.get("auto_apply_enabled")]
+    data = {"dry_run": bool(dry_run), "auto_apply_portals": auto}
+    if dry_run is None or dry_run:
+        return Check("live_mode", WARN, "worker_control.dry_run=true: the worker inspects and scores but never "
+                     "clicks Apply (switch to LIVE in /autopilot after the apply-one canary)", data)
+    if not auto:
+        return Check("live_mode", WARN, "auto-apply is off on every enabled portal: the worker only inspects "
+                     "and scores (enable auto-apply per portal in /autopilot)", data)
+    return Check("live_mode", OK, f"LIVE: auto-apply on {', '.join(auto)}", data)
+
+
+def evaluate_fences(fences: Mapping[str, int], total: int | None) -> Check:
+    """Never-replay rows (APPLIED / SUBMISSION_UNKNOWN) incl. the fences migrated by 004."""
+    migrated = sum(fences.values())
+    return Check("never_replay_fences", OK if migrated else WARN,
+                 f"{migrated} migrated never-replay fence(s); {total or 0} APPLIED/SUBMISSION_UNKNOWN row(s) "
+                 "are never re-applied" if migrated else "no migrated never-replay fences found (re-run "
+                 "migrate_v2_core check)", {"migrated": dict(fences), "never_replay_total": total})
+
+
+def evaluate_portal_sessions(portals: Iterable[Mapping[str, Any]]) -> Check:
+    """Enabled browser portals must have auth_status OK before going live."""
+    from backend.app.browser_v2.portals import PORTALS
+
+    rows = list(portals)
+    enabled = [p for p in rows if p.get("enabled")]
+    needs_login = [p["platform"] for p in enabled
+                   if PORTALS.get(p["platform"]) is not None and PORTALS[p["platform"]].requires_login
+                   and p.get("auth_status") != "OK"]
+    data = {"enabled": [p["platform"] for p in enabled],
+            "auto_apply": [p["platform"] for p in enabled if p.get("auto_apply_enabled")],
+            "auth": {p["platform"]: p.get("auth_status") for p in rows},
+            "login_needed": needs_login}
+    if not enabled:
+        return Check("portal_sessions", WARN, "no portal is enabled in portal_rules", data)
+    if needs_login:
+        return Check("portal_sessions", WARN, f"enabled portal(s) not logged in: {', '.join(needs_login)} "
+                     "(run cli login-setup --portal <name>, then /resume <name>)", data)
+    return Check("portal_sessions", OK, f"{len(enabled)} enabled portal(s) ready", data)
+
+
+def check_telegram_config(env: Mapping[str, str]) -> Check:
+    """Bot token + owner chat present and well-formed (never prints the token)."""
+    from backend.app.telegram_v2.config import TelegramConfig
+
+    config = TelegramConfig.from_env(env)
+    return Check("telegram_config", OK if config.configured else WARN,
+                 "bot token + owner chat configured" if config.configured
+                 else f"Telegram HITL unconfigured: {config.problem}", config.public())
+
+
+def check_launchd_plists(agents_dir: Path | None = None) -> Check:
+    """The three v2 LaunchAgents rendered into ~/Library/LaunchAgents (cutover_v2 apply)."""
+    folder = agents_dir or Path.home() / "Library" / "LaunchAgents"
+    present = {label: (folder / f"{label}.plist").is_file() for label in V2_LABELS}
+    missing = [label for label, ok in present.items() if not ok]
+    return Check("launchd_v2_plists", OK if not missing else WARN,
+                 "api-v2, worker-v2 (caffeinate -i) and frontend-v2 installed" if not missing
+                 else f"not installed yet: {', '.join(m.rsplit('.', 1)[-1] for m in missing)} "
+                 "(backend/scripts/cutover_v2.py apply)", {"present": present})
 
 
 async def run_health(*, include_db: bool = True, runner: Runner = default_runner, fetch: Fetcher = default_fetch,
@@ -342,6 +423,8 @@ async def run_health(*, include_db: bool = True, runner: Runner = default_runner
     else:
         checks.append(Check("database", SKIP, "skipped (--no-db)", {}))
     checks.append(check_brave(runner))
+    checks.append(check_launchd_plists())
+    checks.append(check_telegram_config(env))
     checks.append(evaluate_telegram(telegram_state, services))
     checks.extend(check_ai_and_mail(env))
     checks.extend(check_disk())

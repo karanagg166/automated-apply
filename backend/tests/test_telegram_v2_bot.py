@@ -27,7 +27,6 @@ from backend.app.telegram_v2.client import (
     redact,
 )
 from backend.app.telegram_v2.config import TelegramConfig
-from backend.app.telegram_v2.formatting import CONFLICT_MESSAGE
 
 TOKEN = "123456789:TEST_FAKE_TOKEN_ONLY_abcdefghijklmnop"
 OWNER = 4242
@@ -163,20 +162,26 @@ async def test_bot_token_never_leaks_in_errors_logs_or_status(store, caplog):
     status = await telegram_status(store, bot.config)
     assert status["polling_state"] == "error" and TOKEN not in json.dumps(status, default=str)
     assert status["owner_chat_id"] == "•242"
+    assert bot.client is not None
     await bot.client.aclose()
 
 
 # --- 409 conflict ---------------------------------------------------------------------------
 async def test_conflict_sets_status_backs_off_and_recovers(store, fake, caplog):
     fake.conflict = True
-    bot = make_bot(store, fake, conflict_backoff=60)
+
+    async def legacy_loaded():
+        return True
+
+    bot = make_bot(store, fake, conflict_backoff=60, legacy_probe=legacy_loaded)
     with caplog.at_level(logging.WARNING):
         assert await bot.poll_once() == 60
-        assert await bot.poll_once() == 60
+        assert await bot.poll_once() == 120  # Phase 8: exponential backoff (capped at 10 min)
     assert caplog.text.count("409 conflict") == 1  # no log spam
     status = await telegram_status(store, bot.config)
     assert status["polling_state"] == "conflict" and status["conflict_detected"] is True
-    assert status["last_error"] == CONFLICT_MESSAGE and status["conflict_detected_at"] is not None
+    assert "com.automated-apply.rust is still loaded" in status["last_error"]
+    assert status["conflict_detected_at"] is not None
     fake.conflict = False
     assert await bot.poll_once() == 0
     status = await telegram_status(store, bot.config)

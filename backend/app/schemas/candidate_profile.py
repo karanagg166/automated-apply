@@ -156,6 +156,13 @@ class ResumeFileSpec(ProfileSchema):
 
 LocalPath = Annotated[str, Field(min_length=1, max_length=500)]
 BoardToken = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")]
+PortalKey = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,39}$")]
+
+
+class PortalRuleOverride(ProfileSchema):
+    """Python v2 portal rules kept in preferences JSONB (no portal_rules column needed)."""
+
+    allow_unknown_posting_age: StrictBool | None = None
 
 
 class JobSearchPreferences(ProfileSchema):
@@ -163,6 +170,10 @@ class JobSearchPreferences(ProfileSchema):
     expected_compensation: CompensationFact | None = None
     availability_date: date | None = None
     current_location: ShortText | None = None
+    # Phase 8 canonical screening facts (Greenhouse Country, Lever Current company / English).
+    country: ShortText | None = None
+    current_company: ShortText | None = None
+    english_proficiency: ShortText | None = None
     open_to_relocation: StrictBool | None = None
     relocation_locations: StringList = Field(default_factory=list)
     work_authorizations: list[CountryAuthorization] = Field(
@@ -212,6 +223,8 @@ class JobSearchPreferences(ProfileSchema):
     resume_files: dict[ShortText, ResumeFileSpec | LocalPath] = Field(default_factory=dict, max_length=10)
     greenhouse_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     lever_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
+    # Phase 8: per-portal rule overrides edited from /autopilot (portal rules PATCH).
+    portal_rule_overrides: dict[PortalKey, PortalRuleOverride] = Field(default_factory=dict, max_length=20)
 
     @model_validator(mode="after")
     def unique_authorization_countries(self):

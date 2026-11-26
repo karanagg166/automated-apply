@@ -555,6 +555,21 @@ async def health_check_command(as_json: bool, include_db: bool) -> int:
     return 0 if report["ok"] else 1
 
 
+async def apply_one_command(portal: str, url: str, confirm_live: bool, assume_yes: bool) -> int:
+    from backend.app.ai_v2.router import load_env
+    from backend.app.browser_v2.canary import apply_one
+    from backend.app.browser_v2.worker import quota_notifier
+
+    notify, close = quota_notifier(load_env())
+    try:
+        report = await apply_one(portal, url, confirm_live=confirm_live, assume_yes=assume_yes, notify=notify)
+    finally:
+        if close is not None:
+            await close()
+    emit(report)
+    return 0 if report.get("ok") else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="browser_v2", description="Dedicated Brave profile tools")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -630,6 +645,15 @@ def main(argv: list[str] | None = None) -> int:
     sft.add_argument("--out", required=True, help="output .jsonl path (written 0600)")
     chat = commands.add_parser("agent-chat", help="one message to the LangGraph control agent")
     chat.add_argument("text")
+    one = commands.add_parser("apply-one", help="Phase 8 canary: ONE job by URL (dry-run unless --confirm-live)")
+    one.add_argument("--portal", required=True, choices=sorted(PORTALS))
+    one.add_argument("--url", required=True, help="exact job URL on that portal")
+    one.add_argument("--confirm-live", action="store_true",
+                     help="really apply (still asks you to type 'APPLY <portal>'); default is a dry-run")
+    one.add_argument("--yes", action="store_true", help="with --confirm-live: skip the typed confirmation")
+    from backend.app.browser_v2 import facts_cli
+
+    facts_cli.register(commands)
     health = commands.add_parser("health-check", help="non-destructive 24/7 watchdog report (Phase 6B)")
     health.add_argument("--json", action="store_true", help="machine-readable JSON")
     health.add_argument("--no-db", action="store_true", help="skip the single read-only DB probe")
@@ -643,6 +667,12 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(agent_chat_command(args.text))
         if args.command == "health-check":
             return asyncio.run(health_check_command(args.json, not args.no_db))
+        if args.command == "apply-one":
+            return asyncio.run(apply_one_command(args.portal, args.url, args.confirm_live, args.yes))
+        if args.command == "facts":
+            from backend.app.browser_v2 import facts_cli as facts_module
+
+            return facts_module.run(args)
         if args.command == "login-setup":
             from backend.app.browser_v2.portals import LOGIN_PORTALS
 

@@ -2,8 +2,11 @@
 
 Applied today by portal, Gmail drafts created, tomorrow's retry queue, recruiter
 replies detected, open HITL count and free-LLM quota status. Sent at most once per
-local date (telegram_v2_state.last_digest_on survives restarts). DIGEST_DISABLED=true
-turns it off; DIGEST_HOUR_IST (0-23, default 21) moves it.
+local date: `claim()` atomically sets telegram_v2_state.last_digest_on BEFORE sending
+(UPDATE ... WHERE last_digest_on IS DISTINCT FROM today), so a worker restart around
+21:00 or two senders can never double-send; a failed send releases the claim so the
+next housekeeping tick retries. DIGEST_DISABLED=true turns it off; DIGEST_HOUR_IST
+(0-23, default 21) moves it.
 """
 
 from __future__ import annotations
@@ -95,6 +98,31 @@ class DigestScheduler:
             self.sent_on = local.date()
             return False
         return True
+
+    async def claim(self, now: datetime) -> tuple[bool, Any]:
+        """(claimed, previous last_digest_on). Falls back to the in-memory guard before 004."""
+        day = now.astimezone(DIGEST_TZ).date()
+        claim = getattr(self.store, "claim_digest_day", None)
+        if claim is None:
+            return True, None
+        try:
+            previous = getattr(await self.store.get_telegram_state(), "last_digest_on", None)
+            claimed = await claim(day)
+        except Exception:  # noqa: BLE001 - column missing before 004: in-memory guard still holds
+            return True, None
+        if not claimed:
+            self.sent_on = day
+        return bool(claimed), previous
+
+    async def release(self, now: datetime, previous: Any) -> None:
+        day = now.astimezone(DIGEST_TZ).date()
+        self.sent_on = None
+        release = getattr(self.store, "release_digest_day", None)
+        if release is not None:
+            try:
+                await release(day, previous)
+            except Exception:  # noqa: BLE001, S110
+                pass
 
     async def mark_sent(self, now: datetime) -> None:
         day = now.astimezone(DIGEST_TZ).date()

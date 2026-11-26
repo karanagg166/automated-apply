@@ -64,6 +64,7 @@ from backend.app.browser_v2.state import ApplicationState
 from backend.app.browser_v2.store import (
     ApplicationQuery,
     PostgresStore,
+    ProfileMissing,
     RevisionConflict,
     RulesNotFound,
     Store,
@@ -143,6 +144,9 @@ async def patch_portal_rules(platform: str, data: PortalRulesPatch,
         raise HTTPException(404, "Unknown portal") from None
     except RevisionConflict as exc:
         raise HTTPException(409, f"Rules changed (current revision {exc.current}); reload and retry") from None
+    except ProfileMissing:
+        raise HTTPException(409, "allow_unknown_posting_age is stored with the candidate profile; "
+                                 "create the profile first") from None
     return PortalRulesRead.from_rules(updated)
 
 

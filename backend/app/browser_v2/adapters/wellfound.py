@@ -29,6 +29,9 @@ class WellfoundAdapter(InteractivePortalAdapter):
         login_form='input[type=password], form[action*="login" i], [class*="login-form" i], '
                    'a[href="/login"], a[href^="/login?"]',
         apply_text=r"^(?:apply|apply now)$",
+        # Live 2026-11-26 (Phase 8): top action-bar "Apply" + bottom "Apply now" (two components) -> the
+        # action-bar button is the primary control (counted only if it reads Apply).
+        apply_selector='[class*="actionBar"] button',
         applied_text=r"^(?:applied|application sent)$",
         confirm_text=r"application sent|applied successfully|your application (?:has been|was) (?:sent|submitted)|"
                      r"thanks for applying",

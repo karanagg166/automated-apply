@@ -36,6 +36,8 @@ const rules: PortalRules = {
   requires_login: true,
   quota_fallback_daily_cap: 10,
   quota_drafts_per_cycle: 5,
+  allow_unknown_posting_age: false,
+  allow_unknown_posting_age_default: false,
 };
 
 const profile: ScreeningProfile = {
@@ -105,6 +107,37 @@ describe("portal rules patch", () => {
       "Active hours start must use HH:MM.",
       "Timezone is required (for example Asia/Kolkata).",
     ]);
+  });
+});
+
+describe("phase 8 rule + facts fields", () => {
+  it("toggles allow_unknown_posting_age only when it differs", () => {
+    const form = rulesToForm(rules);
+    expect(form.allow_unknown_posting_age).toBe(false);
+    expect(rulesPatch(rules, form).changed).toEqual([]);
+    const on = rulesPatch(rules, { ...form, allow_unknown_posting_age: true });
+    expect(on.patch).toEqual({ revision: 4, allow_unknown_posting_age: true });
+    expect(on.errors).toEqual([]);
+  });
+
+  it("sends trimmed country / company / english facts and clears them with null", () => {
+    const form = screeningToForm(profile);
+    expect(form.country).toBe("");
+    const set = screeningPatch(profile, {
+      ...form,
+      country: " India ",
+      current_company: "Acme",
+    });
+    expect(set.patch).toEqual({
+      version: 9,
+      country: "India",
+      current_company: "Acme",
+    });
+    const cleared = screeningPatch(
+      { ...profile, english_proficiency: "Fluent" },
+      { ...form, english_proficiency: "  " },
+    );
+    expect(cleared.patch).toEqual({ version: 9, english_proficiency: null });
   });
 });
 

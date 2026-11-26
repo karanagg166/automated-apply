@@ -7,6 +7,15 @@ use real Playwright input (trusted events) in the single worker tab.
 Naukri has no separate final Submit: clicking "Apply" either submits at once or
 opens the chatbot, whose last answer submits. Dry-run therefore stops before
 the Apply click.
+
+Phase 8 (live `apply_control_changed` x2): inspection counted only VISIBLE Apply buttons in
+the main JD header, but the click path re-counted with a page-wide locator over every
+`[class*=jd-header]` (incl. the hidden sticky-header copy and pre-hydration duplicates), so a
+single real button looked like two. The click path now resolves the control with the same
+JS as inspection (visible + enabled, same header root), waits up to ~6 s for the React
+header to settle (two identical consecutive reads), re-classifies hydration swaps
+("Apply" -> "Apply on company site" / "Applied") instead of failing, and clicks the one
+element it marked (`data-aa-apply`). Two genuinely visible Apply buttons still fail closed.
 """
 
 from __future__ import annotations
@@ -63,7 +72,9 @@ OtpProvider = Callable[[str, datetime], Awaitable[str | None]]
 
 VISIBLE_JS = """const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 &&
   getComputedStyle(el).visibility !== "hidden";
-const text = (el) => (el && el.innerText || "").replace(/\\s+/g, " ").trim();"""
+const text = (el) => (el && el.innerText || "").replace(/\\s+/g, " ").trim();
+const jdHeader = () => document.querySelector("#job_header") ||
+  [...document.querySelectorAll('[class*="jd-header"],[class*="jdHeader"]')].find(h => h.querySelector("h1") && visible(h));"""
 
 AUTH_PROBE_JS = "() => {" + VISIBLE_JS + "\n" + CHALLENGE_HELPERS_JS + r"""
   const body = (document.body && document.body.innerText || "").slice(0, 20000);
@@ -97,8 +108,7 @@ LISTING_JS = "({limit}) => {" + VISIBLE_JS + r"""
 }"""
 
 DETAIL_JS = "() => {" + VISIBLE_JS + r"""
-  const header = document.querySelector("#job_header") ||
-    [...document.querySelectorAll('[class*="jd-header"],[class*="jdHeader"]')].find(h => h.querySelector("h1"));
+  const header = jdHeader();
   const spans = header ? [...header.querySelectorAll("span,p,div")].map(text).filter(t => t && t.length < 80) : [];
   const applicantRe = [/^(?:applicants?\s*:?\s*)?[\d,]+\+?(?:\s*(?:-|–|to)\s*[\d,]+)?(?:\s*applicants?)?$/i,
                        /^(?:applicants?\s*:?\s*)?(?:less than|fewer than)\s+[\d,]+(?:\s*applicants?)?$/i];
@@ -129,21 +139,53 @@ DETAIL_JS = "() => {" + VISIBLE_JS + r"""
   const jd = document.querySelector('[class*="job-desc"],[class*="JDC"],[class*="dang-inner-html"]');
   const description = (text(jd) || ldDescription || "").replace(/\s+/g, " ").trim().slice(0, 8000) || null;
   const salary = spans.find(t => /(lacs?|lakhs?|lpa|₹|not disclosed|crore)/i.test(t) && t.length < 60) || null;
-  const location = text(header && header.querySelector('[class*="location"],[class*="loc"]')) || null;
+  // Phase 8: was `const location`, which shadowed window.location (url was always undefined and a
+  // header without a location element threw "Cannot read properties of null (reading 'href')").
+  const jobLocation = text(header && header.querySelector('[class*="location"],[class*="loc"]')) || null;
   const workMode = spans.find(t => /^(remote|hybrid|work from (home|office)|on-?site)/i.test(t)) || null;
   const buttons = header ? [...header.querySelectorAll("button,[role=button],a")].filter(visible) : [];
   return {
-    description, salary, location, workMode,
-    url: location.href,
+    description, salary, location: jobLocation, workMode,
+    url: window.location.href,
     title: text(header && header.querySelector("h1")) || null,
     company: text(header && header.querySelector('[class*="comp-name"] > a,[class*="compName"] > a'))
       || text(header && header.querySelector('[class*="comp-name"],[class*="compName"]')) || null,
     applicants, posted, datePosted,
     applied: buttons.some(b => /^(already applied|applied)$/i.test(text(b))),
     external: buttons.some(b => /company site/i.test(text(b))) || !!document.querySelector("#company-site-button"),
+    // Phase 8: the employer URL when Naukri exposes it in the DOM (ATS handoff); usually null
+    // because "Apply on company site" opens the URL from JS.
+    externalUrl: (() => {
+      for (const b of [...buttons, document.querySelector("#company-site-button")].filter(Boolean)) {
+        if (!/company site/i.test(text(b)) && b.id !== "company-site-button") continue;
+        const a = b.closest("a[href]") || b.querySelector("a[href]");
+        const v = (a && a.href) || b.getAttribute("data-href") || b.getAttribute("data-url");
+        if (v && /^https:\/\//.test(v) && !/naukri\.com/.test(new URL(v).hostname)) return v;
+      }
+      return null;
+    })(),
     applyButtons: buttons.filter(b => b.tagName === "BUTTON" && /^apply$/i.test(text(b)) && !b.disabled).length,
+    closed: /this job is no longer (?:available|active)|job (?:has )?expired|no longer accepting applications|hiring for this (?:job|role) is closed/i
+      .test((document.body && document.body.innerText || "").slice(0, 20000)),
   };
 }"""
+
+# Phase 8: the click path resolves the Apply control exactly like DETAIL_JS (same header root,
+# visible + enabled only) and marks the single match so the locator can never see a hidden copy.
+MARK_APPLY_JS = "() => {" + VISIBLE_JS + r"""
+  for (const old of document.querySelectorAll("[data-aa-apply]")) old.removeAttribute("data-aa-apply");
+  const header = jdHeader();
+  const buttons = header ? [...header.querySelectorAll("button,[role=button],a")].filter(visible) : [];
+  const apply = buttons.filter(b => b.tagName === "BUTTON" && /^apply$/i.test(text(b)) && !b.disabled);
+  if (apply.length === 1) apply[0].setAttribute("data-aa-apply", "1");
+  const drawer = [...document.querySelectorAll(".chatbot_DrawerContentWrapper")].some(visible);
+  return {
+    header: !!header, count: apply.length, drawer,
+    applied: buttons.some(b => /^(already applied|applied)$/i.test(text(b))),
+    external: buttons.some(b => /company site/i.test(text(b))) || !!document.querySelector("#company-site-button"),
+  };
+}"""
+APPLY_SETTLE_POLLS = 24  # x 250 ms: the logged-in JD header re-renders after hydration
 
 PAGE_STATE_JS = "() => {" + VISIBLE_JS + r"""
   const drawer = [...document.querySelectorAll(".chatbot_DrawerContentWrapper")].find(visible);
@@ -157,7 +199,15 @@ PAGE_STATE_JS = "() => {" + VISIBLE_JS + r"""
     chips: drawer ? [...drawer.querySelectorAll(".chipsContainer .chatbot_Chip")].filter(visible).map(text)
       .filter(t => !/^skip this question$/i.test(t)) : [],
     radios: drawer ? [...drawer.querySelectorAll('input.ssrc__radio[type="radio"]')].map(r => String(r.value || "").trim()) : [],
-    textInput: !!(drawer && [...drawer.querySelectorAll('.textArea[contenteditable="true"]')].find(visible)),
+    textInput: !!(drawer && [...drawer.querySelectorAll('.textArea[contenteditable="true"],textarea,input[type=text]')].find(visible)),
+    // Phase 8: multi-select checkboxes and dropdowns inside the chatbot drawer.
+    checkboxes: drawer ? [...drawer.querySelectorAll('input[type="checkbox"]')].map(c => {
+      const label = (c.id && drawer.querySelector('label[for="' + CSS.escape(c.id) + '"]')) || c.closest("label");
+      return text(label) || String(c.value || "").trim();
+    }).filter(Boolean) : [],
+    selectOptions: (() => { const s = drawer && [...drawer.querySelectorAll("select")].find(visible);
+      return s ? [...s.options].filter(o => o.value !== "" && !/^(select|choose)\b/i.test(o.text.trim()))
+        .map(o => o.text.trim()) : []; })(),
     fileInput: !!(drawer && drawer.querySelector('input.chatbot_Uploader[type="file"]')),
     headerApplied: !!header && [...header.querySelectorAll("button,[role=button]")].some(b => /^(applied|already applied)$/i.test(text(b))),
   };
@@ -299,7 +349,7 @@ class NaukriAdapter:
         elif data.get("applyButtons") == 1:
             mode = "direct"
         else:
-            mode = "ambiguous" if data.get("applyButtons") else "none"
+            mode = "ambiguous" if data.get("applyButtons") else ("closed" if data.get("closed") else "none")
         merged = JobListing(
             platform=self.platform, external_job_id=listing.external_job_id, url=listing.url,
             title=data.get("title") or listing.title, company=data.get("company") or listing.company,
@@ -312,7 +362,8 @@ class NaukriAdapter:
             challenge=auth if auth in {"challenge", "otp", "login"} else None,
             portal_limit=await self.detect_portal_limit(page),
             description=data.get("description"), salary_text=data.get("salary"),
-            location=data.get("location"), work_mode=data.get("workMode"))
+            location=data.get("location"), work_mode=data.get("workMode"),
+            apply_url=data.get("externalUrl") if mode == "external" else None)
 
     async def extract_form(self, page: Any) -> dict[str, Any]:
         return await extract_form(page)
@@ -359,8 +410,31 @@ class NaukriAdapter:
             await page.wait_for_timeout(300)
 
     async def _apply_button(self, page: Any) -> Any:
-        return page.locator('#job_header button, [class*="jd-header"] button, [class*="jdHeader"] button').filter(
-            has_text=re.compile(r"^\s*Apply\s*$"))
+        """Locator for the single visible Apply in the JD header (marked by MARK_APPLY_JS)."""
+        return page.locator('[data-aa-apply="1"]')
+
+    async def resolve_apply_control(self, page: Any, polls: int = APPLY_SETTLE_POLLS) -> dict[str, Any]:
+        """Wait for the React JD header to settle, then classify the apply control.
+
+        Returns {"mode": direct|external|applied|changed|none, "count": n}. `direct` means exactly
+        one visible enabled Apply, unchanged across two consecutive reads, now marked for click.
+        """
+        previous: tuple[Any, ...] | None = None
+        state: dict[str, Any] = {}
+        for attempt in range(max(1, polls)):
+            state = await page.evaluate(MARK_APPLY_JS)
+            if state.get("applied"):
+                return {"mode": "applied", **state}
+            if state.get("external") and not state.get("count"):
+                return {"mode": "external", **state}
+            key = (state.get("count"), state.get("external"), state.get("drawer"))
+            if state.get("count") == 1 and key == previous:
+                return {"mode": "direct", **state}
+            previous = key
+            if attempt + 1 < polls:
+                await page.wait_for_timeout(250)
+        mode = "changed" if state.get("count") else "none"
+        return {"mode": mode, **state}
 
     async def _poll(self, page: Any, done: Any, timeout_s: float) -> dict[str, Any]:
         loop = asyncio.get_running_loop()
@@ -383,9 +457,41 @@ class NaukriAdapter:
             not st.get("drawer") or st.get("question") != question or self._confirmation(st)
             or PORTAL_LIMIT.search(st.get("body") or "")), 8.0)
 
+    async def _settle_question(self, page: Any, state: dict[str, Any]) -> dict[str, Any]:
+        """Phase 8: the drawer opens (and changes question) before the bot's message and its
+        controls render (typing animation). Wait until the question has an input to answer."""
+        def ready(st: dict[str, Any]) -> bool:
+            return bool(not st.get("drawer") or self._confirmation(st) or PORTAL_LIMIT.search(st.get("body") or "")
+                        or (st.get("question") and (st.get("chips") or st.get("radios") or st.get("checkboxes")
+                                                    or st.get("selectOptions") or st.get("textInput")
+                                                    or st.get("fileInput"))))
+        if ready(state):
+            return state
+        return await self._poll(page, ready, 8.0)
+
+    @staticmethod
+    def multi_answers(answer: str, options: tuple[str, ...]) -> list[str]:
+        """'Python, Go' -> the matching checkbox labels (exact, case-insensitive); [] if any part misses."""
+        wanted = [p.strip() for p in re.split(r"\s*(?:,|;|\band\b|\|)\s*", answer or "") if p.strip()]
+        lookup = {o.strip().lower(): o for o in options}
+        picked = [lookup.get(w.lower()) for w in wanted]
+        return [p for p in picked if p] if picked and all(picked) else []
+
     async def _answer(self, page: Any, state: dict[str, Any], answer: str) -> None:
         drawer = page.locator(".chatbot_DrawerContentWrapper")
-        send = drawer.locator(".send").filter(has_text=re.compile(r"^\s*(save|send|next|continue)\s*$", re.IGNORECASE))
+        send = drawer.locator(".send, button").filter(
+            has_text=re.compile(r"^\s*(save|send|next|continue|submit)\s*$", re.IGNORECASE))
+        if state.get("checkboxes"):
+            for label in self.multi_answers(answer, tuple(state["checkboxes"])):
+                await drawer.locator("label").filter(has_text=re.compile(r"^\s*" + re.escape(label) + r"\s*$")).first.click()
+                await page.wait_for_timeout(150)
+            await send.first.click()
+            return
+        if state.get("selectOptions"):
+            await drawer.locator("select").first.select_option(label=answer)
+            await page.wait_for_timeout(300)
+            await send.first.click()
+            return
         if state.get("chips"):
             await drawer.locator(".chipsContainer .chatbot_Chip").filter(
                 has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$")).first.click()
@@ -396,7 +502,7 @@ class NaukriAdapter:
             await page.wait_for_timeout(300)
             await send.first.click()
             return
-        editor = drawer.locator('.textArea[contenteditable="true"]').first
+        editor = drawer.locator('.textArea[contenteditable="true"],textarea,input[type=text]').first
         await editor.click()
         await editor.fill(answer)
         await page.wait_for_timeout(300)
@@ -517,13 +623,23 @@ class NaukriAdapter:
                                          "verified_at": datetime.now(UTC).isoformat()})
         if detail.apply_mode == "external":
             return self._result(ApplicationState.FILTERED_OUT, "external_company_site", dry_run)
+        if detail.apply_mode == "closed":
+            return self._result(ApplicationState.FILTERED_OUT, "job_closed", dry_run)
         if detail.apply_mode != "direct":
             return self._result(ApplicationState.FAILED, f"apply_control_{detail.apply_mode}", dry_run)
 
         await self._opt_out_company_follow(page)
+        control = await self.resolve_apply_control(page)
+        if control["mode"] == "applied":  # hydration revealed the header "Applied" badge
+            return self._result(ApplicationState.APPLIED, "already_applied_on_portal", dry_run,
+                                receipt={"source": "header_applied_before_action", "url": detail.listing.url,
+                                         "verified_at": datetime.now(UTC).isoformat()})
+        if control["mode"] == "external":  # hydration swapped Apply -> "Apply on company site"
+            return self._result(ApplicationState.FILTERED_OUT, "external_company_site", dry_run)
         button = await self._apply_button(page)
-        if await button.count() != 1:
-            return self._result(ApplicationState.FAILED, "apply_control_changed", dry_run)
+        if control["mode"] != "direct" or await button.count() != 1:
+            return self._result(ApplicationState.FAILED, "apply_control_changed", dry_run,
+                                screenshot=await self._screenshot(page, job_id, "apply-control"))
         planned = f"click Naukri 'Apply' for {job_id} ({detail.listing.title} @ {detail.listing.company})"
         if dry_run:
             shot = await self._screenshot(page, job_id, "dry-run")
@@ -545,13 +661,33 @@ class NaukriAdapter:
                                     False, clicked_apply=True)
             if not state.get("drawer") or self._confirmation(state):
                 break
+            state = await self._settle_question(page, state)
+            if not state.get("drawer") or self._confirmation(state):
+                break
+            if PORTAL_LIMIT.search(state.get("body") or ""):
+                return self._result(ApplicationState.QUOTA_HIT_PENDING, "portal_daily_limit_after_click",
+                                    False, clicked_apply=True)
             question = state.get("question") or ""
-            options = tuple(state.get("chips") or state.get("radios") or ())
-            input_kind = "file" if state.get("fileInput") else "choice" if options else "text"
+            multi = tuple(state.get("checkboxes") or ())
+            options = tuple(state.get("chips") or state.get("radios") or state.get("selectOptions") or multi)
+            input_kind = ("file" if state.get("fileInput") else "multi" if multi else "choice" if options
+                          else "text")
+            if input_kind == "text" and not state.get("textInput"):
+                # Unknown control (date picker, slider ...): Naukri has not submitted yet (the drawer
+                # is still asking) - stop and ask the owner instead of guessing or raising.
+                return self._result(
+                    ApplicationState.WAITING_FOR_USER, "questionnaire_unsupported_control", False,
+                    clicked_apply=True, answers=tuple(answers),
+                    screenshot=await self._screenshot(page, job_id, "unsupported"),
+                    question=HitlQuestion(kind="ERROR", prompt=f"Naukri asked a question with an unsupported "
+                                                               f"control: {question[:300]}",
+                                          context={"job_id": job_id, "url": detail.listing.url}))
             answer, answer_source, resolver_reason = None, "human", "file_upload"
             if input_kind != "file":
                 answer, answer_source, resolver_reason = await self._resolve(question, options, facts, detail,
                                                                              hitl_answers)
+            if answer is not None and input_kind == "multi" and not self.multi_answers(answer, multi):
+                answer, resolver_reason = None, "multi_select_answer_not_in_options"
             if answer is None:
                 return self._result(
                     ApplicationState.WAITING_FOR_USER, "question_requires_owner", False, clicked_apply=True,
