@@ -1,15 +1,14 @@
 """Single shared v2 env loader (ai_v2, mail_v2, enrichment_v2, telegram_v2, events_v2, browser_v2, cli).
 
-Deterministic precedence, highest first:
+Owner rule (2026-11-26): every env value lives in the project directory. Precedence, highest first:
     1. process environment
-    2. the private env file (explicit path > $AUTOMATED_APPLY_ENV_FILE > phase1.private.env)
-    3. <repo>/backend/.env
-    4. <repo>/.env
+    2. an explicit env file / $AUTOMATED_APPLY_ENV_FILE (optional override)
+    3. <repo>/.env  (the one project env file, gitignored)
 Free-key aliases (e.g. GOOGLE_AI_API_KEY -> GEMINI_API_KEY) fill a canonical name only when
 the canonical name is absent at every layer. Values are never logged or returned by the
 reporting helpers: `key_sources()` reports key NAMES + the layer label only.
 
-Set AUTOMATED_APPLY_ENV_REPO_FILES=0 to ignore the two repository dotenv layers (tests/CI).
+Set AUTOMATED_APPLY_ENV_REPO_FILES=0 to ignore <repo>/.env (tests/CI).
 """
 
 from __future__ import annotations
@@ -19,12 +18,13 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from backend.app.browser_v2.config import env_file as resolve_private_env_file
+from backend.app.browser_v2.config import (
+    ENV_FILE_VARIABLE,
+    REPO_FILES_SWITCH,
+    REPO_ROOT,
+)
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-BACKEND_DOTENV = REPO_ROOT / "backend" / ".env"
 ROOT_DOTENV = REPO_ROOT / ".env"
-REPO_FILES_SWITCH = "AUTOMATED_APPLY_ENV_REPO_FILES"
 _FALSE = {"0", "false", "no", "off"}
 
 # canonical name -> accepted aliases (first non-empty alias wins). Free-tier names only.
@@ -66,13 +66,13 @@ def env_layers(explicit: str | os.PathLike[str] | None = None, *,
     process = dict(os.environ if environ is None else environ)
     layers: list[EnvLayer] = []
     if _repo_files_enabled(process):
-        for label, path in (repo_files if repo_files is not None
-                            else (("root .env", ROOT_DOTENV), ("backend/.env", BACKEND_DOTENV))):
+        for label, path in (repo_files if repo_files is not None else (("project .env", ROOT_DOTENV),)):
             if path.is_file():
                 layers.append(EnvLayer(label, path, _read_dotenv(path)))
-    private = resolve_private_env_file(explicit)
-    if private is not None:
-        layers.append(EnvLayer("private env file", private, _read_dotenv(private)))
+    override = next((Path(c).expanduser() for c in (explicit, process.get(ENV_FILE_VARIABLE))
+                     if c and Path(c).expanduser().is_file()), None)
+    if override is not None and all(layer.path != override for layer in layers):
+        layers.append(EnvLayer("override env file", override, _read_dotenv(override)))
     layers.append(EnvLayer("process env", None, process))
     return layers
 

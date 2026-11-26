@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from backend.app.ai_v2.providers import (
     PROVIDER_REGISTRY,
+    TASK_CHAINS,
     build_request,
     parse_response,
     resolve_provider,
@@ -28,10 +29,10 @@ from backend.tests.test_v2_migration_sql import PG_BIN, free_port
 FAKE = "TEST_FAKE_TOKEN_ONLY"
 ALL_KEYS = {"GROQ_API_KEY": FAKE, "GEMINI_API_KEY": FAKE, "MISTRAL_API_KEY": FAKE, "OPENROUTER_API_KEY": FAKE,
             "CLOUDFLARE_API_TOKEN": FAKE, "CLOUDFLARE_ACCOUNT_ID": "acct-test", "GITHUB_MODELS_TOKEN": FAKE}
-WITH_CEREBRAS = ALL_KEYS | {"CEREBRAS_API_KEY": FAKE}  # Phase 6A provider (kept out of the failover fixtures)
+WITH_CEREBRAS = ALL_KEYS | {"CEREBRAS_API_KEY": FAKE, "COHERE_API_KEY": FAKE}  # 6A cerebras + cohere fallback
 HOSTS = {"api.groq.com": "groq", "generativelanguage.googleapis.com": "gemini", "api.mistral.ai": "mistral",
          "openrouter.ai": "openrouter", "api.cloudflare.com": "cloudflare", "models.github.ai": "github_models",
-         "api.cerebras.ai": "cerebras"}
+         "api.cerebras.ai": "cerebras", "api.cohere.ai": "cohere"}
 
 
 class Answer(BaseModel):
@@ -100,7 +101,7 @@ async def test_unconfigured_providers_are_skipped_cleanly():
     states = {p["provider"]: p["status"] for p in await router.status()}
     assert states == {"groq": "unconfigured", "gemini": "unconfigured", "mistral": "healthy",
                       "openrouter": "unconfigured", "cloudflare": "unconfigured", "github_models": "unconfigured",
-                      "cerebras": "unconfigured"}
+                      "cerebras": "unconfigured", "cohere": "unconfigured"}
 
 
 async def test_cloudflare_needs_account_id_and_github_accepts_github_token():
@@ -232,6 +233,11 @@ def test_wire_formats_for_every_provider():
     assert "/accounts/acct-test/ai/run/@cf/" in cloudflare.url
     groq = build_request(resolve_provider(PROVIDER_REGISTRY["groq"], ALL_KEYS), "s", "u", max_output_tokens=9)
     assert groq.body["response_format"] == {"type": "json_object"}
+    cohere = build_request(resolve_provider(PROVIDER_REGISTRY["cohere"], WITH_CEREBRAS), "s", "u", max_output_tokens=9)
+    assert cohere.url == "https://api.cohere.ai/compatibility/v1/chat/completions"
+    assert cohere.body["model"] == "command-a-03-2025" and cohere.body["response_format"] == {"type": "json_object"}
+    assert PROVIDER_REGISTRY["cohere"].rpd <= 33  # stays under the ~1,000 calls/month trial budget
+    assert all(chain[-1] == "cohere" for chain in TASK_CHAINS.values())  # last-resort fallback only
 
 
 async def test_status_never_exposes_keys():

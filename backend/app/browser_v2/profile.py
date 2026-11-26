@@ -124,3 +124,46 @@ def last_exit_type(path: Path | None = None) -> str | None:
         return json.loads(preferences.read_text()).get("profile", {}).get("exit_type")
     except (OSError, ValueError):
         return None
+
+
+# Chromium/Brave prefs that keep portal logins across a browser restart (owner request 2026-11-26):
+# "Continue where you left off" (session.restore_on_startup = 1) persists SESSION cookies, which
+# Naukri/Instahyre/Wellfound use; a "session only" cookie default (4) or clear-on-exit wipes them.
+RESTORE_LAST_SESSION = 1
+SESSION_ONLY_COOKIES = 4
+
+
+def ensure_persistent_preferences(path: Path | None = None) -> dict[str, object]:
+    """Idempotently enforce keep-logged-in prefs in <profile>/Default/Preferences.
+
+    Call only while the profile is NOT in use (Brave rewrites Preferences on exit).
+    Returns what changed (for diagnostics); never touches cookies or credentials.
+    """
+    path = path or profile_dir()
+    preferences = path / "Default" / "Preferences"
+    preferences.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        data = json.loads(preferences.read_text()) if preferences.is_file() else {}
+    except (OSError, ValueError):
+        return {"skipped": "unreadable_preferences"}
+    if not isinstance(data, dict):
+        return {"skipped": "unexpected_preferences_shape"}
+    changed: dict[str, object] = {}
+    session = data.setdefault("session", {})
+    if session.get("restore_on_startup") != RESTORE_LAST_SESSION:
+        changed["session.restore_on_startup"] = RESTORE_LAST_SESSION
+        session["restore_on_startup"] = RESTORE_LAST_SESSION
+    content = data.setdefault("profile", {}).setdefault("default_content_setting_values", {})
+    if content.get("cookies") == SESSION_ONLY_COOKIES:
+        changed["profile.default_content_setting_values.cookies"] = "allow (was session-only)"
+        content.pop("cookies")
+    browser = data.setdefault("browser", {})
+    if browser.get("clear_data_on_exit"):
+        changed["browser.clear_data_on_exit"] = False
+        browser["clear_data_on_exit"] = False
+    if changed:
+        tmp = preferences.with_suffix(".aa-tmp")
+        tmp.write_text(json.dumps(data, separators=(",", ":")))
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, preferences)
+    return changed

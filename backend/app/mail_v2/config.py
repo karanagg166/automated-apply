@@ -1,4 +1,4 @@
-"""Mail draft bridge configuration (private env file / process env; secrets never logged)."""
+"""Mail draft bridge configuration (project .env / process env; secrets never logged)."""
 
 from __future__ import annotations
 

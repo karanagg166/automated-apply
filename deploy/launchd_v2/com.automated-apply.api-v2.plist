@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!-- Python v2 FastAPI on 127.0.0.1:8000. Rendered by backend/scripts/cutover_v2.py.
-     No secrets here: api_launcher passes phase1.private.env to uvicorn as its env file. -->
+     No secrets here: api_launcher passes <repo>/.env to uvicorn as its env file. -->
 <plist version="1.0">
 <dict>
 	<key>Label</key>

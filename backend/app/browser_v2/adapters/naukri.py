@@ -267,6 +267,10 @@ class NaukriAdapter:
     async def discover_jobs(self, page: Any, *, query: str, limit: int = 20,
                             job_age_days: int | None = None) -> list[JobListing]:
         await self._goto(page, search_url(query, job_age_days=job_age_days))
+        try:  # live 2026-11-26: logged-in SRP renders its job tuples after DOMContentLoaded
+            await page.wait_for_selector('a[href*="/job-listings-"]', timeout=12_000)
+        except Exception:  # noqa: BLE001, S110 - parse whatever rendered (maybe a "no jobs" page)
+            pass
         data = await page.evaluate(LISTING_JS, {"limit": max(1, min(limit, 50))})
         listings = []
         for item in data["jobs"]:

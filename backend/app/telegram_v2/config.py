@@ -1,6 +1,6 @@
-"""Telegram v2 configuration from the private env file overlaid by the process env.
+"""Telegram v2 configuration from the project .env overlaid by the process env.
 
-Reuses the legacy variable names so `phase1.private.env` works unchanged:
+Reuses the legacy variable names (set them in the project `.env`):
 TELEGRAM_BOT_TOKEN, TELEGRAM_OWNER_CHAT_ID and (optional, stricter)
 TELEGRAM_OWNER_USER_ID. Missing values mean `unconfigured`, never an error.
 """

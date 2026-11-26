@@ -134,3 +134,56 @@ def test_migration_applies_twice_on_disposable_postgres(tmp_path):
         server.terminate()
         server.wait(timeout=10)
         shutil.rmtree(data, ignore_errors=True)
+
+
+@pytest.mark.skipif(PG_BIN is None or os.environ.get("SKIP_DISPOSABLE_POSTGRES") == "1",
+                    reason="local PostgreSQL binaries not available")
+def test_migration_runs_as_supabase_style_non_superuser_owner(tmp_path):
+    """Live 2026-11-26: the Supabase SQL Editor (role postgres, NOT superuser) failed with
+    'permission denied for schema public' on ALTER ... OWNER TO job_agent_owner. 004 must grant
+    CREATE to job_agent_owner only for the transfer and revoke it again."""
+    data, port = tmp_path / "pg", free_port()
+    subprocess.run([str(PG_BIN / "initdb"), "-D", str(data), "-U", "admin", "--auth=trust"],
+                   check=True, capture_output=True)
+    server = subprocess.Popen([str(PG_BIN / "postgres"), "-D", str(data), "-p", str(port), "-k", "",
+                               "-c", "listen_addresses=127.0.0.1"],
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def psql(user, db, *args, check=True):
+        return subprocess.run([str(PG_BIN / "psql"), "-h", "127.0.0.1", "-p", str(port), "-U", user, "-d", db,
+                               "-v", "ON_ERROR_STOP=1", "-q", "-At", *args],
+                              check=check, capture_output=True, text=True)
+
+    try:
+        for _ in range(100):
+            if psql("admin", "postgres", "-c", "SELECT 1", check=False).returncode == 0:
+                break
+            time.sleep(0.1)
+        psql("admin", "postgres", "-c", """
+            CREATE ROLE supa LOGIN NOSUPERUSER NOCREATEROLE BYPASSRLS;  -- like Supabase postgres
+            CREATE ROLE job_agent_owner NOLOGIN NOSUPERUSER NOINHERIT;
+            CREATE ROLE job_agent_runtime NOLOGIN; CREATE ROLE anon NOLOGIN;
+            CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN;
+            GRANT job_agent_owner TO supa;""")
+        psql("admin", "postgres", "-c", "CREATE DATABASE app OWNER supa")  # not allowed in a multi-statement -c
+        psql("admin", "app", "-c", "ALTER SCHEMA public OWNER TO supa; CREATE SCHEMA extensions AUTHORIZATION supa;")
+        psql("supa", "app", "-c", """
+            CREATE TABLE public.jobs (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), title text);
+            INSERT INTO public.jobs (title) VALUES ('kept-1');""")
+        psql("admin", "app", "-c", "ALTER TABLE public.jobs OWNER TO job_agent_owner;")
+        assert psql("admin", "app", "-c", "SELECT has_schema_privilege('job_agent_owner','public','CREATE')"
+                    ).stdout.strip() == "f"
+        migration = tmp_path / "004.sql"
+        migration.write_text(strip_pgvector(SQL))
+        for _ in range(2):  # as the non-superuser owner, twice (idempotent)
+            result = psql("supa", "app", "-f", str(migration), check=False)
+            assert result.returncode == 0, result.stderr[-500:]
+        out = psql("admin", "app", "-c", """
+            SELECT (SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tableowner='job_agent_owner'),
+                   has_schema_privilege('job_agent_owner','public','CREATE'),
+                   (SELECT count(*) FROM public.jobs)""").stdout.strip()
+        owned, still_create, jobs = out.split("|")
+        assert int(owned) >= 12 and still_create == "f" and jobs == "1"  # temporary grant revoked
+    finally:
+        server.terminate()
+        server.wait(timeout=10)

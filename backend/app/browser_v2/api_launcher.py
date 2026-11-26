@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     path = env_file()
     if path is None:
-        sys.stderr.write("api_v2_env_file_missing: phase1.private.env not found\n")
+        sys.stderr.write("api_v2_env_file_missing: <repo>/.env not found\n")
         return 78  # EX_CONFIG: launchd throttles restarts instead of hot-looping
     command = uvicorn_argv(str(path))
     if args.check:

@@ -83,12 +83,12 @@ class Paths:
 
     @property
     def env_file(self) -> Path:
-        return self.support_dir / "phase1.private.env"
+        """Owner rule (2026-11-26): the single project env file lives in the repository."""
+        return self.repo / ".env"
 
     @property
     def frontend_env_file(self) -> Path:
-        repo_copy = self.repo / "backend/frontend.private.env"
-        return repo_copy if repo_copy.is_file() else self.support_dir / "frontend.private.env"
+        return self.repo / "frontend/.env.local"
 
     @property
     def log_dir(self) -> Path:
@@ -219,14 +219,14 @@ def frontend_build_state(repo: Path) -> tuple[bool, str, bool]:
 def prerequisites(paths: Paths, runner: Runner, *, check_migration: bool = True) -> list[Prereq]:
     items = []
     ok, detail = private_file(paths.env_file)
-    items.append(Prereq("phase1_private_env", ok, detail))
+    items.append(Prereq("project_env", ok, detail))
     if ok:
         missing = sorted({"DATABASE_URL", "JOB_AGENT_API_TOKEN"} - env_keys(paths.env_file))
-        items.append(Prereq("phase1_env_keys", not missing,
+        items.append(Prereq("project_env_keys", not missing,
                             "DATABASE_URL + JOB_AGENT_API_TOKEN present" if not missing
                             else f"missing keys: {', '.join(missing)}"))
     ok, detail = private_file(paths.frontend_env_file)
-    items.append(Prereq("frontend_private_env", ok, detail))
+    items.append(Prereq("frontend_env", ok, detail))
     present, detail, stale = frontend_build_state(paths.repo)
     items.append(Prereq("frontend_build", present, detail))
     if stale:

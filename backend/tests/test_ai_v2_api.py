@@ -49,7 +49,7 @@ async def test_ai_status_reports_every_provider_without_leaking_keys(async_clien
     assert response.status_code == 200, response.text
     body = response.json()
     states = {p["provider"]: p["status"] for p in body["providers"]}
-    assert states["groq"] == "healthy" and states["gemini"] == "unconfigured" and len(states) == 7  # + cerebras (6A)
+    assert states["groq"] == "healthy" and states["gemini"] == "unconfigured" and len(states) == 8  # + cerebras (6A) + cohere trial fallback
     groq = next(p for p in body["providers"] if p["provider"] == "groq")
     assert groq["rpd_limit"] == 900 and groq["requests_today"] == 0 and groq["key_envs"] == ["GROQ_API_KEY"]
     assert body["chains"]["screening_qa"][0] == "groq" and body["chains"]["jd_scoring"][0] == "gemini"

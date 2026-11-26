@@ -201,7 +201,9 @@ async def insert_fences(connection, fences: list[MigratedApplication]) -> int:
     return written
 
 
-async def apply(settings, expected_fences: int, admin_password: str) -> dict:
+async def apply(settings, expected_fences: int, admin_password: str | None) -> dict:
+    """admin_password=None: the owner already ran 004 in the Supabase SQL Editor (as postgres);
+    only the fence migration + verification run, through the restricted runtime role."""
     import asyncpg
 
     from backend.app.db.safety import database_connect_args, database_target
@@ -211,15 +213,23 @@ async def apply(settings, expected_fences: int, admin_password: str) -> dict:
     if len(fences) != expected_fences:
         raise SystemExit(
             f"refusing: found {len(fences)} never-replay fences, expected {expected_fences}")
-    target = database_target(settings)
-    admin_uri = target.set(
-        drivername="postgresql", username="postgres", password=admin_password,
-    ).render_as_string(hide_password=False)
-    admin = await asyncpg.connect(admin_uri, **database_connect_args(settings))
-    try:
-        await admin.execute(MIGRATION.read_text())
-    finally:
-        await admin.close()
+    if admin_password is not None:
+        target = database_target(settings)
+        admin_uri = target.set(
+            drivername="postgresql", username="postgres", password=admin_password,
+        ).render_as_string(hide_password=False)
+        admin = await asyncpg.connect(admin_uri, **database_connect_args(settings))
+        try:
+            await admin.execute(MIGRATION.read_text())
+        finally:
+            await admin.close()
+    else:
+        from backend.app.operations.v2_schema import TABLES
+
+        missing = sorted(set(TABLES) - set(before["v2_tables_present"]))
+        if missing:
+            raise SystemExit(f"refusing --sql-applied: v2 tables still missing {missing}; run "
+                             f"{MIGRATION.relative_to(ROOT)} in the Supabase SQL Editor first")
     runtime = await _runtime(settings)
     try:
         async with runtime.transaction():
@@ -249,8 +259,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=("check", "apply"), nargs="?", default="check")
     parser.add_argument("--expected-fences", type=int)
+    parser.add_argument("--sql-applied", action="store_true",
+                        help="004 was already run in the Supabase SQL Editor: no admin password needed")
     parser.add_argument("--env-file", help="private env (default: $AUTOMATED_APPLY_ENV_FILE "
-                        "or ~/Library/Application Support/Automated Apply/phase1.private.env)")
+                        "or <repo>/.env)")
     args = parser.parse_args(argv)
     sys.path.insert(0, str(ROOT))
     from backend.app.browser_v2.config import load_settings
@@ -262,8 +274,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if args.expected_fences is None:
             parser.error("apply requires --expected-fences N (confirm the check output first)")
-        password = os.environ.get("AUTOMATED_APPLY_DB_ADMIN_PASSWORD") or getpass.getpass(
-            "Supabase postgres admin password: ")
+        from backend.app.browser_v2.env_loader import load_env
+
+        password = None if args.sql_applied else (
+            load_env(args.env_file).get("AUTOMATED_APPLY_DB_ADMIN_PASSWORD")
+            or getpass.getpass("Supabase postgres admin password: "))
         result = asyncio.run(apply(settings, args.expected_fences, password))
     print(json.dumps(result, indent=2, default=str))
     return 0

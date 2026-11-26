@@ -1,14 +1,26 @@
 """Application configuration using Pydantic Settings."""
 
+import os
 import re
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.app.core.urls import PublicHTTPSURL
+
+# Owner rule (2026-11-26): the single project env file is <repo>/.env (cwd-independent).
+# AUTOMATED_APPLY_ENV_REPO_FILES=0 (tests/CI) never reads it.
+PROJECT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+
+
+def settings_env_files() -> tuple[str, ...] | None:
+    if (os.environ.get("AUTOMATED_APPLY_ENV_REPO_FILES") or "").strip().lower() in {"0", "false", "no", "off"}:
+        return None
+    return (str(PROJECT_ENV_FILE),)
 
 
 class Settings(BaseSettings):
@@ -434,7 +446,7 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=(".env", "backend/.env"),
+        env_file=settings_env_files(),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

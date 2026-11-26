@@ -43,6 +43,30 @@ def layers(files, environ):
     return env_layers(private, environ=environ, repo_files=(("root .env", root), ("backend/.env", backend)))
 
 
+def test_default_layers_are_project_env_then_process(tmp_path, monkeypatch):
+    from backend.app.browser_v2 import config
+
+    monkeypatch.setenv(env_loader.REPO_FILES_SWITCH, "1")
+    monkeypatch.delenv("AUTOMATED_APPLY_ENV_FILE", raising=False)
+    project = write(tmp_path / ".env", GROQ_API_KEY=FAKE, SHARED="project")
+    monkeypatch.setattr(env_loader, "ROOT_DOTENV", project)
+    monkeypatch.setattr(config, "DEFAULT_ENV_FILE", project)
+    stack = env_layers(environ={"SHARED": "process"})
+    assert [layer.label for layer in stack] == ["project .env", "process env"]
+    assert merge_layers(stack)["SHARED"] == "process" and config.env_file() == project
+    assert "Application Support" not in str(config.DEFAULT_ENV_FILE)
+
+
+def test_project_env_is_never_read_when_switched_off(monkeypatch):
+    from backend.app.browser_v2 import config
+    from backend.app.core.config import settings_env_files
+
+    monkeypatch.setenv(env_loader.REPO_FILES_SWITCH, "0")
+    monkeypatch.delenv("AUTOMATED_APPLY_ENV_FILE", raising=False)
+    assert config.env_file() is None and settings_env_files() is None
+    assert [layer.label for layer in env_layers(environ={env_loader.REPO_FILES_SWITCH: "0"})] == ["process env"]
+
+
 def test_precedence_process_over_private_over_backend_over_root(files):
     merged = merge_layers(layers(files, {"SHARED": "process"}))
     assert merged["SHARED"] == "process"
@@ -54,12 +78,12 @@ def test_precedence_process_over_private_over_backend_over_root(files):
 
 def test_layer_order_and_labels(files):
     labels = [layer.label for layer in layers(files, {})]
-    assert labels == ["root .env", "backend/.env", "private env file", "process env"]
+    assert labels == ["root .env", "backend/.env", "override env file", "process env"]
 
 
 def test_repo_files_switch_disables_repo_dotenv(files):
     labels = [layer.label for layer in layers(files, {env_loader.REPO_FILES_SWITCH: "0"})]
-    assert labels == ["private env file", "process env"]
+    assert labels == ["override env file", "process env"]
 
 
 def test_missing_files_are_skipped(tmp_path):
@@ -125,7 +149,7 @@ def test_router_and_subsystems_share_the_loader(monkeypatch, tmp_path):
     private = write(tmp_path / "p.env", GROQ_KEY=FAKE, TELEGRAM_BOT_TOKEN="123456:" + "A" * 35,
                     TELEGRAM_OWNER_CHAT_ID="42", GMAIL_IMAP_EMAIL="owner@example.com",
                     GMAIL_IMAP_APP_PASSWORD=FAKE, APOLLO_API_KEY=FAKE)
-    for name in ("GROQ_API_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_OWNER_CHAT_ID", "TELEGRAM_V2_DISABLED",
+    for name in ("GROQ_API_KEY", "GROQ_KEY", "TELEGRAM_BOT_TOKEN", "TELEGRAM_OWNER_CHAT_ID", "TELEGRAM_V2_DISABLED",
                  "GMAIL_IMAP_EMAIL", "GMAIL_IMAP_APP_PASSWORD", "APOLLO_API_KEY", "ENRICHMENT_V2_DISABLED"):
         monkeypatch.delenv(name, raising=False)  # conftest blanks owner keys; a blank process value wins
     monkeypatch.setenv("AUTOMATED_APPLY_ENV_FILE", str(private))

@@ -37,6 +37,7 @@ from backend.app.ai_v2.providers import (
     build_request,
     custom_cloud_priority,
     custom_cloud_spec,
+    expand_key_slots,
     extract_json_object,
     parse_response,
     resolve_provider,
@@ -90,7 +91,7 @@ def estimate_tokens(text: str) -> int:
 
 
 def load_env(env_file: str | os.PathLike[str] | None = None) -> dict[str, str]:
-    """Shared v2 loader: process env > private env file > backend/.env > root .env (+ key aliases)."""
+    """Shared v2 loader: process env > override env file > <repo>/.env (+ key aliases)."""
     from backend.app.browser_v2.env_loader import load_env as shared_load_env
 
     return shared_load_env(env_file)
@@ -109,6 +110,7 @@ class LLMRouter:
         self.rejected: dict[str, str] = {}
         if registry is None:
             self._add_custom_cloud()
+        self.registry, self.chains = expand_key_slots(self.registry, self.chains, self.env)
         validate_registry(self.registry)
         self.usage = usage or MemoryUsageStore()
         self.transport = transport

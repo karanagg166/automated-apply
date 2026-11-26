@@ -1,7 +1,7 @@
 // Production dashboard launcher for the Python v2 runtime (launchd: com.automated-apply.frontend-v2).
 //
-//   node frontend/run-local-python-v2.mjs --frontend-config <frontend.private.env> \
-//     --runtime-config <phase1.private.env> --port 3000 [--check-config]
+//   node frontend/run-local-python-v2.mjs --frontend-config <repo>/frontend/.env.local \
+//     --runtime-config <repo>/.env --port 3000 [--check-config]
 //
 // Both config files must be regular 0600 files owned by this user. The dashboard owner login
 // (FRONTEND_PASSWORD_HASH / FRONTEND_SESSION_SECRET) comes from the frontend config and the

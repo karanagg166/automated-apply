@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
@@ -145,6 +147,7 @@ class BrowserService:
         self.ai = ai
         self._configured = False
         self.mail_reader: Any = None  # Phase 6A: MailReadService (auto email-OTP, recruiter replies)
+        self.env_profile: dict[str, str] = {}  # project .env fallbacks (e.g. CANDIDATE_RESUME_PATH)
         self.auto_login: Any = None  # Phase 6A: browser_v2.auth.AutoLogin (Keychain / Google chip)
         self.event_bus: Any = None  # Phase 6A: events_v2 bus (lifecycle events)
         if ai is not None:
@@ -333,7 +336,7 @@ class BrowserService:
                 return {"external_job_id": job_id, "state": S.QUOTA_HIT_PENDING.value, "reason": blocked,
                         "quota_blocked": True}
         loaded_profile, reviewed = profile if profile is not None else await self.store.load_profile()
-        facts = CandidateFacts.from_profile(loaded_profile, reviewed)
+        facts = apply_env_profile(CandidateFacts.from_profile(loaded_profile, reviewed), self.env_profile)
         prefs = CandidatePreferences.from_profile(loaded_profile)
         if self.ai is not None:
             self.ai.bind_profile(loaded_profile)
@@ -436,6 +439,23 @@ class BrowserService:
         return summary | plain(result) | {"hitl_request_id": hitl_id}
 
 
+def env_profile_overrides(env: Mapping[str, str]) -> dict[str, str]:
+    """Project-.env candidate fallbacks: only values the owner stored (never invented)."""
+    path = (env.get("CANDIDATE_RESUME_PATH") or env.get("MAIL_DRAFT_RESUME_PATH") or "").strip()
+    return {"resume_path": str(Path(path).expanduser())} if path else {}
+
+
+def apply_env_profile(facts: CandidateFacts, overrides: Mapping[str, str]) -> CandidateFacts:
+    """Fill the resume fallback from the project .env when the DB profile has no resume_files."""
+    path = overrides.get("resume_path")
+    if not path or not Path(path).is_file():
+        return facts
+    facts.identity.setdefault("resume_path", path)
+    if not facts.resume_files:
+        facts.resume_files = {"default": path}
+    return facts
+
+
 async def open_store(*, require_db: bool, env_file: str | None = None) -> tuple[Store, str]:
     """Postgres store; dry runs may fall back to memory before migration 004."""
     from backend.app.browser_v2.config import load_settings
@@ -477,6 +497,10 @@ async def build_service(*, require_db: bool, env_file: str | None = None) -> tup
     profile, _ = await store.load_profile()
     owner_email = profile.get("email") if isinstance(profile.get("email"), str) else None
     if (env.get("AUTO_LOGIN_DISABLED") or "").strip().lower() not in {"1", "true", "yes", "on"}:
-        service.auto_login = AutoLogin(mail_reader=reader if reader.any_configured else None, owner_email=owner_email)
+        from backend.app.browser_v2.auth import ChainVault, EnvVault, KeychainVault
+
+        service.auto_login = AutoLogin(ChainVault(EnvVault(env), KeychainVault()),
+                                       mail_reader=reader if reader.any_configured else None, owner_email=owner_email)
+    service.env_profile = env_profile_overrides(env)
     service.event_bus = build_event_bus(env, connection=connection)
     return service, backend

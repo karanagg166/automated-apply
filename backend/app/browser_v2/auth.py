@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol
@@ -107,6 +107,59 @@ class KeychainVault:
         return self.get(portal) is not None
 
 
+class EnvVault:
+    """Portal logins from the project `.env` (owner rule 2026-11-26: config lives in the repo).
+
+    PORTAL_<PORTAL>_EMAIL / PORTAL_<PORTAL>_PASSWORD override the shared PORTAL_LOGIN_EMAIL /
+    PORTAL_LOGIN_PASSWORD. Values are only ever typed into that portal's own login form.
+    """
+
+    def __init__(self, env: Mapping[str, str]) -> None:
+        self._env = env
+
+    def get(self, portal: str) -> tuple[str, str] | None:
+        prefix = "PORTAL_" + portal.upper()
+        username = (self._env.get(prefix + "_EMAIL") or self._env.get("PORTAL_LOGIN_EMAIL") or "").strip()
+        password = self._env.get(prefix + "_PASSWORD") or self._env.get("PORTAL_LOGIN_PASSWORD") or ""
+        return (username, password) if username and password else None
+
+    def set(self, portal: str, username: str, password: str) -> None:
+        raise NotImplementedError("edit <repo>/.env to change portal logins")
+
+    def has(self, portal: str) -> bool:
+        return self.get(portal) is not None
+
+
+class ChainVault:
+    """First vault with credentials wins (project .env, then macOS Keychain)."""
+
+    def __init__(self, *vaults: Any) -> None:
+        self.vaults = vaults
+
+    def get(self, portal: str) -> tuple[str, str] | None:
+        for vault in self.vaults:
+            try:
+                found = vault.get(portal)
+            except Exception:  # noqa: BLE001 - e.g. Keychain unavailable: try the next vault
+                found = None
+            if found:
+                return found
+        return None
+
+    def set(self, portal: str, username: str, password: str) -> None:
+        """Writes go to the last writable vault (the macOS Keychain); the project .env is edited by hand."""
+        for vault in reversed(self.vaults):
+            try:
+                vault.set(portal, username, password)
+                return
+            except NotImplementedError:
+                continue
+        raise NotImplementedError("no writable vault configured")
+
+    def has(self, portal: str) -> bool:
+        return self.get(portal) is not None
+
+
 class MemoryVault:
     def __init__(self, items: dict[str, tuple[str, str]] | None = None) -> None:
         self.items = dict(items or {})
@@ -184,6 +237,13 @@ class AutoLogin:
             return AutoLoginResult(False, "google_chip", "google_password_screen_refused", "AUTH")
         except Exception as exc:  # noqa: BLE001 - any surprise -> HITL, never a retry loop
             logger.warning("auto-login %s failed: %s", portal, type(exc).__name__)
+            # Live 2026-11-26 (internshala, YC): the login succeeded but the post-submit redirect
+            # interrupted a page call. Re-verify once before waking the owner.
+            try:
+                if await self._verify(adapter, page):
+                    return AutoLoginResult(True, "password", "logged_in_after_navigation_error")
+            except Exception:  # noqa: BLE001, S110 - fall through to the owner HITL below
+                pass
             return AutoLoginResult(False, "none", "auto_login_error:" + type(exc).__name__, "AUTH")
 
     async def _goto(self, page: Any, url: str) -> None:

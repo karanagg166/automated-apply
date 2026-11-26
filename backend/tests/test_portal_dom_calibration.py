@@ -490,3 +490,131 @@ class TestPublicSearchCards:
             page, query="python developer", limit=5)
         assert [(j.external_job_id, j.company, j.posted_age_days) for j in jobs] == [
             ("5127264", "Acme AI", 5), ("4881201", "Acme AI", 30), ("4823723", "Beta", 1)]
+
+
+# --- live logged-in run fixes (2026-11-26, second pass) ------------------------------------------------
+def test_dedup_key_is_bounded_for_the_btree_index():
+    from backend.app.browser_v2.rules import DEDUP_PART_MAX, dedup_key
+
+    key = dedup_key("Acme Card Text " * 400, "Backend Developer Full Card " * 300)
+    assert key is not None and len(key.encode()) < 2704 // 4  # wellfound overflowed ix_applications_dedup_key
+    assert all(len(part) <= DEDUP_PART_MAX for part in key.split("::"))
+    assert dedup_key("Acme " * 400, "Engineer " * 300) == dedup_key("Acme " * 400, "Engineer " * 300)
+
+
+INTERNSHALA_DETAIL = html("""
+  <div class="company"><h1>SQL Developer - Internship (WFH &amp; Part Time)</h1>
+    <p class="heading_6 company_name">Women First India Foundation NGO</p></div>
+  <a class="top_apply_now_cta" href="/student/interstitial/application/sql-dev-1795684609">Apply now</a>
+  <div class="detail"><p>Python SQL backend work. Posted 2 days ago</p>
+    <button class="btn btn-primary detail_page apply">Apply now</button></div>
+  <a class="apply_now_button" href="/student/interstitial/application/sql-dev-1795684609">Apply now</a>
+  <button id="apply_now_button" class="btn btn-primary detail_page_bottom">Apply now</button>""",
+                          "SQL Developer | Internshala")
+
+
+class TestInternshalaDetail:
+    async def test_duplicate_apply_ctas_use_the_primary_control_and_company_is_clean(self, web, tmp_path):
+        page, site = web
+        url = "https://internshala.com/internship/detail/sql-developer-internship-at-wfif1795684609"
+        site.add(url, INTERNSHALA_DETAIL)
+        adapter = InternshalaAdapter(receipts_root=tmp_path, **FAST)
+        listing = JobListing(platform="internshala", external_job_id="1795684609", url=url, title="SQL Developer")
+        detail = await adapter.inspect_job(page, listing)
+        assert detail.apply_mode == "direct"  # was apply_control_ambiguous -> FAILED
+        assert detail.listing.company == "Women First India Foundation NGO"  # not "SQL Developer Women First…"
+        result = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=True)
+        assert result.reason == "dry_run_stopped_before_apply_click" and not result.clicked_apply
+
+
+INSTAHYRE_OPPS = html("""
+  <div ng-repeat="opp in opportunities track by opp.id">
+    <a id="employer-profile-opportunity" class="row text-link"><h2 class="company-name">Tennr - Implementation Engineer</h2></a>
+    <button class="btn-not-interested">Not interested</button></div>
+  <div ng-repeat="opp in opportunities track by opp.id">
+    <a id="employer-profile-opportunity" class="row text-link"><h2 class="company-name">RevRag - FDE</h2></a></div>
+  <script>
+    window.CLICKED = 0;
+    const opps = [{job: {id: 449970, title: "Implementation Engineer", opportunity_url: "/job-449970-implementation-engineer-at-tennr/"},
+                   employer: {company_name: "Tennr"}},
+                  {job: {id: 451002, title: "Forward Deployed Engineer", opportunity_url: null}, employer: {company_name: "RevRag"}}];
+    window.angular = {element: (el) => ({scope: () => ({opp: opps[[...document.querySelectorAll('#employer-profile-opportunity')].indexOf(el)]})})};
+    document.querySelectorAll('#employer-profile-opportunity').forEach(a => a.onclick = () => { window.CLICKED += 1; });
+  </script>""", "Opportunities - Instahyre")
+
+
+class TestInstahyreOpportunities:
+    async def test_logged_in_angular_opportunities_are_read_without_clicking(self, web, tmp_path):
+        page, site = web
+        site.add("https://www.instahyre.com/candidate/opportunities", INSTAHYRE_OPPS)
+        adapter = InstahyreAdapter(receipts_root=tmp_path, **FAST)
+        jobs = await adapter.discover_jobs(page, query="backend developer", limit=10)
+        assert [(j.external_job_id, j.title, j.company) for j in jobs] == [
+            ("449970", "Implementation Engineer", "Tennr"), ("451002", "Forward Deployed Engineer", "RevRag")]
+        assert jobs[0].url == "https://www.instahyre.com/job-449970-implementation-engineer-at-tennr/"
+        assert jobs[1].url == "https://www.instahyre.com/job-451002/"
+        assert await page.evaluate("window.CLICKED") == 0  # a click would open the apply modal
+
+
+class TestLateRenderingResults:
+    async def test_yc_job_links_rendered_after_load_are_waited_for(self, web, tmp_path):
+        page, site = web
+        late = html("""<div id="list"></div><script>setTimeout(() => {
+            document.getElementById('list').innerHTML = '<div class="job"><a href="/jobs/121356">Backend Engineer</a>'
+              + '<span class="company">Acme</span><span>3 days ago</span></div>'; }, 1500);</script>""")
+        site.add("https://www.workatastartup.com/companies", late)
+        jobs = await WorkAtAStartupAdapter(receipts_root=tmp_path, **FAST).discover_jobs(
+            page, query="backend engineer", limit=5)
+        assert [(j.external_job_id, j.title) for j in jobs] == [("121356", "Backend Engineer")]
+
+
+async def test_auto_login_reverifies_session_after_a_navigation_error(tmp_path):
+    from backend.app.browser_v2.adapters.base import SessionCheck
+    from backend.app.browser_v2.auth import AutoLogin, LoginSpec, MemoryVault
+
+    class Exploding:
+        url = "https://internshala.com/login/user"
+
+        async def goto(self, *args, **kwargs):
+            raise RuntimeError("Execution context was destroyed, most likely because of a navigation")
+
+    class Adapter:
+        async def check_session(self, page):
+            return SessionCheck(AuthStatus.OK)
+
+    login = AutoLogin(MemoryVault({"internshala": ("owner@example.com", "TEST_FAKE_TOKEN_ONLY")}), None,
+                      specs={"internshala": LoginSpec("https://internshala.com/login/user")}, settle_ms=1)
+    result = await login.attempt("internshala", Exploding(), Adapter())
+    assert (result.ok, result.reason) == (True, "logged_in_after_navigation_error")
+
+
+WELLFOUND_LOGGED_IN_JOB = html("""
+  <nav><a href="/jobs">Jobs</a><a href="/jobs/applications">Applied</a><a href="/messages">Messages</a></nav>
+  <div class="styles_component__company"><div>We read your resume 34 things on it aren't on your profile yet.
+    Overview People Jobs 1 Backend Developer at FledgeHealth POSTED 3 WEEKS AGO Save Apply Job Title</div>
+    <a class="company-link" href="/company/fledgehealth">FledgeHealth</a></div>
+  <h1>Backend Developer at FledgeHealth</h1><p>Node.js PostgreSQL. Posted 3 weeks ago</p>
+  <button>Save</button><button>Apply</button>""", "Backend Developer | Wellfound")
+
+
+class TestLoggedInChrome:
+    async def test_nav_applied_link_is_not_an_applied_badge(self, web, tmp_path):
+        page, site = web
+        url = "https://wellfound.com/jobs/3456789-backend-developer"
+        site.add(url, WELLFOUND_LOGGED_IN_JOB)
+        adapter = WellfoundAdapter(receipts_root=tmp_path, **FAST)
+        listing = JobListing(platform="wellfound", external_job_id="3456789", url=url, title="Backend Developer")
+        detail = await adapter.inspect_job(page, listing)
+        assert detail.already_applied is False and detail.apply_mode == "direct"  # was APPLIED (terminal!)
+        assert detail.listing.company == "FledgeHealth"  # not the 300-char container text
+        result = await adapter.apply_job(page, detail, facts(tmp_path), dry_run=True)
+        assert result.state is S.SCORED and result.reason == "dry_run_stopped_before_apply_click"
+
+    async def test_card_company_skips_action_labels(self, web, tmp_path):
+        page, site = web
+        site.add("https://www.workatastartup.com/companies", html(
+            '<div class="job"><a href="/jobs/121356">Backend Engineer</a><span class="company-cta">View job</span>'
+            '<a class="company-more" href="/companies/acme">See all 9 jobs ›</a>'
+            '<span class="company-name">Acme AI</span><span>2 days ago</span></div>'))
+        jobs = await WorkAtAStartupAdapter(receipts_root=tmp_path, **FAST).discover_jobs(page, query="engineer", limit=3)
+        assert [(j.external_job_id, j.company) for j in jobs] == [("121356", "Acme AI")]

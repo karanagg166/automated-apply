@@ -1,4 +1,4 @@
-"""Enrichment configuration from the private env file / process env (keys never logged)."""
+"""Enrichment configuration from the project .env / process env (keys never logged)."""
 
 from __future__ import annotations
 

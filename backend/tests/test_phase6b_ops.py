@@ -95,8 +95,10 @@ def world(tmp_path, monkeypatch):
     agents = home / "Library/LaunchAgents"
     agents.mkdir(parents=True)
     support = home / "Library/Application Support/Automated Apply"
-    private(support / "phase1.private.env", f'DATABASE_URL="{FAKE_DB}"\nJOB_AGENT_API_TOKEN="{FAKE_TOKEN}"\n')
-    private(support / "frontend.private.env", "FRONTEND_SESSION_SECRET=TEST_FAKE_SESSION_SECRET_ONLY_000000000000\n")
+    support.mkdir(parents=True, exist_ok=True)
+    # Owner rule (2026-11-26): env files live in the project directory.
+    private(repo / ".env", f'DATABASE_URL="{FAKE_DB}"\nJOB_AGENT_API_TOKEN="{FAKE_TOKEN}"\n')
+    private(repo / "frontend/.env.local", "FRONTEND_SESSION_SECRET=TEST_FAKE_SESSION_SECRET_ONLY_000000000000\n")
     for rel in ("frontend/.next/BUILD_ID", "frontend/.next/standalone/server.js"):
         (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (repo / rel).write_text("x")
@@ -159,8 +161,9 @@ def test_rendered_plists_contain_zero_secrets(world):
 
 def test_install_refuses_when_a_secret_would_leak_into_a_plist(world):
     paths, launchd = world
-    leaky = cutover.Paths(repo=Path(f"/tmp/{FAKE_TOKEN}"), home=paths.home, python=paths.python,
-                          node=paths.node, uid=501)
+    leaky_repo = paths.repo.parent / FAKE_TOKEN  # a repo path that itself contains a secret value
+    private(leaky_repo / ".env", f'JOB_AGENT_API_TOKEN="{FAKE_TOKEN}"\n')
+    leaky = cutover.Paths(repo=leaky_repo, home=paths.home, python=paths.python, node=paths.node, uid=501)
     with pytest.raises(RuntimeError, match="secret value"):
         cutover.install_v2(leaky, launchd, {})
     assert not list((paths.home / "Library/LaunchAgents").glob("*-v2.plist"))

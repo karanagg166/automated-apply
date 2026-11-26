@@ -54,6 +54,7 @@ def login_setup(portals: list[str]) -> int:
     """Plain Brave (no Playwright/CDP/automation flags) so portals see a normal browser."""
     path = brave_profile.ensure_profile_dir()
     brave_profile.assert_profile_free(path)
+    brave_profile.ensure_persistent_preferences(path)  # logins survive quitting/reopening Brave
     executable = brave_profile.brave_executable()
     if not executable.exists():
         emit({"error": f"Brave not found at {executable}"})

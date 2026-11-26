@@ -34,9 +34,10 @@ def v2_sources():
         yield from sorted(package.rglob("*.py"))
 
 
-def test_registry_has_exactly_the_seven_free_remote_providers():
+def test_registry_has_exactly_the_eight_free_remote_providers():
+    # 2026-11-26 owner-approved: Cohere trial key added as the last-resort free fallback.
     assert set(PROVIDER_REGISTRY) == {"groq", "gemini", "mistral", "openrouter", "cloudflare", "github_models",
-                                      "cerebras"}
+                                      "cerebras", "cohere"}
     validate_registry(PROVIDER_REGISTRY)
     for spec in PROVIDER_REGISTRY.values():
         assert spec.base_url.startswith("https://")

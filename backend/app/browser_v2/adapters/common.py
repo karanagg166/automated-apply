@@ -637,7 +637,9 @@ CARDS_JS = r"""
     let card = a;
     for (let i = 0; i < 10 && card.parentElement && card.parentElement !== document.body
          && postingIds(card.parentElement) <= 1; i++) card = card.parentElement;
-    const pick = (sel) => { const el = card && card.querySelector(sel); return el ? text(el) : null; };
+    const ACTION = /^(?:view job|apply(?: now)?|save|share|follow|change status.*|report|see all .*jobs.*)$/i;
+    const pick = (sel) => { if (!card) return null; for (const el of card.querySelectorAll(sel)) {
+        const t = text(el); if (t && t.length <= 120 && !ACTION.test(t)) return t; } return null; };
     const ctext = text(card).slice(0, 1500);
     // Company blocks listing several roles (wellfound): use the group's single company link.
     const groupCompany = () => {
@@ -657,6 +659,8 @@ CARDS_JS = r"""
               company: pick(".company-name, .company_name, [class*='company-name' i], [class*='company_name' i], "
                             + "a[href*='/company/'], [class*='employer' i], p[class*='company' i], [class*='company' i]:not(div:has(a[href]))")
                        || groupCompany(), posted, applicants});
+    const last = out[out.length - 1];
+    if (last.company) last.company = last.company.slice(0, 120);  // never a whole card's text
     if (out.length >= limit) break;
   }
   return out;
@@ -664,20 +668,29 @@ CARDS_JS = r"""
 """
 
 DETAIL_JS = r"""
-({applyRe, appliedRe, externalRe}) => {
+({applyRe, appliedRe, externalRe, applySel, companySel}) => {
   const visible = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
   const text = (el) => (el && el.innerText || "").replace(/\s+/g, " ").trim();
   const body = (document.body && document.body.innerText || "").slice(0, 30000);
+  const primary = applySel ? [...document.querySelectorAll(applySel)].filter(el => visible(el) && !el.disabled) : [];
   const pick = (sel) => { const el = [...document.querySelectorAll(sel)].find(visible); return el ? text(el) : null; };
   const desc = [...document.querySelectorAll("[class*='description' i], [class*='job-desc' i], [class*='jobDescription' i], [class*='about' i], [class*='details' i], article, main")]
     .filter(visible).map(text).sort((a, b) => b.length - a.length)[0] || "";
-  const controls = [...document.querySelectorAll("button, a, [role=button], input[type=submit]")].filter(visible);
+  // Live 2026-11-26 (wellfound): the logged-in NAV has an "Applied" link - navigation/header/menu
+  // controls are never apply/applied evidence for the job on the page.
+  const chrome = "nav, header, [role=navigation], [role=menu], [role=menubar], [role=banner], aside";
+  const controls = [...document.querySelectorAll("button, a, [role=button], input[type=submit]")]
+    .filter(b => visible(b) && !b.closest(chrome));
   const label = (b) => (text(b) || b.value || "").trim();
+  const ACTION = /^(?:view job|apply(?: now)?|save|share|follow|change status.*|report|interested|not interested|see all .*jobs.*)$/i;
+  const shortText = (sel) => { if (!sel) return null; for (const el of document.querySelectorAll(sel)) {
+      if (!visible(el) || el.closest(chrome)) continue; const t = text(el);
+      if (t && t.length >= 2 && t.length <= 80 && !ACTION.test(t)) return t; } return null; };
   const apply = new RegExp(applyRe, "i"), applied = new RegExp(appliedRe, "i"), external = new RegExp(externalRe, "i");
   return {
     url: location.href,
     title: pick("h1") || pick("h2"),
-    company: pick("[class*='company' i] a, [class*='company' i], [class*='employer' i], [class*='startup' i] a"),
+    company: shortText(companySel) || shortText("[class*='company' i] a, [class*='company-name' i], [class*='companyName' i], [class*='company' i], [class*='employer' i], [class*='startup' i] a"),
     description: desc.slice(0, 8000) || null,
     posted: (body.match(/(?:posted\s*(?:on)?\s*:?\s*)?(?:just now|today|yesterday|few hours ago|\d+\+?\s*(?:minute|hour|day|week|month)s?\s+ago|\d{4}-\d{2}-\d{2})/i) || [null])[0],
     applicants: (body.match(/(?:less than\s+)?\d[\d,]*\+?\s+applicants?/i) || [null])[0],
@@ -685,7 +698,8 @@ DETAIL_JS = r"""
     location: pick("[class*='location' i]"),
     workMode: (body.match(/\b(remote|hybrid|work from home|on-?site|in office)\b/i) || [null])[0],
     applied: controls.some(b => applied.test(label(b))) || /you(?:'ve| have) (?:already )?applied|already applied/i.test(body),
-    applyButtons: controls.filter(b => apply.test(label(b)) && !b.disabled).length,
+    // A portal-declared primary Apply control wins over duplicate CTAs of the same flow (live internshala: 4).
+    applyButtons: primary.length ? primary.length : controls.filter(b => apply.test(label(b)) && !b.disabled).length,
     externalLinks: controls.filter(b => external.test(label(b))).map(b => b.href || null).filter(Boolean).slice(0, 3),
   };
 }
@@ -732,6 +746,12 @@ class PortalConfig:
     apply_click_may_submit: bool = True
     # True when Apply navigates to a full-page application form (no modal), e.g. Internshala.
     form_page_after_apply: bool = False
+    # Live 2026-11-26: the single primary Apply control when a page repeats equivalent CTAs, and the
+    # precise company element when a generic [class*=company] container also holds the title.
+    apply_selector: str | None = None
+    company_selector: str | None = None
+    # CSS that proves search results have rendered (logged-in SPAs hydrate after DOMContentLoaded).
+    results_selector: str | None = None
 
 
 class InteractivePortalAdapter:
@@ -776,6 +796,19 @@ class InteractivePortalAdapter:
         if self.jitter[1] > 0:
             await asyncio.sleep(random.uniform(*self.jitter))
 
+    async def _wait_for_results(self, page: Any, timeout_ms: int = 12_000) -> None:
+        """Live 2026-11-26: logged-in SPAs (YC, Naukri) render job links well after DOMContentLoaded."""
+        try:
+            await page.wait_for_function(
+                "([pattern, hosts, sel]) => (sel && document.querySelector(sel)) || [...document.querySelectorAll('a[href]')]"
+                ".some(a => { try { const u = new URL(a.href, location.href); return hosts.includes(u.hostname) && "
+                "new RegExp(pattern).test(u.pathname); } catch (e) { return false; } }) || "
+                "/no (?:jobs|results|matching)/i.test(document.body ? document.body.innerText : '')",
+                arg=[self.config.job_path, list(self.config.hosts), self.config.results_selector],
+                timeout=timeout_ms)
+        except Exception:  # noqa: BLE001 - timeout: parse whatever rendered (possibly none)
+            return
+
     async def _probe(self, page: Any) -> dict[str, Any]:
         return await page.evaluate(PROBE_JS, {"loggedIn": self.config.logged_in, "loginForm": self.config.login_form})
 
@@ -816,6 +849,7 @@ class InteractivePortalAdapter:
     async def discover_jobs(self, page: Any, *, query: str, limit: int = 20,
                             job_age_days: int | None = None) -> list[JobListing]:
         await self._goto(page, self.search_url(query, job_age_days))
+        await self._wait_for_results(page)
         if (await self._probe(page)).get("challenge"):
             # Live 2026-11-26 (hiringcafe.com behind Cloudflare): never parse cards off an interstitial;
             # the next session check isolates the portal (AUTH_REQUIRED/challenge).
@@ -836,11 +870,29 @@ class InteractivePortalAdapter:
         return listings
 
     # --- inspection ---------------------------------------------------------------------
+    def _detail_args(self) -> dict[str, Any]:
+        return {"applyRe": self.config.apply_text, "appliedRe": self.config.applied_text,
+                "externalRe": self.config.external_text, "applySel": self.config.apply_selector,
+                "companySel": self.config.company_selector}
+
+    async def _primary_apply(self, page: Any) -> list[Any]:
+        if not self.config.apply_selector:
+            return []
+        locator = page.locator(self.config.apply_selector)
+        found = []
+        for index in range(min(await locator.count(), 5)):
+            item = locator.nth(index)
+            try:
+                if await item.is_visible() and await item.is_enabled():
+                    found.append(item)
+            except Exception:  # noqa: BLE001, S112
+                continue
+        return found
+
     async def inspect_job(self, page: Any, listing: JobListing) -> JobDetail:
         await self._goto(page, listing.url)
         auth = self.classify_auth(await self._probe(page))
-        data = await page.evaluate(DETAIL_JS, {"applyRe": self.config.apply_text, "appliedRe": self.config.applied_text,
-                                               "externalRe": self.config.external_text})
+        data = await page.evaluate(DETAIL_JS, self._detail_args())
         applicants = parse_applicants(data.get("applicants")) if data.get("applicants") else (
             listing.applicants or UNKNOWN_APPLICANTS)
         age = parse_posted_age_days(data.get("posted")) if data.get("posted") else listing.posted_age_days
@@ -855,7 +907,8 @@ class InteractivePortalAdapter:
             mode = "ambiguous" if data.get("applyButtons") else "none"
         apply_url = urljoin(listing.url, external[0]) if mode == "external" and external else None
         merged = replace(listing, title=data.get("title") or listing.title,
-                         company=data.get("company") or listing.company,
+                         # the calibrated card value wins; detail-page text is only a fallback
+                         company=listing.company or data.get("company"),
                          posted_text=data.get("posted") or listing.posted_text, posted_age_days=age,
                          applicants=applicants)
         return JobDetail(
@@ -904,8 +957,7 @@ class InteractivePortalAdapter:
 
     async def _applied_badge(self, page: Any, detail: JobDetail) -> bool:
         await self._goto(page, detail.listing.url)
-        data = await page.evaluate(DETAIL_JS, {"applyRe": self.config.apply_text, "appliedRe": self.config.applied_text,
-                                               "externalRe": self.config.external_text})
+        data = await page.evaluate(DETAIL_JS, self._detail_args())
         return bool(data.get("applied"))
 
     async def apply_job(self, page: Any, detail: JobDetail, profile: CandidateFacts | Any, *,
@@ -930,7 +982,7 @@ class InteractivePortalAdapter:
             return self._result(S.FILTERED_OUT, "external_company_site", dry_run)
         if detail.apply_mode != "direct":
             return self._result(S.FAILED, f"apply_control_{detail.apply_mode}", dry_run)
-        buttons = await visible_buttons(page, None, self.config.apply_text)
+        buttons = await self._primary_apply(page) or await visible_buttons(page, None, self.config.apply_text)
         if len(buttons) != 1:
             return self._result(S.FAILED, "apply_control_changed", dry_run)
         planned = f"click {name} Apply for {job_id} ({detail.listing.title} @ {detail.listing.company})"

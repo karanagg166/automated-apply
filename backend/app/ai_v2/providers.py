@@ -12,7 +12,7 @@ import ipaddress
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
@@ -61,14 +61,16 @@ class ProviderConfig:
         return self.problem is None
 
 
+# Defaults verified live 2026-11-26 (`cli ai-test`): groq llama-3.3-70b-versatile and gemini-2.5-flash
+# now 404; override any model with <PROVIDER>_MODEL without code changes.
 PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
     spec.name: spec for spec in (
         ProviderSpec("groq", "Groq", "openai", "https://api.groq.com/openai/v1/chat/completions",
-                     "llama-3.3-70b-versatile", ("GROQ_API_KEY",), "GROQ_MODEL",
+                     "openai/gpt-oss-120b", ("GROQ_API_KEY",), "GROQ_MODEL",
                      rpm=25, rpd=900, tpd=90_000),
         ProviderSpec("gemini", "Google AI Studio (Gemini)", "gemini",
                      "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                     "gemini-2.5-flash", ("GEMINI_API_KEY", "GOOGLE_API_KEY"), "GEMINI_MODEL",
+                     "gemini-3.5-flash-lite", ("GEMINI_API_KEY", "GOOGLE_API_KEY"), "GEMINI_MODEL",
                      rpm=8, rpd=200, tpd=1_000_000),
         ProviderSpec("mistral", "Mistral (Experiment tier)", "openai", "https://api.mistral.ai/v1/chat/completions",
                      "mistral-small-latest", ("MISTRAL_API_KEY",), "MISTRAL_MODEL",
@@ -88,6 +90,11 @@ PROVIDER_REGISTRY: dict[str, ProviderSpec] = {
         ProviderSpec("cerebras", "Cerebras (free tier)", "openai", "https://api.cerebras.ai/v1/chat/completions",
                      "llama-3.3-70b", ("CEREBRAS_API_KEY",), "CEREBRAS_MODEL",
                      rpm=25, rpd=12_000, tpd=900_000),
+        # 2026-11-26: Cohere trial key (free, ~1,000 calls/month, 20 RPM) via its OpenAI-compatible
+        # endpoint; last-resort fallback with caps well under the monthly trial budget.
+        ProviderSpec("cohere", "Cohere (trial key)", "openai", "https://api.cohere.ai/compatibility/v1/chat/completions",
+                     "command-a-03-2025", ("COHERE_API_KEY",), "COHERE_MODEL",
+                     rpm=10, rpd=30, tpd=150_000),
     )
 }
 
@@ -118,18 +125,61 @@ def custom_cloud_spec(env: Mapping[str, str]) -> ProviderSpec | None:
     return spec
 
 
+# --- multi-key failover (2026-11-26) ------------------------------------------------------
+# Extra keys per provider: <PRIMARY_KEY_ENV>_2 .. _10 (e.g. GEMINI_API_KEY_2, GROQ_API_KEY_3).
+# Each distinct key becomes its own slot ("gemini", "gemini_2", ...) with its own RPM/RPD/TPD
+# counters and circuit breaker, placed right after the primary in every failover chain: a 429 /
+# 401 / 5xx / timeout on one key moves to the next key, then to the next provider.
+MAX_KEYS_PER_PROVIDER = 10
+
+
+def key_slot_envs(spec: ProviderSpec, env: Mapping[str, str]) -> list[str]:
+    """Env var names holding DISTINCT non-empty keys for this provider, in priority order."""
+    names = [*spec.key_envs, *(f"{spec.key_envs[0]}_{i}" for i in range(2, MAX_KEYS_PER_PROVIDER + 1))]
+    seen: set[str] = set()
+    out: list[str] = []
+    for name in names:
+        value = (env.get(name) or "").strip()
+        if value and value not in seen:
+            seen.add(value)
+            out.append(name)
+    return out[:MAX_KEYS_PER_PROVIDER]
+
+
+def expand_key_slots(registry: Mapping[str, ProviderSpec], chains: Mapping[str, tuple[str, ...]],
+                     env: Mapping[str, str]) -> tuple[dict[str, ProviderSpec], dict[str, tuple[str, ...]]]:
+    """One registry entry per configured key; chains list a provider's key slots consecutively."""
+    expanded: dict[str, ProviderSpec] = {}
+    slots: dict[str, list[str]] = {}
+    for name, spec in registry.items():
+        envs = key_slot_envs(spec, env)
+        if len(envs) <= 1:
+            expanded[name] = spec
+            slots[name] = [name]
+            continue
+        slots[name] = []
+        for index, key_env in enumerate(envs, start=1):
+            slot = name if index == 1 else f"{name}_{index}"
+            label = spec.label if index == 1 else f"{spec.label} [key {index}]"
+            expanded[slot] = replace(spec, name=slot, label=label, key_envs=(key_env,))
+            slots[name].append(slot)
+    new_chains = {task: tuple(s for provider in chain for s in slots.get(provider, [provider]))
+                  for task, chain in chains.items()}
+    return expanded, new_chains
+
+
 def custom_cloud_priority(env: Mapping[str, str]) -> str:
     value = (env.get("CUSTOM_CLOUD_LLM_PRIORITY") or "fallback").strip().lower()
     return "first" if value == "first" else "fallback"
 
 # Failover order per task (AGENTS.md §4.3). Unknown names are ignored.
 TASK_CHAINS: dict[str, tuple[str, ...]] = {
-    "screening_qa": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models"),
-    "jd_scoring": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
-    "email_draft": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
+    "screening_qa": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
+    "jd_scoring": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
+    "email_draft": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
     # Phase 6A: short portal intro / cover notes and the control agent's intent parser.
-    "cover_note": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models"),
-    "agent_intent": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models"),
+    "cover_note": ("gemini", "groq", "cerebras", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
+    "agent_intent": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
 }
 
 LOCAL_GENERATIVE_MARKERS = re.compile(

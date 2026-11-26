@@ -24,7 +24,7 @@ from backend.app.ai_v2.providers import (
 
 PROBE_SYSTEM = "Reply with one JSON object only."
 PROBE_USER = 'Return exactly {"ok": true}.'
-PROBE_MAX_OUTPUT_TOKENS = 20
+PROBE_MAX_OUTPUT_TOKENS = 256  # reasoning models (groq gpt-oss) fail JSON validation below ~100
 OPENROUTER_CATALOG_URL = "https://openrouter.ai/api/v1/models"
 
 

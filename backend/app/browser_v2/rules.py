@@ -216,12 +216,15 @@ def normalize_role(value: str | None) -> str:
     return " ".join(replacements.get(word, word) for word in text.split())
 
 
+DEDUP_PART_MAX = 160  # live 2026-11-26: wellfound card text overflowed the btree index (2704-byte limit)
+
+
 def dedup_key(company: str | None, title: str | None) -> str | None:
-    """Cross-portal identity: normalized `company::role`."""
+    """Cross-portal identity: normalized `company::role`, each part bounded (deterministic)."""
     company_key, role_key = normalize_company(company), normalize_role(title)
     if not company_key or not role_key:
         return None
-    return f"{company_key}::{role_key}"
+    return f"{company_key[:DEDUP_PART_MAX].strip()}::{role_key[:DEDUP_PART_MAX].strip()}"
 
 
 def contains_term(haystack: str, term: str) -> bool:
@@ -257,7 +260,7 @@ class CandidatePreferences:
 
         min_ctc = prefs.get("min_ctc")
         return cls(
-            target_roles=strings("target_roles"),
+            target_roles=strings("target_roles", "target_titles"),  # dashboard schema stores target_titles
             keywords_required=strings("keywords_required"),
             keywords_excluded=strings("keywords_excluded"),
             tech_stack=strings("tech_stack"),

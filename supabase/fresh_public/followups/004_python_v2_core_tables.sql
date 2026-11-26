@@ -284,6 +284,11 @@ DECLARE
         'hitl_requests','semantic_cache','llm_provider_usage','enrichment_cache',
         'enrichment_credits','email_drafts','worker_control','telegram_v2_state','mail_events'];
 BEGIN
+    -- Supabase: ALTER ... OWNER TO needs the new owner to hold CREATE on the schema. Grant it only
+    -- for the ownership transfer and revoke it again below (same pattern as runtime/001).
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'job_agent_owner') THEN
+        GRANT CREATE ON SCHEMA public TO job_agent_owner;
+    END IF;
     FOREACH table_name IN ARRAY v2_tables LOOP
         IF to_regclass('public.' || table_name) IS NULL THEN
             CONTINUE;
@@ -316,6 +321,9 @@ BEGIN
             END IF;
         END IF;
     END LOOP;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'job_agent_owner') THEN
+        REVOKE CREATE ON SCHEMA public FROM job_agent_owner;
+    END IF;
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'job_agent_runtime')
        AND EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'extensions') THEN
         -- Type/operator lookup for extensions.vector only; no table access.

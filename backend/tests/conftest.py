@@ -9,6 +9,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Never read the owner's real project .env (v1 Settings + shared v2 loader) in tests.
+os.environ["AUTOMATED_APPLY_ENV_REPO_FILES"] = "0"
+os.environ.pop("AUTOMATED_APPLY_ENV_FILE", None)
+# Never query/refocus real macOS apps from tests (browser background mode).
+os.environ["AUTOMATED_APPLY_BROWSER_BACKGROUND"] = "0"
+
 # Force testing environment before importing app settings
 os.environ["ENVIRONMENT"] = "testing"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
@@ -29,8 +35,18 @@ for name in ("GMAIL_IMAP_EMAIL", "GMAIL_IMAP_APP_PASSWORD", "MAIL_DRAFT_RESUME_P
              "APIFY_CONTACT_ACTOR_ID", "MAIL_DRAFT_CHANNEL"):
     os.environ[name] = ""
 os.environ["MAIL_APP_FALLBACK_DISABLED"] = "true"
-# Shared v2 env loader: never layer the repository backend/.env or root .env into tests.
-os.environ["AUTOMATED_APPLY_ENV_REPO_FILES"] = "0"
+# Never let the owner's real free-LLM keys (incl. numbered failover keys) reach a test.
+for _base in ("GROQ_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "MISTRAL_API_KEY", "OPENROUTER_API_KEY",
+              "CLOUDFLARE_API_TOKEN", "GITHUB_MODELS_TOKEN", "GITHUB_TOKEN", "CEREBRAS_API_KEY", "COHERE_API_KEY",
+              "CUSTOM_CLOUD_LLM_API_KEY", "CUSTOM_CLOUD_LLM_BASE_URL"):
+    os.environ[_base] = ""
+    for _i in range(2, 11):
+        os.environ[f"{_base}_{_i}"] = ""
+for _alias in ("GROQ_KEY", "GOOGLE_AI_API_KEY", "GOOGLE_AI_STUDIO_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY",
+               "GEMINI_KEY", "MISTRAL_KEY", "OPENROUTER_KEY", "OPEN_ROUTER_API_KEY", "CF_API_TOKEN",
+               "CLOUDFLARE_AI_TOKEN", "CLOUDFLARE_WORKERS_AI_TOKEN", "CF_WORKERS_AI_TOKEN", "GH_MODELS_TOKEN",
+               "GITHUB_MODELS_PAT", "CEREBRAS_KEY", "GROQ_TOKEN"):
+    os.environ[_alias] = ""
 os.environ["ENRICHMENT_FETCH_CAREERS_PAGE"] = "false"
 
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
