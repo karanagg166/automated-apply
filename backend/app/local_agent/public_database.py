@@ -121,7 +121,7 @@ async def verify_public_database(connection, settings):
     present = await connection.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY($1::text[])", sorted(RUST_TABLES))
     tables |= installed_tables({row["relname"] for row in present})
     from backend.app.operations import v2_schema
-    v2_present = await connection.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY($1::text[])", sorted(v2_schema.TABLES))
+    v2_present = await connection.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY($1::text[])", sorted(v2_schema.ALL_TABLES))
     tables |= v2_schema.installed_tables({row["relname"] for row in v2_present})
     await verify_restricted_runtime(connection, tables, schema="public", preserved_function_oids=preserved)
     unsafe_defaults = await connection.fetchval("""

@@ -247,16 +247,20 @@ async def test_reviewed_generic_draft_verifies_exact_content_and_rejects_later_e
                 await service.create_draft("1", data.model_copy(update={"body": "Changed without review"}))
 
 
-async def test_cross_account_alert_dedup_keeps_origins_and_unknown_facts(db_session):
-    from backend.app.integrations.gmail.alert_candidates import record_candidates
-    url = "https://www.naukri.com/job-listings-fictional-backend-fictional-123456789012"
-    with pytest.raises(ConnectionError, match="authorization"):
-        await record_candidates(db_session, source="gmail", account="1", message_id="a", sender="alerts@naukri.com", links=[url])
-    first = await record_candidates(db_session, source="gmail", account="1", message_id="a", sender="alerts@naukri.com", links=[url], monitoring_authorized=True)
-    second = await record_candidates(db_session, source="gmail", account="2", message_id="b", sender="alerts@naukri.com", links=[url + "?tracking=discard", "https://attacker.example/redirect"], monitoring_authorized=True)
-    assert first[0]["requisition"] == second[0]["requisition"]
-    assert len(second) == 1 and len(second[0]["sources"]) == 2
-    assert second[0]["state"] == "NEEDS_FACTUAL_AND_ORIGIN_REVIEW" and second[0]["origin_authenticated"] is False
+async def test_retired_job_alert_intake_reports_disabled_and_refuses_changes(db_session, async_client, phase2_auth):
+    from backend.app.dashboard.models import OwnerPreference
+    from backend.app.integrations.gmail import job_alerts
+
+    db_session.add(OwnerPreference(key=job_alerts.PREFIX + "1", value={"version": 3, "enabled": True, "lease": "x"}))
+    await db_session.commit()
+    saved = await job_alerts.status(db_session, "1")
+    assert saved["enabled"] is False and saved["configured_enabled"] is True and saved["retired"] is True
+    assert "lease" not in saved and saved["sending_enabled"] is False
+    base = "/api/v1/integrations/gmail/local/accounts/1/job-alerts"
+    body = {"expected_version": 3, "expected_generation": 1, "enabled": True}
+    for response in (await async_client.put(base, json=body, headers=phase2_auth),
+                     await async_client.post(base + "/sync", headers=phase2_auth)):
+        assert response.status_code == 409 and response.json()["detail"] == job_alerts.RETIRED
 
 
 @pytest.mark.parametrize("failed", [False, True])

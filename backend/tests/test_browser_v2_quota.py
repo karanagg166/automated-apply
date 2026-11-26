@@ -111,6 +111,8 @@ async def test_second_quota_hit_reuses_the_existing_draft():
     record = await store.get_application(record.id)
     record = await store.transition(record, S.SCORED, "quota_retry_due")
     await store.transition(record, S.QUOTA_HIT_PENDING, "dashboard_daily_limit")
+    # Phase 9B: MemoryStore.list_by_state honours retry_after like Postgres (wall clock); the retry is due.
+    store.records[(record.platform, record.external_job_id)].retry_after = datetime.now(UTC) - timedelta(seconds=1)
     tomorrow = NOON_IST + timedelta(days=1)
     report = await processor(store, clock=tomorrow).process(NAUKRI, {}, quota_exhausted=True)
     fresh = await store.get_application(record.id)

@@ -1,5 +1,3 @@
-import { Naukri } from "@/features/naukri";
-import { Agent } from "@/features/agent";
 import { Autopilot } from "@/features/autopilot";
 import { notFound } from "next/navigation";
 import { StartupExplorer } from "@/features/startups";
@@ -22,7 +20,6 @@ export default async function Page({
   searchParams?: Promise<{ missing_input?: string; question_id?: string }>;
 }) {
   const { section, detail } = await params;
-  const nativeRuntime = Boolean(process.env.RUST_AGENT_UNIX_SOCKET);
   const sp = await searchParams;
   const rawId = sp?.missing_input || sp?.question_id;
   const initialRequestId =
@@ -32,28 +29,23 @@ export default async function Page({
   if (detail?.length) {
     if (detail.length !== 1 || !/^[-a-f0-9]{36}$/.test(detail[0])) notFound();
     if (section === "startups") return <CompanyDetail id={detail[0]} />;
-    if (section === "applications")
-      return <ApplicationDetail id={detail[0]} nativeRuntime={nativeRuntime} />;
+    if (section === "applications") return <ApplicationDetail id={detail[0]} />;
     if (section === "outreach") return <OutreachDetail id={detail[0]} />;
     notFound();
   }
   switch (section) {
-    case "naukri":
-      return <Naukri />;
     case "autopilot":
       return <Autopilot />;
-    case "agent":
-      return <Agent nativeRuntime={nativeRuntime} />;
     case "startups":
       return <StartupExplorer />;
     case "jobs":
       return <Jobs />;
     case "discover":
-      return <Discover nativeRuntime={nativeRuntime} />;
+      return <Discover />;
     case "people":
       return <People />;
     case "applications":
-      return <Applications nativeRuntime={nativeRuntime} />;
+      return <Applications />;
     case "needs-input":
       return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
     case "outreach":

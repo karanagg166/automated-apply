@@ -297,7 +297,11 @@ async def test_plain_text_refuses_to_guess_between_open_questions(store, fake):
     assert "won't guess" in last_reply(fake) and first.ref in last_reply(fake) and second.ref in last_reply(fake)
     assert [r.status for r in (await store.list_hitl(None))[0]] == ["OPEN", "OPEN"]
     await bot.handle_update(msg(f"/skip {first.ref}"))
-    await bot.handle_update(msg("no"))  # exactly one QUESTION open now
+    # Phase 9C: plain text goes to the agent; offline (no LLM) with exactly one open QUESTION, a plain reply
+    # still answers it (Phase 8 shortcut kept in the deterministic fallback).
+    await bot.handle_update(msg("no"))
+    await bot.drain_agent()
+    assert (await store.get_hitl(second.id)).status == "ANSWERED"
     assert (await store.get_hitl(second.id)).answer_text == "No"
 
 

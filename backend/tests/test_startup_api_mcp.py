@@ -2,10 +2,7 @@ import pytest
 from sqlalchemy import func, select
 
 from backend.app.models.discovery import DiscoveryRun
-from backend.app.models.startup import CompanySourceObservation
-from backend.app.services.startup_discovery.evidence import ingest_company
 from backend.tests.startup_fakes import observed
-from backend.tests.test_mcp_tool_permissions import rpc
 
 
 @pytest.mark.asyncio
@@ -94,40 +91,3 @@ async def test_startup_routes_preview_import_shortlist_and_validation(
             "/api/v1/startups/discovery/runs", headers=phase2_auth, json=body
         )
     ).status_code == 409
-
-
-@pytest.mark.asyncio
-async def test_startup_readonly_mcp_matches_rest_service(
-    mcp_client, mcp_auth, db_session
-):
-    company = await ingest_company(db_session, observed())
-    await db_session.commit()
-    listing = await rpc(mcp_client, mcp_auth, "tools/list")
-    names = {t["name"] for t in listing["result"]["tools"]}
-    expected = {
-        "search_discovered_startups",
-        "get_startup_intelligence",
-        "get_startup_hiring_opportunities",
-        "get_startup_professional_contacts",
-        "get_startup_discovery_status",
-    }
-    assert expected <= names
-    for name in expected:
-        args = (
-            {"filters": {}}
-            if name == "search_discovered_startups"
-            else {}
-            if name == "get_startup_discovery_status"
-            else {"company_id": str(company.id)}
-        )
-        result = await rpc(
-            mcp_client, mcp_auth, "tools/call", {"name": name, "arguments": args}
-        )
-        assert not result["result"].get("isError"), result
-    assert await db_session.scalar(select(func.count()).select_from(DiscoveryRun)) == 0
-    assert (
-        await db_session.scalar(
-            select(func.count()).select_from(CompanySourceObservation)
-        )
-        == 1
-    )

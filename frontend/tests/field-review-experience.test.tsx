@@ -7,7 +7,6 @@ import {
   getFieldReviewStatus,
 } from "@/features/applications";
 import { api, patch, post, type Schema } from "@/lib/api";
-import type { ExtensionTask } from "@/features/extension-assistant";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -121,62 +120,6 @@ const mockPacket: Schema<"PacketRead"> = {
   ],
 };
 
-const mockExtensionTask: ExtensionTask = {
-  id: "task-1111",
-  version: 3,
-  application_id: mockPacket.id,
-  job_id: mockPacket.job_id,
-  company_name: "Acme Corp",
-  job_title: "Senior Backend Engineer",
-  packet_revision: 2,
-  profile_version: 3,
-  target_url: "https://careers.acme.example/apply/1",
-  current_url: "https://careers.acme.example/apply/1",
-  tab_id: 10,
-  tab_active: true,
-  browser_connection: "connected",
-  state: "FORM_INSPECTED",
-  challenge_state: "NONE",
-  step: "Application Form",
-  plan_id: "plan-1",
-  authorization_id: null,
-  field_answer_revisions: { f1: 1 },
-  verified_receipts: [
-    {
-      plan_id: "plan-1",
-      authorization_id: "auth-1",
-      document_id: "doc-1",
-      packet_revision: 2,
-      profile_version: 3,
-      results: [
-        { field_id: "aaaaaaaa-1111-4111-8111-111111111111", status: "filled" },
-      ],
-      verification_method: "retained_after_blur",
-      state: "form_filled",
-      recorded_at: "2026-10-26T14:30:00Z",
-      submitted: false,
-    },
-  ],
-  reason: null,
-  next_action: "Review this step's proposed answers in Chrome.",
-  mode: "ASSISTED_FILL",
-  capabilities: {
-    preview: true,
-    assisted_fill: true,
-    reviewed_submission: false,
-    unattended_approved: false,
-  },
-  counts: {
-    ready: 1,
-    completed: 1,
-    existing: 2,
-    missing: 1,
-    manual: 1,
-    validation_errors: 0,
-  },
-  updated_at: "2026-10-26T14:35:00Z",
-};
-
 function renderDetail(id: string = mockPacket.id) {
   const client = new QueryClient({
     defaultOptions: {
@@ -193,28 +136,9 @@ function renderDetail(id: string = mockPacket.id) {
 }
 
 describe("Field Review Status Logic (getFieldReviewStatus)", () => {
-  it("does not match page-local receipt IDs to packet fields", () => {
-    const result = getFieldReviewStatus({
-      field: mockFieldBase,
-      task: mockExtensionTask,
-      isReviewed: false,
-    });
-    expect(result.status).toBe("Pending Review");
-  });
-
-  it("blocks ready guidance when the challenge state is unknown", () => {
-    const result = getFieldReviewStatus({
-      field: mockFieldBase,
-      task: { ...mockExtensionTask, challenge_state: "UNKNOWN" },
-      isReviewed: true,
-    });
-    expect(result.status).toBe("Challenge Required");
-  });
-
   it("identifies Failed Validation when answers exceed character limits", () => {
     const result = getFieldReviewStatus({
       field: mockFieldBase,
-      task: { ...mockExtensionTask, verified_receipts: [] },
       isReviewed: false,
       exceedsLimit: true,
     });
@@ -223,13 +147,11 @@ describe("Field Review Status Logic (getFieldReviewStatus)", () => {
     expect(result.nextAction).toMatch(/Shorten answer/i);
   });
 
-  it("identifies Challenge Required when page security challenge is present", () => {
+  it("identifies Challenge Required for a security challenge field", () => {
     const result = getFieldReviewStatus({
-      field: mockFieldBase,
-      task: {
-        ...mockExtensionTask,
-        verified_receipts: [],
-        challenge_state: "CHALLENGE_BLOCKING",
+      field: {
+        ...mockFieldBase,
+        category: "captcha" as Schema<"PacketField">["category"],
       },
       isReviewed: false,
     });
@@ -246,7 +168,6 @@ describe("Field Review Status Logic (getFieldReviewStatus)", () => {
         category: "resume_upload",
         validation_status: "file_upload_required",
       },
-      task: { ...mockExtensionTask, verified_receipts: [] },
       isReviewed: false,
     });
     expect(result.status).toBe("Manual Only");
@@ -261,32 +182,29 @@ describe("Field Review Status Logic (getFieldReviewStatus)", () => {
         effective_answer: null,
         validation_status: "needs_input",
       },
-      task: { ...mockExtensionTask, verified_receipts: [] },
       isReviewed: false,
     });
     expect(result.status).toBe("Needs Answer");
     expect(result.tone).toBe("amber");
     expect(result.nextAction).toMatch(
-      /Provide an answer below or queue for Telegram/i,
+      /Provide an answer below or resolve it in Needs Input/i,
     );
   });
 
   it("identifies Ready when answer is valid and reviewed", () => {
     const result = getFieldReviewStatus({
       field: mockFieldBase,
-      task: { ...mockExtensionTask, verified_receipts: [] },
       isReviewed: true,
       isDirty: false,
     });
     expect(result.status).toBe("Ready");
     expect(result.tone).toBe("green");
-    expect(result.nextAction).toMatch(/Ready to fill in Chrome/i);
+    expect(result.nextAction).toMatch(/Ready for manual handoff/i);
   });
 
   it("identifies Pending Review when answer is valid but awaiting owner review", () => {
     const result = getFieldReviewStatus({
       field: mockFieldBase,
-      task: { ...mockExtensionTask, verified_receipts: [] },
       isReviewed: false,
     });
     expect(result.status).toBe("Pending Review");
@@ -314,15 +232,6 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
             created_at: "2026-10-25T10:00:00Z",
           },
         ]);
-      }
-      if (path === `browser/extension-tasks/application/${mockPacket.id}`) {
-        return Promise.resolve(mockExtensionTask);
-      }
-      if (path === "execution/questions") {
-        return Promise.resolve([]);
-      }
-      if (path === "browser-applications/policy") {
-        return Promise.resolve({ origins: [], digest: "test-digest" });
       }
       return Promise.reject(new Error(`Unhandled GET path: ${path}`));
     });
@@ -354,7 +263,7 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
     expect(nextActionBlocks.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows the required manual actions and security verification status panels", async () => {
+  it("shows the required manual actions panel", async () => {
     renderDetail();
 
     const manualPanel = await screen.findByRole("region", {
@@ -369,18 +278,6 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
     ).toBeInTheDocument();
     expect(
       within(manualPanel).getByText(/Portal submission:/),
-    ).toBeInTheDocument();
-
-    const securityPanel = screen.getByRole("region", {
-      name: "Security & Verification State",
-    });
-    expect(
-      within(securityPanel).getByText(/Security & verification status/),
-    ).toBeInTheDocument();
-    expect(
-      within(securityPanel).getByText(
-        /No challenge observed in the latest inspection/,
-      ),
     ).toBeInTheDocument();
   });
 
@@ -400,42 +297,7 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("displays stale-packet warning non-destructively without discarding saved answers", async () => {
-    vi.mocked(api).mockImplementation((path: string) => {
-      if (path === `application-packets/${mockPacket.id}`) {
-        return Promise.resolve(mockPacket);
-      }
-      if (path === `browser/extension-tasks/application/${mockPacket.id}`) {
-        return Promise.resolve({
-          ...mockExtensionTask,
-          packet_revision: 1, // Stale! Packet is on revision 2
-        });
-      }
-      if (path.endsWith("/events") || path === "execution/questions") {
-        return Promise.resolve([]);
-      }
-      return Promise.resolve({ origins: [], digest: "test-digest" });
-    });
-
-    renderDetail();
-
-    expect(
-      await screen.findByText(
-        /Extension task belongs to packet revision 1, but the saved application packet is at revision 2/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Your saved answers and in-progress edits are preserved/,
-      ),
-    ).toBeInTheDocument();
-
-    // The user's field answer is still present and intact:
-    const textarea = screen.getAllByRole("textbox")[0];
-    expect(textarea).toHaveValue("5 years");
-  });
-
-  it("enriches the application history timeline with verified blur receipts", async () => {
+  it("lists packet events and the last successful activity in the history", async () => {
     renderDetail();
 
     await screen.findByRole("heading", {
@@ -443,49 +305,10 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
       name: "Senior Backend Engineer",
     });
 
-    expect(
-      screen.getByText("Fill verified (retained after blur)"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /1 field\(s\) verified retained \(retained_after_blur\)/,
-      ),
-    ).toBeInTheDocument();
+    const history = await screen.findByText("packet prepared");
+    expect(history).toBeInTheDocument();
     expect(screen.getByText(/Last successful activity:/)).toBeInTheDocument();
-    expect(screen.getByText(/Verified retained fill/)).toBeInTheDocument();
   });
-  it.each(["dom_assignment", "unknown"])(
-    "keeps %s receipts unverified",
-    async (verification_method) => {
-      vi.mocked(api).mockImplementation((path: string) => {
-        if (path === `application-packets/${mockPacket.id}`)
-          return Promise.resolve(mockPacket);
-        if (path === `browser/extension-tasks/application/${mockPacket.id}`)
-          return Promise.resolve({
-            ...mockExtensionTask,
-            verified_receipts: [
-              {
-                ...mockExtensionTask.verified_receipts![0],
-                verification_method,
-              },
-            ],
-          });
-        if (path.endsWith("/events") || path === "execution/questions")
-          return Promise.resolve([]);
-        return Promise.resolve({ origins: [], digest: "test-digest" });
-      });
-      renderDetail();
-      expect(
-        await screen.findByText("Fill receipt — manual review required"),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByText("Fill verified (retained after blur)"),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByText(/Verified retained fill/),
-      ).not.toBeInTheDocument();
-    },
-  );
 
   it("preserves a dirty answer across server answer and packet revision changes", async () => {
     const { client } = renderDetail();
@@ -520,24 +343,6 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not report an unavailable task as a clear challenge state", async () => {
-    vi.mocked(api).mockImplementation((path: string) => {
-      if (path === `application-packets/${mockPacket.id}`)
-        return Promise.resolve(mockPacket);
-      if (path.includes("extension-tasks")) return Promise.resolve(null);
-      if (path.endsWith("/events") || path === "execution/questions")
-        return Promise.resolve([]);
-      return Promise.resolve({ origins: [], digest: "test-digest" });
-    });
-    renderDetail();
-    const panel = await screen.findByRole("region", {
-      name: "Security & Verification State",
-    });
-    expect(
-      within(panel).getByText(/Security state unverified/),
-    ).toBeInTheDocument();
-    expect(within(panel).queryByText("Clear")).not.toBeInTheDocument();
-  });
   it("keeps edits typed while a save request is in flight", async () => {
     let resolveSave!: (value: unknown) => void;
     const pending = new Promise((resolve) => {
@@ -581,9 +386,7 @@ describe("ApplicationDetail field-by-field review experience UI", () => {
       await pending;
     });
     await waitFor(() =>
-      expect(
-        screen.getByText(/Extension task belongs to packet revision 2/),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/· Revision 3$/)).toBeInTheDocument(),
     );
     expect(input).toHaveValue("First saved draft and later edits");
     expect(

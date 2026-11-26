@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { login } from "../e2e/owner-session";
 
-test("URL intake preserves the exact packet through a missing answer and fresh review", async ({
+test("URL intake preserves the exact packet through an added question and fresh review", async ({
   page,
 }) => {
   await login(page);
@@ -33,25 +33,10 @@ test("URL intake preserves the exact packet through a missing answer and fresh r
   await page.getByLabel("Field type", { exact: true }).selectOption("yes_no");
   await page.getByLabel("Actual form options (one per line)").fill("Yes\nNo");
   await page.getByRole("button", { name: "Add question", exact: true }).click();
-  await page
-    .getByRole("button", {
-      name: "Ask me on Telegram: Are you willing to relocate?",
-    })
-    .click();
-  await expect(page.getByText("Backend paused preparation")).toBeVisible();
-  await page.getByLabel("Your verified answer").selectOption("Yes");
-  await page
-    .getByRole("button", { name: "Submit Answer from Dashboard" })
-    .click();
   await expect(
-    page.getByText(
-      "Answer saved. Review and approve the updated packet before filling.",
-    ),
+    page.getByText("Are you willing to relocate?").first(),
   ).toBeVisible();
   await expect(page).toHaveURL(application);
-  await expect(
-    page.getByRole("button", { name: "Resume Application", exact: true }),
-  ).toHaveCount(0);
   const reviews = page.getByRole("checkbox", {
     name: "I reviewed this exact answer",
   });

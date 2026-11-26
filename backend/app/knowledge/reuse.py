@@ -101,7 +101,9 @@ async def job_digest(session, job_id):
         return None
     company = await session.get(Company, job.company_id) if job.company_id else None
     if job.source_platform == "naukri":
-        from backend.app.execution.naukri import reviewed_job_context
+        from backend.app.services.applications.platforms.naukri import (
+            reviewed_job_context,
+        )
 
         job, company = reviewed_job_context(job, company)
     context = {

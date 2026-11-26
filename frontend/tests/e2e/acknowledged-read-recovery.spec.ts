@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { login } from "./owner-session";
-test("acknowledged read response loss retains its UUID across reload and completes saved pages without another provider read", async ({
+test("acknowledged read response loss retains its UUID across reload and reads finished pages back without another provider read", async ({
   page,
   context,
 }, testInfo) => {
@@ -31,8 +31,6 @@ test("acknowledged read response loss retains its UUID across reload and complet
   };
   let puts = 0,
     gets = 0,
-    pageCompletes = 0,
-    jobCompletes = 0,
     finished = false;
   let saved: Record<string, unknown> | null = null;
   await context.route("**/api/backend/**", async (route) => {
@@ -73,16 +71,8 @@ test("acknowledged read response loss retains its UUID across reload and complet
       expect(request.method()).toBe("GET");
       return route.fulfill({ json: run() });
     }
-    if (path === `discovery/runs/${parent}/complete`) {
-      expect(request.method()).toBe("POST");
-      expect(request.postDataJSON()).toEqual({});
-      jobCompletes += 1;
-      expect(saved?.finding_retained).toBe(true);
-      finished = true;
-      return route.fulfill({ json: run() });
-    }
     const match = new RegExp(
-      `^discovery/runs/${parent}/reads/([a-f0-9-]{36})(/complete)?$`,
+      `^discovery/runs/${parent}/reads/([a-f0-9-]{36})$`,
     ).exec(path);
     if (!match) return route.fallback();
     if (request.method() === "PUT") {
@@ -122,18 +112,8 @@ test("acknowledged read response loss retains its UUID across reload and complet
         status: 404,
         json: { detail: "No read admission" },
       });
-    if (match[2]) {
-      expect(request.method()).toBe("POST");
-      expect(request.postDataJSON()).toEqual({});
-      pageCompletes += 1;
-      saved.finding_retained = true;
-      saved.local_merge_available = false;
-      saved.recorded_state = "finding_retained";
-      saved.status = "finding_retained";
-    } else {
-      expect(request.method()).toBe("GET");
-      gets += 1;
-    }
+    expect(request.method()).toBe("GET");
+    gets += 1;
     return route.fulfill({ json: saved });
   });
   await login(page);
@@ -160,17 +140,24 @@ test("acknowledged read response loss retains its UUID across reload and complet
   expect(Object.keys(pointer).sort()).toEqual(["readId", "requestId"]);
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Complete saved read pages" }),
+    page.getByRole("button", { name: "Refresh saved read" }).first(),
   ).toBeVisible();
+  await expect.poll(() => gets).toBeGreaterThan(0);
   expect(puts).toBe(1);
-  expect(pageCompletes).toBe(0);
-  expect(jobCompletes).toBe(0);
-  expect(gets).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Complete saved read pages" }).click();
+  // The server merges the saved pages on its own; the dashboard only reads them back.
+  Object.assign(saved!, {
+    finding_retained: true,
+    local_merge_available: false,
+    recorded_state: "finding_retained",
+    status: "finding_retained",
+  });
+  finished = true;
+  await page
+    .getByRole("button", { name: "Refresh saved read" })
+    .first()
+    .click();
   await expect(page.getByText("Saved (New): 1")).toBeVisible();
   expect(puts).toBe(1);
-  expect(pageCompletes).toBe(1);
-  expect(jobCompletes).toBe(1);
   expect(
     await page.evaluate(() =>
       JSON.parse(localStorage.getItem("job-discovery-read:v1")!),

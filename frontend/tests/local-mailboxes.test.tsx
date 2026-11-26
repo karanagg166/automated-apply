@@ -140,26 +140,3 @@ it("permits only bounded job alert controls through the authenticated gateway", 
     ),
   ).toBe(false);
 });
-
-it("distinguishes configured alerts from processing paused by saved automation controls", async () => {
-  accounts[0] = {
-    ...accounts[0],
-    status: "connected",
-    job_alerts: {
-      version: 2,
-      enabled: true,
-      polling_allowed: false,
-      automation_state: "PAUSED",
-    },
-  };
-  mount();
-  expect(
-    await screen.findByText(
-      /paused by account, deployment or automation controls/,
-    ),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(/Saved preparation automation: PAUSED/),
-  ).toBeInTheDocument();
-  expect(post).not.toHaveBeenCalled();
-});

@@ -54,6 +54,8 @@ const rules: Rules[] = PORTALS.map(([platform, label, login]) => ({
   paused_until: null,
   allow_unknown_posting_age: false,
   allow_unknown_posting_age_default: false,
+  circuit_failures: 0,
+  circuit_level: 0,
 }));
 
 const mail = (

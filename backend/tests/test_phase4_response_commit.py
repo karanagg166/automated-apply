@@ -7,7 +7,7 @@ from backend.app.db.session import get_db_session
 from backend.app.main import app
 
 
-@pytest.mark.parametrize("path", ["/api/v1/applications/platforms", "/api/v1/browser/plans"])
+@pytest.mark.parametrize("path", ["/api/v1/applications/platforms", "/api/v1/application-packets"])
 async def test_packet_and_browser_transaction_ends_before_response_start(db_session, phase2_auth, path):
     events = []
     async def transaction():

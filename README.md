@@ -2,7 +2,7 @@
 
 Use [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python environments and dependencies. Activate a project virtual environment before `uv pip install`; the committed requirements and constraints remain authoritative. Use `--system` only inside disposable containers or CI runners. JavaScript tooling uses pnpm.
 
-The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. It can capture employer-page evidence for reviewed company-specific answers. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
+My Profile includes private career facts and approved reusable answers. Application packets (URL intake, reviewed answers, manual handoff) remain in the dashboard; all portal automation runs in the Python v2 worker below.
 
 ## Python v2 Quickstart (24/7 MacBook Air M1)
 
@@ -14,17 +14,18 @@ The live runtime is the Python v2 orchestrator (`backend/app/*_v2`). It uses Pla
 | `com.automated-apply.worker-v2` | the worker under `caffeinate -i`, so the Mac does not idle-sleep |
 | `com.automated-apply.frontend-v2` | the Next.js dashboard on `127.0.0.1:3000`, which proxies only to `:8000` |
 
-`rust/`, `extension/` and the native host are frozen legacy code.
+The v1 runtimes were removed: `rust/`, `extension/` and the native host (2026-11-26), and in Phase 9E the v1 Python agent/browser-assistant/execution/FastMCP packages (`backend/app/{agent,browser,execution,mcp}`), the v1 Telegram bot and their worker scripts. The API now serves only the v2 API (`/api/v1/v2/*`) plus the v1 routes the kept dashboard pages still call.
 
 Run every command from the repository root. `PY` is shorthand for `backend/venv/bin/python`.
 
 ```sh
 PY=backend/venv/bin/python
 
-# 1. Back up, then apply migration 004 (run the read-only check first)
+# 1. Back up, then apply migrations 004 and 005 (run the read-only check first)
 git tag archive/pre-v2-cleanup-$(date +%Y%m%d)
 $PY -m backend.scripts.migrate_v2_core check
 $PY -m backend.scripts.migrate_v2_core apply --expected-fences 4
+$PY -m backend.scripts.migrate_v2_core apply-phase9   # followup 005 (Phase 9 tables/columns)
 
 # 2. One-time login in plain Brave, then confirm the session
 $PY -m backend.app.browser_v2.cli login-setup --all
@@ -47,6 +48,13 @@ $PY -m backend.scripts.cutover_v2 rollback "<backup-dir printed by apply>"
 Then open the dashboard's `/autopilot` page on `localhost:3000`, enable `auto_apply_enabled` for a portal, and press **Start live**. The worker's desired state lives in `public.worker_control`, so a restart or reboot does not change it.
 
 Logs go to `~/Library/Logs/automated-apply/` and are rotated above 10 MB, keeping 3 backups.
+
+### Phase 9 features
+
+- **Priority queue + watchers:** applications carry a `priority` (fresh postings first, from `posted_at`), and per-portal watchers sweep for new postings; repeated portal failures open a per-portal circuit breaker (`portal_rules.circuit_*`).
+- **LLM-first Telegram agent:** free-text Telegram messages go to the v2 agent, which may only call audited, allow-listed tools; every tool call is written to `public.agent_audit_log` and short conversation memory to `public.agent_conversation_turns`.
+- **Profile sync (dry-run first):** `$PY -m backend.app.browser_v2.cli sync-profile --portal <portal>` reports the diff against the canonical profile; saving needs `--confirm-live` plus `profile_sync.<portal>.live = true`. Runs are recorded in `public.profile_sync_runs`.
+- **Migration 005:** `supabase/fresh_public/followups/005_python_v2_phase9.sql` (applied only via `migrate_v2_core apply-phase9`, after 004) adds those columns and the `watcher_state`, `agent_audit_log`, `agent_conversation_turns` and `profile_sync_runs` tables. Additive and idempotent.
 
 `backend/scripts/cleanup_legacy_v1.py` plans the legacy cleanup and is read-only by default. Deletion needs `--execute --group X --i-tagged-backup` and an existing `archive/pre-v2-cleanup-*` tag.
 
@@ -90,7 +98,7 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 - Public professional URL discovery through configured search or manual evidence; LinkedIn outreach stays manual.
 - Existing company/job/contact repositories, budget reservations and factual draft preparation.
 - Protected founder/recruiter contact enrichment, provenance, suppression and contextual recommendations; paid providers default to disabled.
-- Authenticated, opt-in Streamable HTTP MCP tools using saved candidate facts; LinkedIn actions remain manual.
+- v2 MCP tools over stdio (`backend/app/browser_v2/browser_mcp.py`); the v1 Streamable HTTP `/mcp` endpoint was retired in Phase 9E.
 - Reviewed Gmail sending with separate OAuth authorization, owner confirmation and durable audit history.
 - Standalone Naukri application packets: saved-profile mapping, confirmed resume selection, grounded screening drafts, revision-specific approval, manual handoff and self-reported completion.
 
@@ -204,8 +212,8 @@ Set `JOB_AGENT_API_TOKEN` to a strong random value in the server environment. Em
 configuration returns **503**; missing or invalid bearer credentials return **401**.
 Tokens use constant-time comparison and are never stored in the candidate record or logged
 by the API. Use HTTPS outside localhost and keep database SQL echo disabled for private data.
-This is single-user server authentication, not multi-user login. Phase 4A adds a separately authenticated, disabled-by-default MCP endpoint; see
-[MCP security and tools](docs/mcp-security-and-tools.md). The REST token does not grant MCP access.
+This is single-user server authentication, not multi-user login. (The separately authenticated
+Phase 4A `/mcp` endpoint was retired in Phase 9E; v2 MCP runs over stdio only.)
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -358,13 +366,12 @@ See [contact enrichment](docs/contact-enrichment.md) for configuration, provider
 
 ## Phase 4A: secure MCP, secondary Gmail connection and local outreach
 
-Implemented: disabled-by-default authenticated Streamable HTTP at `/mcp/`, centralized read/draft
-capabilities, structured audit logs, a connector capability registry, server-side Google OAuth
+Implemented (the `/mcp/` Streamable HTTP endpoint from this phase was retired in Phase 9E):
+structured audit logs, a connector capability registry, server-side Google OAuth
 with one-time durable state/PKCE/browser binding, encrypted connection storage, and evidence-grounded
 local outreach drafts with revision-specific human review. Legacy mutation tools are not registered.
 No Gmail writes, emails sent, browser automation, application submission or deployment are included.
 
-- [MCP client setup and tool permissions](docs/mcp-security-and-tools.md)
 - [Google Cloud setup, scopes and secondary-account connection](docs/gmail-oauth-connection.md)
 - [Draft generation, editing, eligibility and approval](docs/outreach-drafting.md)
 
@@ -499,7 +506,3 @@ leases and fencing protect recovery. Migration 012 and a separate proposed restr
 addendum are verified only in disposable PostgreSQL 17. See [Phase 10](docs/phase10-automation.md)
 for implementation, tests and the prepared worker configuration. Phase 9 remains incomplete;
 R2 and live automation are unauthorized. No production service is activated.
-
-## Phase 1 local connection foundation
-
-Preview-only local connections are implemented on `feat/phase1-local-connections`; live owner acceptance remains pending. Start with the [technical audit](docs/phase1/audit.md), [setup guide](docs/phase1/setup.md), [exact public-schema migration proposal](docs/phase1/migration-review.md), [verification report](docs/phase1/verification.md), and [machine-readable readiness](docs/phase1/readiness.json). The reviewed migration targets only the dedicated Supabase project; it has not been applied remotely. No live submissions, Gmail sends or recurring discovery are enabled.

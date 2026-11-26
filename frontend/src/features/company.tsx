@@ -142,11 +142,7 @@ export function CompanyDetail({ id }: { id: string }) {
           />
         )
       ) : tab === "people" ? (
-        <CompanyPeople
-          companyId={id}
-          companyName={s.company_name}
-          domain={s.company_domain}
-        />
+        <CompanyPeople companyId={id} />
       ) : (
         <div className="detail-grid">
           <section className="panel">

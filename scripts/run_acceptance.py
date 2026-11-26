@@ -22,141 +22,23 @@ PYTHON = (
 )
 STAGES = (
     ("policy-drift", (*PYTHON, "scripts/sync_http_security.py", "--check")),
-    (
-        "native-field-order",
-        (*PYTHON, "-m", "rust.scripts.export_native_field_order", "--check"),
-    ),
-    (
-        "execution-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_execution_contracts", "--check"),
-    ),
-    (
-        "gmail-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_gmail_contracts", "--check"),
-    ),
-    (
-        "contact-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_contact_contracts", "--check"),
-    ),
-    (
-        "review-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_review_contracts"),
-    ),
-    ("rust-format", ("cargo", "fmt", "--all", "--", "--check")),
-    (
-        "outreach-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_outreach_contracts", "--check"),
-    ),
-    (
-        "startup-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_startup_contracts", "--check"),
-    ),
-    (
-        "people-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_people_contracts", "--check"),
-    ),
-    (
-        "apify-contracts",
-        (*PYTHON, "-m", "rust.scripts.export_apify_contracts", "--check"),
-    ),
-    ("rust-tests", ("cargo", "test", "--locked", "--workspace")),
-    (
-        "rust-clippy",
-        (
-            "cargo",
-            "clippy",
-            "--locked",
-            "--workspace",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings",
-        ),
-    ),
     ("backend", (*PYTHON, "scripts/run_fixture_stage.py", "backend")),
     ("frontend-tests", ("pnpm", "-C", "frontend", "test")),
     ("frontend-types", ("pnpm", "-C", "frontend", "typecheck")),
     ("frontend-format", ("pnpm", "-C", "frontend", "format:check")),
     ("frontend-build", ("pnpm", "-C", "frontend", "build")),
-    (
-        "frontend-cutover-bundle",
-        ("node", "frontend/run-local-rust.mjs", "--prepare-build"),
-    ),
-    (
-        "frontend-cutover-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "frontend-cutover"),
-    ),
-    ("extension-tests", ("pnpm", "-C", "extension", "test")),
-    (
-        "extension-edge",
-        ("pnpm", "-C", "extension", "build", "--browser=edge", "--output=dist-edge"),
-    ),
-    ("extension-brave-final", ("pnpm", "-C", "extension", "build", "--browser=brave")),
-    (
-        "rust-postgres",
-        (*PYTHON, "-m", "rust.scripts.run_postgres_tests", "--with-browser"),
-    ),
-    (
-        "rust-migration-catalog",
-        (*PYTHON, "-m", "rust.scripts.verify_live_migration"),
-    ),
     ("frontend-e2e", (*PYTHON, "scripts/run_fixture_stage.py", "frontend-ui")),
     (
         "frontend-browser-e2e",
         (*PYTHON, "scripts/run_fixture_stage.py", "frontend-browser"),
     ),
-    (
-        "frontend-extension-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "frontend-extension"),
-    ),
-    (
-        "frontend-naukri-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "frontend-naukri"),
-    ),
-    (
-        "extension-browser-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "extension-browser"),
-    ),
-    (
-        "extension-stack-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "extension-stack"),
-    ),
-    (
-        "backend-browser-e2e",
-        (*PYTHON, "scripts/run_fixture_stage.py", "backend-browser"),
-    ),
     ("browser-guards", ("node", "--test", "tests/brave_setup_policy.test.mjs")),
     ("tooling", (*PYTHON, "-m", "pytest", "tests", "-q")),
     ("diff", ("git", "diff", "--check")),
-    (
-        "rust-release-build",
-        (
-            "cargo",
-            "build",
-            "--locked",
-            "--release",
-            "--workspace",
-            "--target-dir",
-            "target",
-        ),
-    ),
-    ("release-artifacts", (*PYTHON, "-m", "rust.scripts.local_release", "inventory")),
 )
 PREREQUISITES = {
-    "frontend-cutover-bundle": ("frontend-build",),
-    "frontend-cutover-e2e": ("frontend-cutover-bundle",),
-    "rust-postgres": ("extension-brave-final",),
     "frontend-e2e": ("frontend-build",),
     "frontend-browser-e2e": ("frontend-build",),
-    "frontend-extension-e2e": ("frontend-build",),
-    "frontend-naukri-e2e": ("frontend-build",),
-    "extension-browser-e2e": ("extension-brave-final",),
-    "release-artifacts": (
-        "rust-release-build",
-        "frontend-cutover-bundle",
-        "extension-edge",
-        "extension-brave-final",
-    ),
 }
 
 
@@ -238,9 +120,6 @@ def bounded_run(command, *, cwd, stdout, stderr, check, timeout):
 
 
 def coordinated_run(command, **kwargs):
-    # The historical complete-stack fixture takes this same advisory lock itself.
-    if command[-2:] == ["scripts/run_fixture_stage.py", "extension-stack"]:
-        return bounded_run(command, **kwargs)
     with open("/tmp/automated-apply-heavy-tests.lock", "a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)

@@ -89,6 +89,16 @@ IdempotencyKey = Annotated[
 ]
 
 
+class PrepareBrowser(AnswerContract):
+    """Owner-pasted official application URL for draft packet intake (no navigation)."""
+
+    application_url: str = Field(min_length=10, max_length=2048)
+    company_name: str = Field(min_length=1, max_length=200)
+    job_title: str = Field(min_length=1, max_length=200)
+    idempotency_key: IdempotencyKey
+    resume_resource_id: UUID | None = None
+
+
 class PlatformCapability(Contract):
     platform: str
     job_discovery: Literal["configured_source_dependent"] = (

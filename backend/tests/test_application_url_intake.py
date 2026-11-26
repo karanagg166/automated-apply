@@ -27,12 +27,12 @@ async def test_intake_without_browser_permission_is_idempotent_and_remains_unapp
     assert packet["approved_revision"] is None
     assert packet["tracking_state"] == "not_applied"
     assert packet["snapshot"]["destination"]["source_confidence"] == "unverified"
-    # Existing browser route still requires its independent opt-in.
+    # The legacy browser-assistant route was retired in Phase 9E.
     assert (
         await async_client.post(
             "/api/v1/browser-applications", json=PAYLOAD, headers=phase2_auth
         )
-    ).status_code == 503
+    ).status_code == 404
     changed = {**PAYLOAD, "company_name": "Wrong employer"}
     assert (
         await async_client.post(

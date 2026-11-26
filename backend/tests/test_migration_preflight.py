@@ -2,10 +2,8 @@
 
 import copy
 import json
-import os
 import subprocess
 import sys
-from pathlib import Path
 
 import pytest
 
@@ -59,13 +57,6 @@ def test_offline_plan_performs_no_ddl():
     result = subprocess.run([sys.executable, "backend/scripts/migration_preflight.py"], capture_output=True, text=True, timeout=10)
     assert result.returncode == 0
     assert json.loads(result.stdout)["ddl_executed"] is False
-
-
-@pytest.mark.skipif(not os.environ.get("PROFILE_TEST_DATABASE_URL"), reason="Disposable local PostgreSQL required")
-def test_phase6b_postgres_catalog_and_readonly():
-    path = Path(__file__).resolve().parents[1] / "scripts/verify_phase6b_migration.py"
-    result = subprocess.run([sys.executable, str(path)], capture_output=True, text=True, timeout=120)
-    assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_extra_service_role_grants_cannot_weaken_append_only_history():

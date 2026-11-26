@@ -300,7 +300,9 @@ class TimeoutPortal(ExternalAdapter):
         raise TimeoutError("page.goto: Timeout 45000ms exceeded")
 
 
-async def test_round_robin_start_and_bounded_backoff_isolate_a_failing_portal():
+async def test_round_robin_start_and_persisted_circuit_breaker_isolate_a_failing_portal():
+    """Phase 9B: the in-memory 5..60 min back-off became a persisted circuit breaker that opens after
+    3 consecutive portal errors (15 / 30 / 60 min), while the other portals keep running."""
     store = store_for("instahyre", "naukri", "wellfound")
     adapters = {"instahyre": TimeoutPortal("instahyre", None), "naukri": ExternalAdapter("naukri", None),
                 "wellfound": ExternalAdapter("wellfound", None)}
@@ -316,19 +318,20 @@ async def test_round_robin_start_and_bounded_backoff_isolate_a_failing_portal():
     assert [p.platform for p in first.portals] == ["instahyre", "naukri", "wellfound"]
     assert [p.platform for p in second.portals] == ["naukri", "wellfound", "instahyre"]  # rotated start
     assert first.portals[0].skipped == "error: TimeoutError"
-    assert (second.portals[2].skipped or "").startswith("backoff_until:")  # failing portal waits, others ran
+    assert second.portals[2].skipped == "error: TimeoutError"  # 2 failures: breaker still closed
     assert second.portals[0].skipped is None and second.portals[1].skipped is None
-    failures, until = worker.portal_backoff["instahyre"]
-    assert failures == 1 and until == NOON_IST + timedelta(minutes=5)
-    clock["now"] = NOON_IST + timedelta(minutes=6)
-    await worker.cycle()
-    failures, until = worker.portal_backoff["instahyre"]
-    assert failures == 2 and until == clock["now"] + timedelta(minutes=10)  # exponential, capped at 60 min
-    for _ in range(6):
-        clock["now"] = until + timedelta(seconds=1)
+    assert store.rules["instahyre"].circuit_failures == 2 and store.rules["instahyre"].circuit_level == 0
+    await worker.cycle()  # third consecutive portal error opens the breaker (level 1 = 15 min)
+    assert store.rules["instahyre"].circuit_level == 1
+    assert store.rules["instahyre"].circuit_open_until == NOON_IST + timedelta(minutes=15)
+    fourth = await worker.cycle()
+    by = {p.platform: p for p in fourth.portals}
+    assert (by["instahyre"].skipped or "").startswith("circuit_open_until:")
+    assert by["naukri"].skipped is None and by["wellfound"].skipped is None
+    for minutes in (30, 60, 60):  # half-open trial fails -> next level, capped at 60 min
+        clock["now"] = store.rules["instahyre"].circuit_open_until + timedelta(seconds=1)
         await worker.cycle()
-        failures, until = worker.portal_backoff["instahyre"]
-    assert until - clock["now"] <= timedelta(hours=1)
+        assert store.rules["instahyre"].circuit_open_until == clock["now"] + timedelta(minutes=minutes)
 
 
 # --- Naukri chatbot questionnaire (synthetic page; the "submission" never leaves Chromium) ----------

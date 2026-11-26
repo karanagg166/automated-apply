@@ -8,8 +8,8 @@ import pytest
 from sqlalchemy import select
 
 from backend.app.ai.schemas import GenerateRequest
-from backend.app.browser.owner_approval import approval_header
 from backend.app.core.config import get_settings
+from backend.app.dashboard.owner_approval import approval_header
 from backend.app.knowledge.missing_input import (
     MissingInputApprove,
     MissingInputEdit,

@@ -33,12 +33,9 @@ import { Button } from "@/components/ui";
 const nav = [
   ["Overview", "/", LayoutDashboard],
   ["Autopilot", "/autopilot", Bot],
-  ["Agent", "/agent", Command],
-  ["Workflow", "/workflow", Command],
   ["Discover", "/discover", Compass],
   ["Startups", "/startups", Building2],
   ["Jobs", "/jobs", BriefcaseBusiness],
-  ["Naukri", "/naukri", BriefcaseBusiness],
   ["People", "/people", Users],
   ["Applications", "/applications", LayoutDashboard],
   ["Needs Input", "/needs-input", CircleHelp],

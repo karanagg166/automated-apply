@@ -67,3 +67,9 @@ async def require_api_token(
         supplied.encode("utf-8"), token.encode("utf-8")
     ):
         raise HTTPException(401, "Invalid or missing bearer token", headers={"WWW-Authenticate": "Bearer"})
+
+
+def owner_ui(request: Request) -> None:
+    """Reject delegated agent/extension clients on owner-dashboard-only routes."""
+    if request.headers.get("X-Agent-Client") or request.headers.get("Origin", "").startswith("chrome-extension:"):
+        raise HTTPException(403, "owner_ui_required")

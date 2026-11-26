@@ -173,6 +173,16 @@ class FeedJob:
     work_mode: str | None = None
 
 
+def aware_utc(value: datetime | None) -> datetime | None:
+    return value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value
+
+
+def newest_first(job: FeedJob) -> tuple[bool, float]:
+    """Sort key: postings with a known time first, newest first; stable for equal keys."""
+    posted = aware_utc(job.posted_at)
+    return posted is None, -(posted.timestamp() if posted is not None else 0.0)
+
+
 class FeedAdapter:
     platform = "feed"
     attribution: str | None = None
@@ -231,23 +241,26 @@ class FeedAdapter:
 
     def listing(self, job: FeedJob) -> JobListing:
         age = age_days_from(job.posted_at, self.clock())
+        posted = aware_utc(job.posted_at)
         return JobListing(platform=self.platform, external_job_id=job.external_job_id, url=job.url, title=job.title,
                           company=job.company, posted_text=job.posted_at.isoformat() if job.posted_at else None,
-                          posted_age_days=age, applicants=UNKNOWN_APPLICANTS)
+                          posted_age_days=age, applicants=UNKNOWN_APPLICANTS, posted_at=posted)
 
     async def discover_jobs(self, page: Any, *, query: str, limit: int = 20,
                             job_age_days: int | None = None) -> list[JobListing]:
-        output = []
+        matches = []
         for job in await self.fetch(query, max(limit * 5, 50)):
             if not role_query_match(job.title, query):
                 continue
             age = age_days_from(job.posted_at, self.clock())
             if job_age_days is not None and age is not None and age > job_age_days:
                 continue
+            matches.append(job)
+        matches.sort(key=newest_first)  # Phase 9B: freshest postings first, unknown age last
+        output = []
+        for job in matches[:limit]:
             self.remember(job)
             output.append(self.listing(job))
-            if len(output) >= limit:
-                break
         return output
 
     async def lookup(self, listing: JobListing) -> FeedJob | None:

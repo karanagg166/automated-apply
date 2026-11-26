@@ -113,11 +113,7 @@ function mount() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <CompanyPeople
-        companyId="comp-1"
-        companyName="Acme Tech"
-        domain="acme-tech.example"
-      />
+      <CompanyPeople companyId="comp-1" />
     </QueryClientProvider>,
   );
 }

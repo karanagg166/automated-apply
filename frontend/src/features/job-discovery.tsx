@@ -372,7 +372,7 @@ export function JobDiscovery() {
       setAttemptError(error);
     }
     setAttemptLoaded(true);
-    // Mount performs a saved GET only. New dispatch and local completion require their own actions.
+    // Mount performs a saved GET only. New dispatch requires its own explicit action.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -516,20 +516,14 @@ export function JobDiscovery() {
           )}
           {attempt && (
             <Notice>
-              A saved search is retained for recovery. Refresh its result or
-              complete its saved observations before preparing another search.
+              A saved search is retained for recovery. Refresh and review its
+              result before preparing another search.
               <Button
                 disabled={requestPending}
                 onClick={() => inspectMutation.mutate()}
               >
                 Recover saved discovery
               </Button>
-              {runResult?.usage.finding_retained === true &&
-                !terminalReviewed && (
-                  <Button disabled={requestPending} onClick={handleRetry}>
-                    Complete saved discovery
-                  </Button>
-                )}
             </Notice>
           )}
           {inspectMutation.isError && !runResult && (
@@ -1224,15 +1218,6 @@ export function JobDiscovery() {
                   >
                     Refresh saved read
                   </Button>
-                  {readResult?.local_merge_available &&
-                    !readResult.finding_retained && (
-                      <Button
-                        disabled={requestPending}
-                        onClick={() => recoverReadMutation.mutate(false)}
-                      >
-                        Complete saved read pages
-                      </Button>
-                    )}
                   {!readResult && (
                     <>
                       <label className="check-label">

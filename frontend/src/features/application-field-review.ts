@@ -1,5 +1,4 @@
 "use client";
-import { type ExtensionTask } from "@/features/extension-assistant";
 import { type Schema } from "@/lib/api";
 export type FieldReviewStatus =
   | "Ready"
@@ -11,13 +10,11 @@ export type FieldReviewStatus =
 
 export function getFieldReviewStatus({
   field,
-  task,
   isReviewed,
   isDirty,
   exceedsLimit,
 }: {
   field: Schema<"PacketField">;
-  task?: ExtensionTask | null;
   isReviewed: boolean;
   isDirty?: boolean;
   exceedsLimit?: boolean;
@@ -44,10 +41,6 @@ export function getFieldReviewStatus({
 
   // 3. Challenge Required
   const isChallenge = Boolean(
-    task?.challenge_state === "CHALLENGE_BLOCKING" ||
-    task?.challenge_state === "WIDGET_PRESENT_UNVERIFIED" ||
-    task?.challenge_state === "UNKNOWN" ||
-    task?.state === "CHALLENGE_REQUIRED" ||
     (field.category as string) === "challenge" ||
     (field.category as string) === "captcha",
   );
@@ -91,7 +84,7 @@ export function getFieldReviewStatus({
   if (isNeedsAnswer) {
     return {
       status: "Needs Answer",
-      nextAction: "Provide an answer below or queue for Telegram.",
+      nextAction: "Provide an answer below or resolve it in Needs Input.",
       tone: "amber",
     };
   }
@@ -100,7 +93,7 @@ export function getFieldReviewStatus({
   if (isReviewed && !isDirty) {
     return {
       status: "Ready",
-      nextAction: "Ready to fill in Chrome once packet is approved.",
+      nextAction: "Ready for manual handoff once the packet is approved.",
       tone: "green",
     };
   }

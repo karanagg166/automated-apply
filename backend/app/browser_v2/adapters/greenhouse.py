@@ -1,6 +1,6 @@
 """Greenhouse direct-ATS adapter (zero login).
 
-Discovery reuses `services.job_sources.direct_api.GreenhouseAdapter` (public
+Discovery uses the v2 `feed_clients.greenhouse.GreenhouseClient` (public
 boards-api.greenhouse.io, fixed host, size-capped JSON) per configured board token:
 `candidate_profiles.preferences.greenhouse_boards` ({token: company} or [token]) plus
 the GREENHOUSE_BOARDS setting. The hosted form on boards/job-boards.greenhouse.io is
@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import quote, urlsplit
 
 from backend.app.browser_v2.adapters.common import classify_ats, html_to_text
+from backend.app.browser_v2.adapters.feed_clients.greenhouse import GreenhouseClient
 from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
 
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -74,14 +75,10 @@ class GreenhouseAdapter(FeedAdapter):
         self.boards = dict(list(boards.items())[:MAX_BOARDS])
 
     async def fetch_board(self, token: str, company: str | None) -> list[FeedJob]:
-        from backend.app.services.job_sources.direct_api import (
-            GreenhouseAdapter as Source,
-        )
-
         async def load() -> list[FeedJob]:
             client = self.memo_client()
             try:
-                source = Source(board_token=token, http_client=client, company_name=company)
+                source = GreenhouseClient(client, board_token=token, company_name=company)
                 jobs = await fetch_all_pages(
                     source, lambda limit, page: source.fetch_jobs(board_token=token, limit=limit, page=page))
             finally:

@@ -172,7 +172,7 @@ export function StartupDiscovery({
       setError(e);
     }
     setLoaded(true);
-    // Saved GET only on mount; every execution/completion action remains explicit.
+    // Saved GET only on mount; every execution action remains explicit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const changed = (clearPaid = true) => {
@@ -196,20 +196,11 @@ export function StartupDiscovery({
           {error != null && <ErrorState error={error} />}
           {attempt && (
             <Notice>
-              A saved startup search is retained. Refresh it or complete its
-              saved observations before another search.
+              A saved startup search is retained. Refresh and review it before
+              another search.
               <Button disabled={pending} onClick={() => inspect.mutate()}>
                 Refresh saved startup search
               </Button>
-              {run?.usage?.finding_retained === true &&
-                !startupComplete(run) && (
-                  <Button
-                    disabled={pending}
-                    onClick={() => execute.mutate(false)}
-                  >
-                    Complete saved startup search
-                  </Button>
-                )}
             </Notice>
           )}
           {sources.isPending ? (
@@ -403,8 +394,8 @@ export function StartupDiscovery({
               {!startupComplete(run) && (
                 <Notice>
                   The original child remains{" "}
-                  {readable(run.child_run?.status ?? "pending")}. Saved
-                  refresh/local completion does not repeat provider acquisition.
+                  {readable(run.child_run?.status ?? "pending")}. Saved refresh
+                  does not repeat provider acquisition.
                 </Notice>
               )}
               {run.child_run && (

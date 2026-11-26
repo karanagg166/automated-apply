@@ -220,20 +220,16 @@ it("allows only the exact candidate-context review operations", () => {
   ).toBe(false);
 });
 
-it("allows only the exact owner-mediated company source operation", () => {
-  const route =
-    "browser-applications/11111111-1111-4111-8111-111111111111/company-source-preview";
-  expect(permittedRoute(route, "POST")).toBe(true);
-  expect(permittedRoute(route, "GET")).toBe(false);
-  expect(permittedRoute(route + "/fetch", "POST")).toBe(false);
-});
-
-it("allows only the authenticated read path for browser operation status", () => {
-  const path =
-    "browser-applications/11111111-1111-4111-8111-111111111111/operation";
-  expect(permittedRoute(path, "GET")).toBe(true);
-  expect(permittedRoute(path, "POST")).toBe(false);
-  expect(permittedRoute(path + "/execute", "GET")).toBe(false);
+it("no longer proxies the retired browser-assistant operations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  for (const operation of ["company-source-preview", "operation"]) {
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "POST"),
+    ).toBe(false);
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "GET"),
+    ).toBe(false);
+  }
 });
 
 it("limits answer reuse routes to saved drafts and explicit approval operations", () => {
@@ -251,30 +247,27 @@ it("limits answer reuse routes to saved drafts and explicit approval operations"
   expect(permittedRoute("application-answers/generate", "POST")).toBe(false);
 });
 
-it("browser gateway exposes only authenticated application operations", () => {
-  expect(permittedRoute("browser-applications/policy", "GET")).toBe(true);
-  expect(permittedRoute("browser-applications/policy", "POST")).toBe(false);
+it("retired browser, agent, execution and rust-agent gateways stay closed", () => {
   const id = "11111111-1111-4111-8111-111111111111";
-  expect(permittedRoute("browser-applications", "POST")).toBe(true);
-  expect(permittedRoute(`browser-applications/${id}/open`, "POST")).toBe(true);
-  expect(permittedRoute(`browser-applications/${id}/actions`, "POST")).toBe(
-    true,
-  );
-  expect(permittedRoute(`browser-applications/${id}`, "GET")).toBe(true);
-  for (const operation of ["page-preview", "resume-page"]) {
-    expect(
-      permittedRoute(`browser-applications/${id}/${operation}`, "POST"),
-    ).toBe(true);
-    expect(
-      permittedRoute(`browser-applications/${id}/${operation}`, "GET"),
-    ).toBe(false);
+  for (const [path, method] of [
+    ["browser-applications/policy", "GET"],
+    ["browser-applications", "POST"],
+    [`browser-applications/${id}/open`, "POST"],
+    [`browser-applications/${id}/actions`, "POST"],
+    [`browser-applications/${id}`, "GET"],
+    ["browser/plans", "GET"],
+    ["browser/chrome-profiles", "GET"],
+    ["agent/commands", "POST"],
+    ["agent/status", "GET"],
+    ["execution/queue", "GET"],
+    ["execution/naukri", "GET"],
+    ["local-agent/commands", "POST"],
+    ["rust-agent/research/people/status", "GET"],
+    [`discovery/runs/${id}/complete`, "POST"],
+    [`startups/discovery/runs/${id}/complete`, "POST"],
+  ]) {
+    expect(permittedRoute(path, method)).toBe(false);
   }
-  for (const path of ["cookies", "tabs", "evaluate", "filesystem"]) {
-    expect(permittedRoute(`browser-applications/${id}/${path}`, "POST")).toBe(
-      false,
-    );
-  }
-  expect(permittedRoute(`browser-applications/${id}/open`, "GET")).toBe(false);
 });
 
 it("permits missing answer queue operations and blocks generation/unauthorized mutations", () => {
@@ -345,7 +338,7 @@ it("allows only exact draft intake and packet-question routes", () => {
   expect(permittedRoute("application-packets/intake", "POST")).toBe(true);
   expect(
     permittedRoute(`execution/packets/${id}/questions/${id}`, "POST"),
-  ).toBe(true);
+  ).toBe(false);
   expect(permittedRoute(`execution/packets/${id}/questions/${id}`, "GET")).toBe(
     false,
   );

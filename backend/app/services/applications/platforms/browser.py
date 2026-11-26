@@ -30,9 +30,11 @@ class AssistedEmployerPlatform:
                 and not parsed.fragment
             )
             if mock:
-                from backend.app.browser.runner import origin
-
-                if origin(job.application_url) in settings.BROWSER_ALLOWED_ORIGINS:
+                try:
+                    origin = f"http://127.0.0.1:{parsed.port or 80}"
+                except ValueError:
+                    origin = None
+                if origin in settings.BROWSER_ALLOWED_ORIGINS:
                     destination = job.application_url
         return Destination(
             application_url=destination,

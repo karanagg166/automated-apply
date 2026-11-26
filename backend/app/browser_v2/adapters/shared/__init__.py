@@ -1,0 +1,138 @@
+"""Shared Phase 6A adapter engine (split out of `adapters/common.py`, which re-exports it)."""
+
+from __future__ import annotations
+
+from backend.app.browser_v2.adapters.shared.apply_flow import (
+    CONFIRM_TEXT,
+    CONFIRM_URL,
+    NEXT_TEXT,
+    SUBMIT_TEXT,
+    HostedAtsApplier,
+    button_locator,
+    confirmation_source,
+    form_state,
+    poll_state,
+    visible_buttons,
+)
+from backend.app.browser_v2.adapters.shared.discovery import (
+    PortalDiscoveryMixin,
+)
+from backend.app.browser_v2.adapters.shared.dom_scripts import (
+    CARDS_JS,
+    COMPANY_BADGE,
+    DETAIL_JS,
+    DIALOG_JS,
+    FORM_STATE_JS,
+    MARK_APPLY_JS,
+    OPTIONS_JS,
+    PROBE_JS,
+    SCAN_JS,
+)
+from backend.app.browser_v2.adapters.shared.external_handoff import (
+    _GENERIC_LABELS,
+    _GH_ID,
+    _LEVER_ID,
+    GREENHOUSE_HOSTS,
+    GREENHOUSE_PATH,
+    LEVER_HOSTS,
+    LEVER_PATH,
+    SUPPORTED_ATS,
+    AtsHandoff,
+    _board_guess,
+    ats_form_url,
+    ats_handoff_target,
+    classify_ats,
+)
+from backend.app.browser_v2.adapters.shared.form_filler import (
+    AUTOCOMPLETE_MAP,
+    COVER_FILE,
+    IDENTITY_FIELDS,
+    NAME_ATTR_MAP,
+    RESUME_FIELD,
+    FillOutcome,
+    HostedFormFiller,
+    clean_label,
+    identity_key,
+)
+from backend.app.browser_v2.adapters.shared.interactive import (
+    InteractivePortalAdapter,
+)
+from backend.app.browser_v2.adapters.shared.portal_apply import (
+    PortalApplyMixin,
+)
+from backend.app.browser_v2.adapters.shared.portal_base import (
+    PortalAdapterBase,
+    PortalConfig,
+)
+from backend.app.browser_v2.adapters.shared.text import (
+    COVER_NOTE,
+    MAX_DESCRIPTION,
+    MAX_FORM_STEPS,
+    NoteComposer,
+    S,
+    age_days_from,
+    deterministic_intro,
+    html_to_text,
+    resolve_question,
+    role_query_match,
+)
+
+__all__ = [
+    "AUTOCOMPLETE_MAP",
+    "CARDS_JS",
+    "COMPANY_BADGE",
+    "CONFIRM_TEXT",
+    "CONFIRM_URL",
+    "COVER_FILE",
+    "COVER_NOTE",
+    "DETAIL_JS",
+    "DIALOG_JS",
+    "FORM_STATE_JS",
+    "GREENHOUSE_HOSTS",
+    "GREENHOUSE_PATH",
+    "IDENTITY_FIELDS",
+    "LEVER_HOSTS",
+    "LEVER_PATH",
+    "MARK_APPLY_JS",
+    "MAX_DESCRIPTION",
+    "MAX_FORM_STEPS",
+    "NAME_ATTR_MAP",
+    "NEXT_TEXT",
+    "OPTIONS_JS",
+    "PROBE_JS",
+    "RESUME_FIELD",
+    "SCAN_JS",
+    "SUBMIT_TEXT",
+    "SUPPORTED_ATS",
+    "_GENERIC_LABELS",
+    "_GH_ID",
+    "_LEVER_ID",
+    "AtsHandoff",
+    "FillOutcome",
+    "HostedAtsApplier",
+    "HostedFormFiller",
+    "InteractivePortalAdapter",
+    "NoteComposer",
+    "PortalAdapterBase",
+    "PortalApplyMixin",
+    "PortalConfig",
+    "PortalDiscoveryMixin",
+    "S",
+    "_board_guess",
+    "age_days_from",
+    "ats_form_url",
+    "ats_handoff_target",
+    "button_locator",
+    "classify_ats",
+    "clean_label",
+    "confirmation_source",
+    "deterministic_intro",
+    "form_state",
+    "html_to_text",
+    "identity_key",
+    "poll_state",
+    "resolve_question",
+    "role_query_match",
+    "visible_buttons",
+]
+

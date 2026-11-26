@@ -187,21 +187,40 @@ def private_file(path: Path) -> tuple[bool, str]:
     return True, str(path)
 
 
-def migration_applied(paths: Paths, runner: Runner) -> tuple[bool, str]:
-    """Read-only: `migrate_v2_core check` reports per-table presence."""
+def migration_report(paths: Paths, runner: Runner) -> tuple[dict | None, str]:
+    """Read-only `migrate_v2_core check` output (None + reason when unavailable)."""
     result = runner([str(paths.python), "-m", "backend.scripts.migrate_v2_core", "check"])
     if result.returncode != 0:
-        return False, f"migrate_v2_core check failed (exit {result.returncode})"
+        return None, f"migrate_v2_core check failed (exit {result.returncode})"
     try:
-        report = json.loads(result.stdout)
+        return json.loads(result.stdout), ""
     except ValueError:
-        return False, "migrate_v2_core check output unreadable"
+        return None, "migrate_v2_core check output unreadable"
+
+
+def migration_applied(paths: Paths, runner: Runner, report: dict | None = None) -> tuple[bool, str]:
+    """Read-only: `migrate_v2_core check` reports per-table presence."""
+    if report is None:
+        report, error = migration_report(paths, runner)
+        if report is None:
+            return False, error
     from backend.app.operations.v2_schema import TABLES
 
     missing = sorted(TABLES - set(report.get("v2_tables_present") or []))
     if not missing:
         return True, f"all {len(TABLES)} v2 tables present"
     return False, f"migration 004 not applied ({len(missing)}/{len(TABLES)} v2 tables missing)"
+
+
+def phase9_migration_applied(report: dict | None) -> tuple[bool, str, bool]:
+    """(ok, detail, blocking) for followup 005. Older check output without a `phase9` key is a warning."""
+    status = (report or {}).get("phase9")
+    if not isinstance(status, dict):
+        return False, "phase9 status unknown (update migrate_v2_core)", False
+    if status.get("status") == "applied":
+        return True, "Phase 9 schema (followup 005) present", True
+    return False, ("followup 005 not applied: run `python -m backend.scripts.migrate_v2_core apply-phase9` "
+                   "right before this cutover (older API releases refuse unknown tables at startup)"), True
 
 
 def frontend_build_state(repo: Path) -> tuple[bool, str, bool]:
@@ -238,8 +257,12 @@ def prerequisites(paths: Paths, runner: Runner, *, check_migration: bool = True)
     items.append(Prereq("brave_profile", profile_ok, str(paths.profile_dir) if profile_ok else
                         f"no logged-in profile at {paths.profile_dir}: run cli login-setup first"))
     if check_migration:
-        ok, detail = migration_applied(paths, runner)
+        report, error = migration_report(paths, runner)
+        ok, detail = migration_applied(paths, runner, report) if report is not None else (False, error)
         items.append(Prereq("migration_004", ok, detail))
+        if report is not None:
+            ok9, detail9, blocking9 = phase9_migration_applied(report)
+            items.append(Prereq("migration_005", ok9, detail9, blocking=blocking9))
     desktop = paths.home / "Desktop"
     if desktop in paths.repo.parents:
         items.append(Prereq("macos_tcc", False, "repo lives under ~/Desktop: if a service log shows "

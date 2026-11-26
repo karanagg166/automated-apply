@@ -139,9 +139,12 @@ async def test_live_cycle_applies_with_jitter_and_recycle_checks():
     portal = report.portals[0]
     assert portal.applied == 2 and [d for _, d in adapter.applied] == [False, False]
     assert store.records[("naukri", "naukri-1")].state is S.APPLIED
-    # Two 45-150 s jitters (sliced into 5 s pause-aware chunks) plus one 3-8 s inspection pause.
-    assert 2 * 45 + 3 <= sum(sleeps.calls) <= 2 * 150 + 8 + 10
+    # Phase 9B: the 45-150 s jitter is a per-portal cooldown, not a sleep after every apply. Job 2
+    # waits out job 1's cooldown (sliced into 5 s pause-aware chunks) plus one 3-8 s inspection
+    # pause; the cooldown after the last apply costs nothing in this cycle.
+    assert 45 + 3 <= sum(sleeps.calls) <= 150 + 8 + 5
     assert all(s <= 5 for s in sleeps.calls)
+    assert report.portals[0].deferred == 1 and "naukri" in worker.next_apply_at
     assert worker.service.manager.recycle_checks >= 2  # 3-hour recycle checked between jobs
 
 

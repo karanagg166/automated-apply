@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.app.ai_v2.semantic_cache import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS
+from backend.app.ai_v2.semantic_cache.models import MAX_ANSWER_CHARS, MAX_QUESTION_CHARS
 
 ProviderState = Literal["unconfigured", "healthy", "cooldown", "circuit_open"]
 

@@ -1,6 +1,6 @@
 """Lever direct-ATS adapter (zero login).
 
-Discovery reuses `services.job_sources.public_ats.LeverAdapter` (api.lever.co /
+Discovery uses the v2 `feed_clients.lever.LeverClient` (api.lever.co /
 api.eu.lever.co postings feed, allowlisted per board, identity-checked hosted URLs)
 for `preferences.lever_boards` + the LEVER_BOARDS setting. The hosted form at
 jobs.lever.co/<board>/<id>/apply is filled by `HostedAtsApplier`.
@@ -13,6 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from backend.app.browser_v2.adapters.common import html_to_text
+from backend.app.browser_v2.adapters.feed_clients.lever import LeverClient
 from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
 from backend.app.browser_v2.adapters.greenhouse import MAX_BOARDS, board_map
 
@@ -51,12 +52,10 @@ class LeverAdapter(FeedAdapter):
         self.boards = dict(list(boards.items())[:MAX_BOARDS])
 
     async def fetch_board(self, board: str, company: str | None) -> list[FeedJob]:
-        from backend.app.services.job_sources.public_ats import LeverAdapter as Source
-
         async def load() -> list[FeedJob]:
             client = self.memo_client()
             try:
-                source = Source(http_client=client)
+                source = LeverClient(client)
                 source.boards = {board: company or board}
                 jobs = await fetch_all_pages(source, lambda limit, page: source.fetch_jobs(limit=limit, page=page))
             finally:
@@ -66,7 +65,7 @@ class LeverAdapter(FeedAdapter):
                             company=job.company_name or company or board,
                             apply_url=job.application_url or job.original_url,
                             description=html_to_text(job.description),
-                            posted_at=created_at((job.data_provenance or {}).get("source_fields") or {}),
+                            posted_at=created_at(dict(job.source_fields or {})),
                             location=job.location, salary_text=job.salary_raw,
                             work_mode=None if job.remote_type == "unknown" else job.remote_type)
                     for job in jobs if job.source_job_id]

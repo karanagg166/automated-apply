@@ -19,6 +19,11 @@ file still imports a group-B module, or when the tag does not contain the path.
 2026-11-26 (owner-approved batch): rust/, extension/, Cargo.*, .cargo/, rust-ci.yml,
 backend/app/mcp_server.py and the extension-era screenshots were removed from the working tree
 (recoverable from tag archive/pre-v2-cleanup-20261126); group B now plans only what remains.
+2026-11-27 (Phase 9E): the v1 Python runtime was retired from the working tree as well —
+backend/app/{agent,browser,execution,mcp}, the dead backend/app/local_agent modules (native host,
+v1 Telegram bot, command dispatch), backend/scripts/phase1, verify_phase*.py and the browser /
+command / execution worker and verification scripts, plus phase1-connections.yml. They are listed
+below so the plan records them; already-removed paths plan nothing.
 Never targeted (checked on the resolved path of every target): ~/Library/Application
 Support/automated-apply/ (Brave profile, receipts), phase1.private.env, frontend.private.env,
 plist-backups/, reports/v2-migration/ and .git/. Note that
@@ -50,8 +55,22 @@ REPORTS_KEEP = frozenset({"v2-migration", "phase7-openapi.json"})
 
 GROUP_B_PATHS = ("rust", "extension", "Cargo.toml", "Cargo.lock", ".cargo", ".github/workflows/rust-ci.yml",
                  "backend/app/mcp_server.py", "backend/app/agent", "backend/app/browser", "backend/app/execution",
-                 "backend/scripts/phase1", "backend/scripts/browser_mock_demo.py")
-GROUP_B_GLOBS = ("backend/scripts/verify_phase*.py",)
+                 "backend/app/mcp", "backend/scripts/phase1", "backend/scripts/browser_mock_demo.py",
+                 *(f"backend/app/local_agent/{name}.py" for name in (
+                     "conversation", "intents", "local_classifier", "memory", "native_host", "service", "telegram",
+                     "telegram_pairing")),
+                 *(f"backend/scripts/{name}.py" for name in (
+                     "browser_assistant", "execution_worker", "monitor_naukri_acceptance", "phase35_runtime_audit",
+                     "phase52_extension_fixture", "request_naukri_maintenance", "run_browser_acceptance",
+                     "run_browser_worker", "run_command_worker", "verify_chrome_devtools_mcp",
+                     "verify_extension_cutover", "verify_live_ollama", "verify_application_queue_postgres",
+                     "verify_command_postgres", "verify_company_source", "verify_complete_application",
+                     "verify_execution_postgres", "verify_extension_tasks_postgres",
+                     "verify_naukri_answer_reuse_postgres", "verify_naukri_recurring_postgres",
+                     "verify_naukri_submission_postgres", "verify_owner_lock_concurrency",
+                     "verify_submission_postgres")),
+                 ".github/workflows/phase1-connections.yml")
+GROUP_B_GLOBS = ("backend/scripts/verify_phase*.py", "backend/scripts/verify_browser_*.py")
 GROUP_B_SCREENSHOT_DIRS = ("docs/acceptance", "docs/phase52/screenshots", "docs/phase53/screenshots")
 
 GROUP_C_AGENT_LABELS = ("api", "execution", "telegram", "rust", "frontend")

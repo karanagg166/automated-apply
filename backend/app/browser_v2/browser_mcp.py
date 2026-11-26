@@ -209,15 +209,17 @@ async def get_mail_and_enrichment_status() -> dict[str, Any]:
 # --- Phase 6A: control agent, event bus, read-only recruiter-reply feed ----------------------
 @mcp.tool()
 async def agent_control_chat(text: str) -> dict[str, Any]:
-    """Send one owner message to the LangGraph control agent (same guardrailed tools as Telegram
-    free chat: portal rules, preferences, status, semantic-cache teaching, worker control)."""
+    """Send one owner message to the LLM-first control agent (same audited, guardrailed tools as
+    Telegram free chat; risky writes need a follow-up "confirm" within 10 minutes)."""
     from backend.app.agent_v2.control_graph import ControlAgent
+    from backend.app.browser_v2.store import agent_chat_key
 
     svc = await service()
     reader = getattr(svc, "mail_reader", None)
     agent = ControlAgent(svc.store, ai=svc.ai, mail_events=getattr(reader, "events", None),
                          event_bus=getattr(svc, "event_bus", None))
-    return plain(await agent.run(text[:2000]))
+    result = await agent.run_chat(text[:2000], chat_key=agent_chat_key("mcp", "owner"), source="mcp")
+    return plain({k: v for k, v in result.items() if k != "hitl_resolutions"})
 
 
 @mcp.tool()

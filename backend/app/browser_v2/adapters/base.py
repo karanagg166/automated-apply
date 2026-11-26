@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
+from backend.app.browser_v2.domain import JobListing
 from backend.app.browser_v2.rules import ApplicantCount
 from backend.app.browser_v2.state import ApplicationState
 
@@ -22,21 +23,6 @@ class SessionCheck:
     refreshed: bool = False
     reason: str | None = None
     details: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class JobListing:
-    platform: str
-    external_job_id: str
-    url: str
-    title: str | None = None
-    company: str | None = None
-    posted_text: str | None = None
-    posted_age_days: int | None = None
-    age_is_lower_bound: bool = False
-    applicants: ApplicantCount | None = None
-    # Phase 8b: required experience as shown by the portal ("0 - 5 years", "4-5 Yrs", "Fresher").
-    experience_text: str | None = None
 
 
 @dataclass(frozen=True)

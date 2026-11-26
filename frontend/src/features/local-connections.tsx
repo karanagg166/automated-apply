@@ -1,5 +1,4 @@
 "use client";
-import { ChromeProfiles } from "@/features/chrome-profiles";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, dateLabel, readable } from "@/lib/api";
@@ -80,7 +79,6 @@ export function LocalConnections() {
   const value = draft || policy.data;
   return (
     <section className="stack" aria-label="Local foundation connections">
-      <ChromeProfiles />
       <Notice>
         The dashboard shows the evidence available for each connection.
         Application and provider permissions are managed in their own controls.

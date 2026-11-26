@@ -227,24 +227,11 @@ async function get(
     throw error;
   }
 }
-async function completeOriginal(
-  owner: DiscoveryAttempt,
-): Promise<JobDiscoveryRun> {
-  let run = validateDiscoveryRun(
+async function readOriginal(owner: DiscoveryAttempt): Promise<JobDiscoveryRun> {
+  return validateDiscoveryRun(
     await api<JobDiscoveryRun>(base(owner.requestId)),
     owner,
   );
-  if (!discoveryComplete(run)) {
-    if (run.usage.finding_retained !== true) throw review();
-    run = validateDiscoveryRun(
-      await api<JobDiscoveryRun>(`${base(owner.requestId)}/complete`, {
-        method: "POST",
-        body: "{}",
-      }),
-      owner,
-    );
-  }
-  return run;
 }
 /** Saved GETs and local pointer restoration only. Mount cannot dispatch or complete server work. */
 export async function inspectDiscoveryRead(): Promise<DiscoveryReadState> {
@@ -257,14 +244,13 @@ export async function inspectDiscoveryRead(): Promise<DiscoveryReadState> {
     };
   });
 }
-/** One explicit read consent may admit a new bounded GET round; replay can only read or complete saved work. */
+/** One explicit read consent may admit a new bounded GET round; replay can only read saved work. */
 export async function recoverDiscoveryRead(
   mayRead = false,
 ): Promise<DiscoveryReadState> {
   return withDiscoveryAttemptLock(async () => {
     let { owner, run, attempt } = await context();
     if (discoveryComplete(run) || run.usage.finding_retained === true) {
-      run = await completeOriginal(owner);
       return {
         run,
         attempt,
@@ -281,17 +267,7 @@ export async function recoverDiscoveryRead(
     }
     let saved = attempt ? await get(attempt, run.source) : null;
     if (saved) {
-      if (saved.local_merge_available && !saved.finding_retained) {
-        saved = validate(
-          await api<DiscoveryReadResult>(`${path(attempt!)}/complete`, {
-            method: "POST",
-            body: "{}",
-          }),
-          attempt!,
-          run.source,
-        );
-      }
-      if (saved.finding_retained) run = await completeOriginal(owner);
+      if (saved.finding_retained) run = await readOriginal(owner);
       return { run, attempt, read: saved };
     }
     if (!mayRead)
@@ -312,7 +288,7 @@ export async function recoverDiscoveryRead(
       attempt,
       run.source,
     );
-    if (saved.finding_retained) run = await completeOriginal(owner);
+    if (saved.finding_retained) run = await readOriginal(owner);
     return { run, attempt, read: saved };
   });
 }

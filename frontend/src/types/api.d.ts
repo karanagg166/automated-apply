@@ -608,6 +608,40 @@ export interface paths {
     patch: operations["patch_screening_profile_api_v1_v2_screening_profile_patch"];
     trace?: never;
   };
+  "/api/v1/v2/profile-sync/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Profile Sync Status */
+    get: operations["profile_sync_status_api_v1_v2_profile_sync_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/profile-sync/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Profile Sync */
+    post: operations["request_profile_sync_api_v1_v2_profile_sync_request_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/v2/applications": {
     parameters: {
       query?: never;
@@ -1001,8 +1035,9 @@ export interface paths {
     put?: never;
     /**
      * Agent Chat
-     * @description The same LangGraph control agent as Telegram free chat (guardrailed tools only; it can
-     *     never send email, delete data or re-apply). Effects use the borrowed pooled connection.
+     * @description The same LLM-first agent as Telegram free chat (audited, guardrailed tools only; it can never
+     *     send email, delete data or re-apply; deterministic fallback without an LLM provider). Risky
+     *     writes need a follow-up "confirm" within 10 minutes. Effects use the borrowed pooled connection.
      */
     post: operations["agent_chat_api_v1_v2_agent_chat_post"];
     delete?: never;
@@ -1169,40 +1204,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/local-agent/commands": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Owner Command */
-    post: operations["owner_command_api_v1_local_agent_commands_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/local-agent/chrome": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Chrome Command */
-    post: operations["chrome_command_api_v1_local_agent_chrome_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/local-agent/history": {
     parameters: {
       query?: never;
@@ -1212,108 +1213,6 @@ export interface paths {
     };
     /** History */
     get: operations["history_api_v1_local_agent_history_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/commands": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Command */
-    post: operations["command_api_v1_agent_commands_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/campaigns": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** History */
-    get: operations["history_api_v1_agent_campaigns_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/campaigns/{campaign_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Status */
-    get: operations["status_api_v1_agent_campaigns__campaign_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/campaigns/{campaign_id}/approve": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Approve */
-    post: operations["approve_api_v1_agent_campaigns__campaign_id__approve_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/campaigns/{campaign_id}/cancel": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Cancel */
-    post: operations["cancel_api_v1_agent_campaigns__campaign_id__cancel_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/agent/status": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Provider Status */
-    get: operations["provider_status_api_v1_agent_status_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -2103,23 +2002,6 @@ export interface paths {
     };
     /** Integrations */
     get: operations["integrations_api_v1_integrations_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/integrations/mcp/status": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Mcp Integration Status */
-    get: operations["mcp_integration_status_api_v1_integrations_mcp_status_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -3102,584 +2984,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/browser/chrome-profiles": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Chrome Profiles */
-    get: operations["chrome_profiles_api_v1_browser_chrome_profiles_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/chrome-profiles/select": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Select Chrome Profile */
-    post: operations["select_chrome_profile_api_v1_browser_chrome_profiles_select_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/chrome-profiles/{profile_id}/disconnect": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Disconnect Chrome Profile */
-    post: operations["disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/chrome-profiles/commands": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Chrome Profile Command */
-    post: operations["chrome_profile_command_api_v1_browser_chrome_profiles_commands_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/extension-tasks": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Extension Tasks */
-    get: operations["extension_tasks_api_v1_browser_extension_tasks_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/extension-tasks/application/{application_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Extension Task */
-    get: operations["extension_task_api_v1_browser_extension_tasks_application__application_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/extension-tasks/{task_id}/control": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Control Extension Task */
-    post: operations["control_extension_task_api_v1_browser_extension_tasks__task_id__control_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/plans": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Plans */
-    get: operations["plans_api_v1_browser_plans_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/plans/{plan_id}/review": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Review */
-    post: operations["review_api_v1_browser_plans__plan_id__review_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/stop": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Stop */
-    post: operations["stop_api_v1_browser_stop_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/plans/{plan_id}/next": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Next Step */
-    post: operations["next_step_api_v1_browser_plans__plan_id__next_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/submissions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Submissions */
-    get: operations["submissions_api_v1_browser_submissions_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/submissions/{application_id}/approve": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Approve Submission */
-    post: operations["approve_submission_api_v1_browser_submissions__application_id__approve_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/submissions/{application_id}/execute": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Execute Submission */
-    post: operations["execute_submission_api_v1_browser_submissions__application_id__execute_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/submissions/stop": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Stop Submissions */
-    post: operations["stop_submissions_api_v1_browser_submissions_stop_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser/submissions/{application_id}/reconcile": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Reconcile Submission */
-    post: operations["reconcile_submission_api_v1_browser_submissions__application_id__reconcile_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Browser Policy */
-    get: operations["get_browser_policy_api_v1_browser_applications_policy_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/page-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Preview Current Page */
-    post: operations["preview_current_page_api_v1_browser_applications__packet_id__page_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/resume-page": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Resume Current Page */
-    post: operations["resume_current_page_api_v1_browser_applications__packet_id__resume_page_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/step-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Preview Step */
-    post: operations["preview_step_api_v1_browser_applications__packet_id__step_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/advance-step": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Advance Application Step */
-    post: operations["advance_application_step_api_v1_browser_applications__packet_id__advance_step_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/opportunity-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Preview Opportunity */
-    post: operations["preview_opportunity_api_v1_browser_applications__packet_id__opportunity_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/company-source-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Preview Company Source */
-    post: operations["preview_company_source_api_v1_browser_applications__packet_id__company_source_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/opportunity-approve": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Approve Opportunity */
-    post: operations["approve_opportunity_api_v1_browser_applications__packet_id__opportunity_approve_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Prepare Application */
-    post: operations["prepare_application_api_v1_browser_applications_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Application Status */
-    get: operations["get_application_status_api_v1_browser_applications__packet_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/operation": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Get Browser Operation */
-    get: operations["get_browser_operation_api_v1_browser_applications__packet_id__operation_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/open": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Open Application */
-    post: operations["open_application_api_v1_browser_applications__packet_id__open_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/actions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Application Action */
-    post: operations["application_action_api_v1_browser_applications__packet_id__actions_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/submission-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Submission Preview */
-    post: operations["submission_preview_api_v1_browser_applications__packet_id__submission_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/authorize-submission": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Authorize Submission */
-    post: operations["authorize_submission_api_v1_browser_applications__packet_id__authorize_submission_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/submit": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Submit Approved Application */
-    post: operations["submit_approved_application_api_v1_browser_applications__packet_id__submit_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/recover-submission": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Recover Submission */
-    post: operations["recover_submission_api_v1_browser_applications__packet_id__recover_submission_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/browser-applications/{packet_id}/consent": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Owner Consent */
-    post: operations["owner_consent_api_v1_browser_applications__packet_id__consent_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/integrations/providers/apify": {
     parameters: {
       query?: never;
@@ -3725,365 +3029,6 @@ export interface paths {
     put?: never;
     /** Inspect Apify Actor */
     post: operations["inspect_apify_actor_api_v1_integrations_providers_apify_actors_inspect_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/account-binding": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Account Binding Status */
-    get: operations["account_binding_status_api_v1_execution_naukri_account_binding_get"];
-    /** Account Binding Approval */
-    put: operations["account_binding_approval_api_v1_execution_naukri_account_binding_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/profile-sync": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Profile Sync Status */
-    get: operations["profile_sync_status_api_v1_execution_naukri_profile_sync_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/profile-sync/policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Profile Sync Policy */
-    put: operations["profile_sync_policy_api_v1_execution_naukri_profile_sync_policy_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/queue": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Application Queue Status */
-    get: operations["application_queue_status_api_v1_execution_queue_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/queue/policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Application Queue Policy */
-    put: operations["application_queue_policy_api_v1_execution_queue_policy_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/queue/control": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Application Queue Control */
-    post: operations["application_queue_control_api_v1_execution_queue_control_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Status */
-    get: operations["status_api_v1_execution_naukri_get"];
-    /** Configure */
-    put: operations["configure_api_v1_execution_naukri_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/automation/policy": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** Automation Policy */
-    put: operations["automation_policy_api_v1_execution_naukri_automation_policy_put"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/automation/control": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Automation Control */
-    post: operations["automation_control_api_v1_execution_naukri_automation_control_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/import": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Imports */
-    post: operations["imports_api_v1_execution_naukri_import_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/apply": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Start */
-    post: operations["start_api_v1_execution_naukri_apply_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/{execution_id}/control": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Control */
-    post: operations["control_api_v1_execution__execution_id__control_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/{execution_id}/questions/{field_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Ask */
-    post: operations["ask_api_v1_execution__execution_id__questions__field_id__post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/questions": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Pending */
-    get: operations["pending_api_v1_execution_questions_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/questions/{question_id}/approve-reuse": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Reuse */
-    post: operations["reuse_api_v1_execution_questions__question_id__approve_reuse_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/packets/{packet_id}/questions/{field_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Ask Packet Question */
-    post: operations["ask_packet_question_api_v1_execution_packets__packet_id__questions__field_id__post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/questions/{question_id}/answer": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Answer Question */
-    post: operations["answer_question_api_v1_execution_questions__question_id__answer_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/naukri/jobs": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Find Saved */
-    get: operations["find_saved_api_v1_execution_naukri_jobs_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/events": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Events */
-    get: operations["events_api_v1_execution_events_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/events/{event_id}/ack": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Acknowledge */
-    post: operations["acknowledge_api_v1_execution_events__event_id__ack_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/execution/{execution_id}/questions/{field_id}/reuse/{question_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Reuse For */
-    post: operations["reuse_for_api_v1_execution__execution_id__questions__field_id__reuse__question_id__post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -4258,27 +3203,6 @@ export interface components {
        */
       local_generative_llm: "disabled";
     };
-    /** AccountApproval */
-    AccountApproval: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Candidate Profile Id
-       * Format: uuid
-       */
-      candidate_profile_id: string;
-      /**
-       * Profile Binding Id
-       * Format: uuid
-       */
-      profile_binding_id: string;
-      /** Account Sha256 */
-      account_sha256: string;
-      /** Evidence Sha256 */
-      evidence_sha256: string;
-      /** Owner Confirmed */
-      owner_confirmed: boolean;
-    };
     /** AccountConsent */
     AccountConsent: {
       /** Account Consent */
@@ -4323,17 +3247,6 @@ export interface components {
       collection_status: "disabled_pending_review";
       /** Source Url */
       source_url: string;
-    };
-    /** AdvanceStep */
-    AdvanceStep: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Preview Digest */
-      preview_digest: string;
-      /** Idempotency Key */
-      idempotency_key: string;
-      /** Confirm Values And Consents */
-      confirm_values_and_consents: boolean;
     };
     /** AgentChatInput */
     AgentChatInput: {
@@ -4674,25 +3587,6 @@ export interface components {
       | "DRAFTED_AND_QUEUED"
       | "SUBMISSION_UNKNOWN"
       | "FAILED";
-    /** Approval */
-    Approval: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Nonce
-       * Format: uuid
-       */
-      nonce: string;
-      /**
-       * Scope
-       * @enum {string}
-       */
-      scope: "prepare" | "fill" | "submit";
-      /** Platforms */
-      platforms: string[];
-      /** Maximum Applications */
-      maximum_applications: number;
-    };
     /** ApproveResume */
     ApproveResume: {
       /**
@@ -4731,96 +3625,6 @@ export interface components {
       /** Confirm Reviewed Answer */
       confirm_reviewed_answer: boolean;
     };
-    /** AutomationControl */
-    AutomationControl: {
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "start" | "pause" | "stop";
-      /** Expected Revision */
-      expected_revision: number;
-    };
-    /**
-     * AutomationPolicy
-     * @description Preparation authority only; unsupported employer actions cannot be enabled.
-     */
-    AutomationPolicy: {
-      /** Profile Version */
-      profile_version: number;
-      /**
-       * Resume Resource Id
-       * Format: uuid
-       */
-      resume_resource_id: string;
-      /** Resume Version */
-      resume_version: string;
-      /** Allowed Roles */
-      allowed_roles: string[];
-      /** Allowed Locations */
-      allowed_locations: string[];
-      /** Excluded Companies */
-      excluded_companies?: string[];
-      /** Experience Min */
-      experience_min: number;
-      /** Experience Max */
-      experience_max: number;
-      /**
-       * Minimum Match Score
-       * @default 80
-       */
-      minimum_match_score: number;
-      /**
-       * Interval Seconds
-       * @default 21600
-       */
-      interval_seconds: number;
-      /**
-       * Max Preparations Per Day
-       * @default 5
-       */
-      max_preparations_per_day: number;
-      /**
-       * Max Posting Age Days
-       * @default 14
-       */
-      max_posting_age_days: number;
-      /**
-       * Max Applications Per Day
-       * @default 0
-       * @constant
-       */
-      max_applications_per_day: 0;
-      /**
-       * Permitted Platform
-       * @default naukri
-       * @constant
-       */
-      permitted_platform: "naukri";
-      /** Permitted Actions */
-      permitted_actions?: "PREPARATION"[];
-      /**
-       * Source
-       * @default saved_owner_imports
-       * @enum {string}
-       */
-      source: "saved_owner_imports" | "gmail_job_alerts";
-      /** Gmail Account Id */
-      gmail_account_id?: string | null;
-      /** Gmail Policy Version */
-      gmail_policy_version?: number | null;
-      /**
-       * Telegram Questions
-       * @default false
-       */
-      telegram_questions: boolean;
-    };
-    /** AutomationPolicyUpdate */
-    AutomationPolicyUpdate: {
-      /** Expected Revision */
-      expected_revision: number;
-      policy: components["schemas"]["AutomationPolicy"];
-    };
     /** AutomationStatus */
     AutomationStatus: {
       /**
@@ -4844,151 +3648,6 @@ export interface components {
       worker: components["schemas"]["WorkerControlRead"];
       /** Portals */
       portals: components["schemas"]["PortalStatus"][];
-    };
-    /** BrowserAction */
-    BrowserAction: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Action
-       * @enum {string}
-       */
-      action:
-        "analyze" | "fill" | "preview" | "take_over" | "cancel" | "submit";
-      /** Operation Id */
-      operation_id?: string | null;
-      /**
-       * Confirm Reviewed Values
-       * @default false
-       */
-      confirm_reviewed_values: boolean;
-      /**
-       * Confirm Page Context
-       * @default false
-       */
-      confirm_page_context: boolean;
-    };
-    /** Campaign */
-    Campaign: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /**
-       * Owner
-       * @default primary
-       * @constant
-       */
-      owner: "primary";
-      /**
-       * State
-       * @default created
-       * @enum {string}
-       */
-      state:
-        | "created"
-        | "planned"
-        | "awaiting_approval"
-        | "queued"
-        | "running"
-        | "waiting_browser"
-        | "completed"
-        | "partially_completed"
-        | "failed"
-        | "cancelled";
-      /**
-       * Revision
-       * @default 1
-       */
-      revision: number;
-      plan: components["schemas"]["Plan"];
-      /**
-       * Approval Nonce
-       * Format: uuid
-       */
-      approval_nonce?: string;
-      approval?: components["schemas"]["Approval"] | null;
-      /** Applications */
-      applications?: {
-        [key: string]: unknown;
-      };
-      /** Results */
-      results?: {
-        [key: string]: unknown;
-      }[];
-      /**
-       * Next Step
-       * @default 0
-       */
-      next_step: number;
-      /**
-       * Tool Calls
-       * @default 0
-       */
-      tool_calls: number;
-      /**
-       * Tokens Used
-       * @default 0
-       */
-      tokens_used: number;
-      /**
-       * Attempts
-       * @default 0
-       */
-      attempts: number;
-      /**
-       * Fence
-       * @default 0
-       */
-      fence: number;
-      /** Lease Until */
-      lease_until?: string | null;
-      /** Heartbeat At */
-      heartbeat_at?: string | null;
-      /** Available At */
-      available_at?: string | null;
-      /** Created At */
-      created_at: string;
-      /** Updated At */
-      updated_at: string;
-      /**
-       * Message
-       * @default
-       */
-      message: string;
-      /**
-       * Actor
-       * @default owner:primary
-       */
-      actor: string;
-      understanding?: components["schemas"]["Understanding"] | null;
-      /**
-       * Planned
-       * @default false
-       */
-      planned: boolean;
-      /** Selected Project */
-      selected_project?: string | null;
-      /** Candidate Ids */
-      candidate_ids?: string[];
-      /** Ranked Jobs */
-      ranked_jobs?: {
-        [key: string]: unknown;
-      }[];
-      /** History */
-      history?: {
-        [key: string]: unknown;
-      }[];
-      /** Diagnostic */
-      diagnostic?: string | null;
-      /**
-       * Reply
-       * @default Accepted; pending worker execution. Zero submissions were made.
-       */
-      reply: string;
-      /** Telegram Update Id */
-      telegram_update_id?: number | null;
     };
     /** CandidateConfiguration */
     CandidateConfiguration: {
@@ -5176,227 +3835,6 @@ export interface components {
       /** Credential Url */
       credential_url?: string | null;
     };
-    /** ChromeCommandInput */
-    ChromeCommandInput: {
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /**
-       * Profile Binding Id
-       * Format: uuid
-       */
-      profile_binding_id: string;
-      /** Selection Version */
-      selection_version: number;
-      /** Expected Profile Version */
-      expected_profile_version: number;
-      /**
-       * Application Id
-       * Format: uuid
-       */
-      application_id: string;
-      /** Packet Revision */
-      packet_revision: number;
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "open" | "prepare" | "pause" | "resume" | "cancel";
-      /** Task Id */
-      task_id?: string | null;
-      /** Expected Task Version */
-      expected_task_version?: number | null;
-    };
-    /** ChromeProfile */
-    ChromeProfile: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Label */
-      label: string;
-      /** Version */
-      version: number;
-      /** Connected */
-      connected: boolean;
-      /** Selected */
-      selected: boolean;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status: "CONNECTED" | "PROFILE_OFFLINE" | "DISCONNECTED";
-      /** Last Heartbeat */
-      last_heartbeat: string;
-      /**
-       * Browser Session Id
-       * Format: uuid
-       */
-      browser_session_id: string;
-      /** Window Id */
-      window_id: number | null;
-      /** Commands Enabled */
-      commands_enabled: boolean;
-    };
-    /** ChromeProfiles */
-    ChromeProfiles: {
-      /** Selection */
-      selection: {
-        [key: string]: unknown;
-      };
-      /** Profiles */
-      profiles: components["schemas"]["ChromeProfile"][];
-      /** Channel Available */
-      channel_available: boolean;
-      /** Commands */
-      commands: {
-        [key: string]: unknown;
-      }[];
-      /** Receipts */
-      receipts?: {
-        [key: string]: unknown;
-      }[];
-    };
-    /** Command */
-    Command: {
-      /**
-       * Version
-       * @default 1
-       * @constant
-       */
-      version: 1;
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id?: string;
-      /**
-       * Command
-       * @enum {string}
-       */
-      command:
-        | "naukri_queue_status"
-        | "naukri_queue_control"
-        | "poll_naukri_work"
-        | "bind_naukri_work"
-        | "admit_naukri_work"
-        | "finish_naukri_work"
-        | "abandon_naukri_work"
-        | "check_naukri_work"
-        | "connect_chrome_profile"
-        | "heartbeat_chrome_profile"
-        | "disconnect_chrome_profile"
-        | "poll_chrome_command"
-        | "start_chrome_command"
-        | "ack_chrome_command"
-        | "health"
-        | "connection_status"
-        | "preview_application_url"
-        | "preview_job_filters"
-        | "get_discovery_status"
-        | "get_agent_capabilities"
-        | "get_application_policy"
-        | "conversation"
-        | "observe_platform_session"
-        | "inspect_form"
-        | "prepare_form_answers"
-        | "authorize_form"
-        | "record_form_fill"
-        | "open_application_task"
-        | "get_application_task"
-        | "update_application_task"
-        | "ask_form_questions";
-      /** Queue Action */
-      queue_action?: ("start" | "pause" | "stop") | null;
-      /** Expected Queue Revision */
-      expected_queue_revision?: number | null;
-      /** Work Id */
-      work_id?: string | null;
-      /** Expected Work Revision */
-      expected_work_revision?: number | null;
-      /** Work Lease Token */
-      work_lease_token?: string | null;
-      work_report?: components["schemas"]["NaukriWorkReport"] | null;
-      /** Profile Binding Id */
-      profile_binding_id?: string | null;
-      /** Profile Secret */
-      profile_secret?: string | null;
-      /** Profile Label */
-      profile_label?: string | null;
-      /**
-       * Profile Commands Enabled
-       * @default false
-       */
-      profile_commands_enabled: boolean;
-      /** Expected Profile Version */
-      expected_profile_version?: number | null;
-      /** Window Id */
-      window_id?: number | null;
-      /** Chrome Command Id */
-      chrome_command_id?: string | null;
-      /** Expected Command Version */
-      expected_command_version?: number | null;
-      /** Command Lease Token */
-      command_lease_token?: string | null;
-      /** Command Outcome */
-      command_outcome?: ("completed" | "failed" | "outcome_unknown") | null;
-      /** Command Error */
-      command_error?: string | null;
-      /** Url */
-      url?: string | null;
-      /** Title */
-      title?: string | null;
-      intent?: components["schemas"]["Intent"] | null;
-      /** Application Id */
-      application_id?: string | null;
-      /** Plan Id */
-      plan_id?: string | null;
-      inspection?: components["schemas"]["Inspection"] | null;
-      /** Field Ids */
-      field_ids?: string[];
-      receipt?: components["schemas"]["FillReceipt"] | null;
-      /** Task Id */
-      task_id?: string | null;
-      /** Expected Task Version */
-      expected_task_version?: number | null;
-      /** Browser Session Id */
-      browser_session_id?: string | null;
-      /** Tab Id */
-      tab_id?: number | null;
-      /** Task Event */
-      task_event?:
-        | (
-            | "bind"
-            | "navigation"
-            | "refresh"
-            | "refreshed"
-            | "pause"
-            | "paused"
-            | "resume"
-            | "cancel"
-            | "tab_closed"
-            | "recover"
-            | "recovered"
-            | "focus_lost"
-            | "active_tab_changed"
-            | "network_timeout"
-            | "inspection_prepared"
-            | "fill_started"
-            | "fill_finished"
-            | "guard_installed"
-            | "guard_released"
-            | "worker_restart"
-          )
-        | null;
-      /** Observed Url */
-      observed_url?: string | null;
-      /** Observation */
-      observation?:
-        ("signed_in_indicator" | "login_required" | "unverifiable") | null;
-    };
     /** CompanyObservation */
     CompanyObservation: {
       /** Name */
@@ -5511,34 +3949,6 @@ export interface components {
        */
       kind: "ctc" | "base_salary" | "total_compensation";
     };
-    /** Configuration */
-    Configuration: {
-      /**
-       * Mode
-       * @default ON_DEMAND
-       * @enum {string}
-       */
-      mode:
-        "OFF" | "ON_DEMAND" | "WATCH_AND_NOTIFY" | "AUTO_APPLY_WHEN_AUTHORIZED";
-      /**
-       * Interval Seconds
-       * @default 21600
-       */
-      interval_seconds: number;
-      /**
-       * Source
-       * @default saved_owner_imports
-       * @constant
-       */
-      source: "saved_owner_imports";
-      /** Destinations */
-      destinations?: string[];
-      /**
-       * Submission Permission
-       * @default false
-       */
-      submission_permission: boolean;
-    };
     /** ConfigurationUpdateRequest */
     ConfigurationUpdateRequest: {
       configuration: components["schemas"]["CandidateConfiguration"];
@@ -5562,20 +3972,6 @@ export interface components {
       account_consent: boolean;
       /** Read And Draft Consent */
       read_and_draft_consent: boolean;
-    };
-    /** ConsentAction */
-    ConsentAction: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Field Id
-       * Format: uuid
-       */
-      field_id: string;
-      /** Checked */
-      checked: boolean;
-      /** Confirm Page Context */
-      confirm_page_context: boolean;
     };
     /** ContactCorrection */
     ContactCorrection: {
@@ -5603,16 +3999,6 @@ export interface components {
       suppression_reason?: string | null;
       /** Human Review Notes */
       human_review_notes?: string | null;
-    };
-    /** Control */
-    Control: {
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "pause" | "resume" | "cancel";
-      /** Expected Revision */
-      expected_revision: number;
     };
     /** CountryAuthorization */
     CountryAuthorization: {
@@ -6160,126 +4546,6 @@ export interface components {
       user_confirmed: boolean;
       project?: components["schemas"]["VerifiedProject"] | null;
     };
-    /** ExtensionTask */
-    ExtensionTask: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id: string;
-      /** Version */
-      version: number;
-      /**
-       * Application Id
-       * Format: uuid
-       */
-      application_id: string;
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      /** Company Name */
-      company_name: string | null;
-      /** Job Title */
-      job_title: string;
-      /** Packet Revision */
-      packet_revision: number;
-      /** Profile Version */
-      profile_version: number;
-      /** Context Digest */
-      context_digest: string;
-      /** Target Url */
-      target_url: string;
-      /** Current Url */
-      current_url: string;
-      /**
-       * Browser Session Id
-       * Format: uuid
-       */
-      browser_session_id: string;
-      /** Profile Binding Id */
-      profile_binding_id?: string | null;
-      /** Window Id */
-      window_id?: number | null;
-      /** Tab Id */
-      tab_id: number | null;
-      /**
-       * State
-       * @enum {string}
-       */
-      state:
-        | "DISCOVERED"
-        | "PACKET_READY"
-        | "FORM_INSPECTED"
-        | "NEEDS_INPUT"
-        | "ANSWERS_REVIEWED"
-        | "FILL_AUTHORIZED"
-        | "FILLING"
-        | "FILLED_VERIFIED"
-        | "READY_FOR_SUBMISSION"
-        | "PAUSED"
-        | "FAILED_RETRYABLE"
-        | "FAILED_FINAL"
-        | "CHALLENGE_REQUIRED"
-        | "SUBMISSION_UNKNOWN"
-        | "SUBMITTED_CONFIRMED";
-      /**
-       * Challenge State
-       * @enum {string}
-       */
-      challenge_state:
-        | "NONE"
-        | "WIDGET_PRESENT_UNVERIFIED"
-        | "CHALLENGE_BLOCKING"
-        | "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
-        | "UNKNOWN";
-      /** Step */
-      step: string | null;
-      /** Plan Id */
-      plan_id: string | null;
-      /** Authorization Id */
-      authorization_id: string | null;
-      /** Field Answer Revisions */
-      field_answer_revisions: {
-        [key: string]: number;
-      };
-      /** Verified Receipts */
-      verified_receipts: {
-        [key: string]: unknown;
-      }[];
-      /** Reason */
-      reason: string | null;
-      /** Next Action */
-      next_action: string;
-      /**
-       * Mode
-       * @constant
-       */
-      mode: "ASSISTED_FILL";
-      capabilities: components["schemas"]["TaskCapabilities"];
-      counts: components["schemas"]["TaskCounts"];
-      /**
-       * Browser Connection
-       * @enum {string}
-       */
-      browser_connection:
-        "connected" | "paused" | "disconnected" | "unverified";
-      /** Tab Active */
-      tab_active: boolean;
-      /**
-       * Challenge Observed
-       * @default false
-       */
-      challenge_observed: boolean;
-      /**
-       * Network Guard Active
-       * @default false
-       */
-      network_guard_active: boolean;
-      /** Updated At */
-      updated_at: string;
-    };
     /** FactDifference */
     FactDifference: {
       /** Category */
@@ -6294,291 +4560,6 @@ export interface components {
       removed: string[];
       /** Current Verified */
       current_verified?: string[];
-    };
-    /** FieldResult */
-    FieldResult: {
-      /** Field Id */
-      field_id: string;
-      /**
-       * Status
-       * @enum {string}
-       */
-      status:
-        "filled" | "failed" | "needs_input" | "validation_error" | "untouched";
-    };
-    /** FillAction */
-    FillAction: {
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      /**
-       * Application Id
-       * Format: uuid
-       */
-      application_id: string;
-      /** Target Url */
-      target_url: string;
-      /** Field Id */
-      field_id: string;
-      /**
-       * Kind
-       * @enum {string}
-       */
-      kind:
-        | "text"
-        | "textarea"
-        | "email"
-        | "tel"
-        | "url"
-        | "number"
-        | "date"
-        | "month"
-        | "select"
-        | "radio"
-        | "checkbox"
-        | "file";
-      /** Value */
-      value?: string | null;
-      /** Safe Reference */
-      safe_reference?: string | null;
-      /** Evidence */
-      evidence?: string[];
-      /** Candidate Version */
-      candidate_version: number;
-      /** Project Version */
-      project_version?: string | null;
-      /**
-       * Requires Review
-       * @default false
-       */
-      requires_review: boolean;
-      /**
-       * Needs Input
-       * @default true
-       */
-      needs_input: boolean;
-      /**
-       * Preview Only
-       * @default false
-       */
-      preview_only: boolean;
-      /** Missing Input Id */
-      missing_input_id?: string | null;
-      /** Missing Input Version */
-      missing_input_version?: number | null;
-    };
-    /** FillPlan */
-    FillPlan: {
-      /**
-       * Version
-       * @default 1
-       * @constant
-       */
-      version: 1;
-      /**
-       * Id
-       * Format: uuid
-       */
-      id?: string;
-      /**
-       * Application Id
-       * Format: uuid
-       */
-      application_id: string;
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      /**
-       * Mode
-       * @enum {string}
-       */
-      mode: "manual_extension" | "local_automation";
-      /** Target Url */
-      target_url: string;
-      inspection: components["schemas"]["Inspection"];
-      /** Context Digest */
-      context_digest: string;
-      /** Profile Binding Id */
-      profile_binding_id?: string | null;
-      /** Browser Session Id */
-      browser_session_id?: string | null;
-      /** Tab Id */
-      tab_id?: number | null;
-      /** Extension Task Id */
-      extension_task_id?: string | null;
-      /** Extension Authorization Id */
-      extension_authorization_id?: string | null;
-      /** Packet Revision */
-      packet_revision: number;
-      /** Project Digest */
-      project_digest: string;
-      /** Actions */
-      actions?: components["schemas"]["FillAction"][];
-      /** Approved Fields */
-      approved_fields?: string[];
-      /** Expires At */
-      expires_at: string;
-      /**
-       * State
-       * @default preview
-       * @enum {string}
-       */
-      state: "read_only" | "preview" | "authorized" | "consumed" | "finished";
-    };
-    /** FillReceipt */
-    FillReceipt: {
-      /**
-       * Network Guard Active
-       * @default false
-       */
-      network_guard_active: boolean;
-      /**
-       * Verification Method
-       * @default dom_assignment
-       * @enum {string}
-       */
-      verification_method: "dom_assignment" | "retained_after_blur";
-      /**
-       * Plan Id
-       * Format: uuid
-       */
-      plan_id: string;
-      /** Results */
-      results: components["schemas"]["FieldResult"][];
-      /**
-       * State
-       * @enum {string}
-       */
-      state: "form_filled" | "needs_input" | "manual_required" | "failed";
-      /**
-       * Submitted
-       * @default false
-       * @constant
-       */
-      submitted: false;
-    };
-    /** Filters */
-    Filters: {
-      /** Role */
-      role?: string | null;
-      /** Location */
-      location?: string | null;
-      /** Skills */
-      skills?: string[];
-      /** Remote */
-      remote?: ("remote" | "hybrid" | "onsite" | "any") | null;
-      /**
-       * Startup
-       * @default false
-       */
-      startup: boolean;
-      /** Minimum Employees */
-      minimum_employees?: number | null;
-      /** Maximum Employees */
-      maximum_employees?: number | null;
-      /** Minimum Experience */
-      minimum_experience?: number | null;
-      /** Maximum Experience */
-      maximum_experience?: number | null;
-      /** Minimum Salary */
-      minimum_salary?: number | null;
-      /** Salary Currency */
-      salary_currency?: string | null;
-      /** Salary Period */
-      salary_period?: ("year" | "month" | "hour") | null;
-      /**
-       * Exclude Applied
-       * @default true
-       */
-      exclude_applied: boolean;
-      /**
-       * Exclude Internships
-       * @default false
-       */
-      exclude_internships: boolean;
-      /**
-       * Source
-       * @default cached
-       * @enum {string}
-       */
-      source:
-        | "cached"
-        | "greenhouse"
-        | "arbeitnow"
-        | "remotive"
-        | "hacker_news"
-        | "naukri"
-        | "wellfound"
-        | "instahyre"
-        | "work_at_a_startup"
-        | "internshala";
-      /**
-       * Limit
-       * @default 10
-       */
-      limit: number;
-    };
-    /** FormField */
-    FormField: {
-      /** Field Id */
-      field_id: string;
-      /**
-       * Kind
-       * @enum {string}
-       */
-      kind:
-        | "text"
-        | "textarea"
-        | "email"
-        | "tel"
-        | "url"
-        | "number"
-        | "date"
-        | "month"
-        | "select"
-        | "radio"
-        | "checkbox"
-        | "file";
-      /** Label */
-      label: string;
-      /** Group Label */
-      group_label?: string | null;
-      /**
-       * Required
-       * @default false
-       */
-      required: boolean;
-      /** Options */
-      options?: string[];
-      /** Section */
-      section?: string | null;
-      /**
-       * Preview Only
-       * @default false
-       */
-      preview_only: boolean;
-      /** Manual Reason */
-      manual_reason?: string | null;
-      /**
-       * Max Length
-       * @default 1500
-       */
-      max_length: number;
-      /** Semantic Key */
-      semantic_key?: string | null;
-      /** Control Identity */
-      control_identity?: string | null;
-      /** Page Step */
-      page_step?: string | null;
-      /**
-       * Invalid
-       * @default false
-       */
-      invalid: boolean;
     };
     /** GenerateRequest */
     GenerateRequest: {
@@ -6803,225 +4784,6 @@ export interface components {
        */
       cache_answer: boolean;
     };
-    /** ImportBatch */
-    ImportBatch: {
-      /** Jobs */
-      jobs: components["schemas"]["ImportJob"][];
-    };
-    /** ImportJob */
-    ImportJob: {
-      /** Url */
-      url: string;
-      /** Title */
-      title: string;
-      /** Employer */
-      employer: string;
-      /** Description */
-      description?: string | null;
-      /** Location */
-      location?: string | null;
-      /**
-       * Remote Type
-       * @default unknown
-       * @enum {string}
-       */
-      remote_type: "remote" | "hybrid" | "onsite" | "unknown";
-      /** Employment Type */
-      employment_type?:
-        ("full_time" | "part_time" | "contract" | "internship") | null;
-      /** Required Skills */
-      required_skills?: string[];
-      /** Preferred Skills */
-      preferred_skills?: string[];
-      /** Experience Min */
-      experience_min?: number | null;
-      /** Experience Max */
-      experience_max?: number | null;
-      /**
-       * Experience Requirement
-       * @default unknown
-       * @enum {string}
-       */
-      experience_requirement: "required" | "preferred" | "unknown";
-      /** Salary Min */
-      salary_min?: number | null;
-      /** Salary Max */
-      salary_max?: number | null;
-      /** Salary Currency */
-      salary_currency?: string | null;
-      /** Salary Period */
-      salary_period?: ("year" | "month") | null;
-      /**
-       * Provenance
-       * @default owner_url
-       * @enum {string}
-       */
-      provenance: "owner_url" | "owner_job_alert";
-      /** Message Reference */
-      message_reference?: string | null;
-      /** Alert Candidate Id */
-      alert_candidate_id?: string | null;
-      /** Application Url */
-      application_url?: string | null;
-      /**
-       * Posting Status
-       * @default unknown
-       * @enum {string}
-       */
-      posting_status: "unknown" | "active" | "closed" | "already_applied";
-      /** Observed At */
-      observed_at?: string | null;
-      /** Valid Through */
-      valid_through?: string | null;
-      /** Posted At */
-      posted_at?: string | null;
-    };
-    /** Inspection */
-    Inspection: {
-      /** Manual Reason */
-      manual_reason?: string | null;
-      /** Manual Controls */
-      manual_controls?: components["schemas"]["ManualControl"][];
-      /**
-       * Version
-       * @default 1
-       * @constant
-       */
-      version: 1;
-      /** Document Id */
-      document_id: string;
-      /** Url */
-      url: string;
-      /** Fields */
-      fields?: components["schemas"]["FormField"][];
-      /**
-       * State
-       * @default ready
-       * @enum {string}
-       */
-      state:
-        | "ready"
-        | "login_required"
-        | "manual_required"
-        | "unsupported"
-        | "validation_errors";
-      /**
-       * Has Next
-       * @default false
-       */
-      has_next: boolean;
-      /**
-       * Has Submit
-       * @default false
-       */
-      has_submit: boolean;
-      /**
-       * Challenge State
-       * @default NONE
-       * @enum {string}
-       */
-      challenge_state:
-        | "NONE"
-        | "WIDGET_PRESENT_UNVERIFIED"
-        | "CHALLENGE_BLOCKING"
-        | "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
-        | "UNKNOWN";
-      /**
-       * Completed Count
-       * @default 0
-       */
-      completed_count: number;
-    };
-    /** Intent */
-    Intent: {
-      /**
-       * Category
-       * @enum {string}
-       */
-      category:
-        | "FIND_JOBS"
-        | "FILTER_JOBS"
-        | "SHOW_JOB"
-        | "PREPARE_APPLICATION"
-        | "APPLICATION_STATUS"
-        | "CONNECTION_STATUS"
-        | "GMAIL_DRAFT_PREVIEW"
-        | "FOUNDER_RESEARCH_PREVIEW"
-        | "HELP"
-        | "UNKNOWN"
-        | "GENERAL_CHAT"
-        | "FOLLOW_UP"
-        | "JOB_COMPARISON"
-        | "PROFILE_QUERY"
-        | "PROJECT_QUERY"
-        | "RESUME_STATUS"
-        | "APPROVAL_REQUEST"
-        | "RESET_CONTEXT"
-        | "ANSWER_PREPARATION";
-      /** Company */
-      company?: string | null;
-      /** Role */
-      role?: string | null;
-      /** Location */
-      location?: string | null;
-      /** Skills */
-      skills?: string[];
-      /**
-       * Remote
-       * @default false
-       */
-      remote: boolean;
-      /**
-       * Startup
-       * @default false
-       */
-      startup: boolean;
-      /** Days */
-      days?: number | null;
-      /**
-       * Not Applied
-       * @default false
-       */
-      not_applied: boolean;
-      /** Url */
-      url?: string | null;
-      /** Selection */
-      selection?: number | null;
-      /** Job Id */
-      job_id?: string | null;
-      /** Connection */
-      connection?:
-        | (
-            | "gmail"
-            | "telegram"
-            | "supabase"
-            | "chrome"
-            | "agy"
-            | "naukri"
-            | "wellfound"
-            | "instahyre"
-            | "internshala"
-            | "yc"
-          )
-        | null;
-      /** Subject */
-      subject?: string | null;
-      /** Project Rank */
-      project_rank?: number | null;
-      /** Follow Up */
-      follow_up?:
-        ("filter" | "selected" | "prepare" | "answer" | "clarify") | null;
-      /**
-       * Max Words
-       * @default 100
-       */
-      max_words: number;
-      /**
-       * Max Characters
-       * @default 3500
-       */
-      max_characters: number;
-    };
     /**
      * JobMatchResult
      * @description Explainable multi-factor match result between candidate and job vacancy.
@@ -7224,6 +4986,24 @@ export interface components {
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
       };
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
+      /** Profile Sync */
+      profile_sync?: {
+        [key: string]: {
+          [key: string]: boolean;
+        };
+      } | null;
     };
     /** JobSearchPreferences */
     "JobSearchPreferences-Output": {
@@ -7334,6 +5114,24 @@ export interface components {
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
       };
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
+      /** Profile Sync */
+      profile_sync?: {
+        [key: string]: {
+          [key: string]: boolean;
+        };
+      } | null;
     };
     /** JobSearchPreferencesUpdate */
     JobSearchPreferencesUpdate: {
@@ -7444,6 +5242,24 @@ export interface components {
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
       };
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
+      /** Profile Sync */
+      profile_sync?: {
+        [key: string]: {
+          [key: string]: boolean;
+        };
+      } | null;
     };
     /**
      * JobStatus
@@ -7560,48 +5376,12 @@ export interface components {
       /** Resume Attachment Configured */
       resume_attachment_configured: boolean;
     };
-    /**
-     * ManualControl
-     * @description Bounded explanation only; existing values and frame contents stay in Chrome.
-     */
-    ManualControl: {
-      /** Control Id */
-      control_id: string;
-      /** Kind */
-      kind: string;
-      /** Label */
-      label: string;
-      /** Reason */
-      reason: string;
-      /** Context */
-      context?: string | null;
-      /**
-       * Required
-       * @default false
-       */
-      required: boolean;
-      /**
-       * Invalid
-       * @default false
-       */
-      invalid: boolean;
-    };
     /** ManualRun */
     ManualRun: {
       /** Idempotency Key */
       idempotency_key: string;
       /** Expected Version */
       expected_version: number;
-    };
-    /** Message */
-    Message: {
-      /** Text */
-      text: string;
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id?: string;
     };
     /** MissingInputApprove */
     MissingInputApprove: {
@@ -7802,110 +5582,6 @@ export interface components {
        */
       recorded_at: string;
     };
-    /** NaukriExecutionObservation */
-    NaukriExecutionObservation: {
-      /**
-       * State
-       * @enum {string}
-       */
-      state:
-        | "PROFILE_VERIFIED"
-        | "NOT_APPLIED"
-        | "APPLIED"
-        | "CLICKED"
-        | "APPLICATION_SENT"
-        | "QUESTIONNAIRE"
-        | "PROFILE_OBSERVED"
-        | "PROFILE_SAVE_ATTEMPTED"
-        | "PROFILE_SKILLS_PREPARED";
-      /** Document Id */
-      document_id: string;
-      /** Evidence Sha256 */
-      evidence_sha256: string;
-      /** Account Sha256 */
-      account_sha256: string;
-      /** Resume Sha256 */
-      resume_sha256?: string | null;
-      /** Resume Bytes */
-      resume_bytes?: number | null;
-      /** Title */
-      title?: string | null;
-      /** Company */
-      company?: string | null;
-      /** Control Sha256 */
-      control_sha256?: string | null;
-      /** Profile Fields */
-      profile_fields?: {
-        [key: string]:
-          | string
-          | unknown[]
-          | {
-              [key: string]: unknown;
-            }
-          | number
-          | null;
-      };
-    };
-    /** NaukriQuestionnaire */
-    NaukriQuestionnaire: {
-      /** Document Id */
-      document_id: string;
-      /** Step Sha256 */
-      step_sha256: string;
-      /** Question */
-      question: string;
-      /**
-       * Answer Kind
-       * @enum {string}
-       */
-      answer_kind: "choice" | "text" | "file";
-      /** Options */
-      options?: string[];
-      /**
-       * Max Characters
-       * @default 4000
-       */
-      max_characters: number;
-    };
-    /** NaukriWorkReport */
-    NaukriWorkReport: {
-      /**
-       * Kind
-       * @enum {string}
-       */
-      kind:
-        | "job_facts"
-        | "application_view"
-        | "source_candidates"
-        | "needs_input"
-        | "failed"
-        | "execution_observation"
-        | "questionnaire"
-        | "questionnaire_answer_attempted";
-      /** Observed Url */
-      observed_url?: string | null;
-      /** Requisition */
-      requisition?: string | null;
-      /** Stage */
-      stage?: "ALREADY_APPLIED" | null;
-      job?: components["schemas"]["ObservedNaukriJob"] | null;
-      execution?: components["schemas"]["NaukriExecutionObservation"] | null;
-      /** Candidates */
-      candidates?: string[];
-      questionnaire?: components["schemas"]["NaukriQuestionnaire"] | null;
-      /** Document Id */
-      document_id?: string | null;
-      /** Step Sha256 */
-      step_sha256?: string | null;
-      /**
-       * Submitted
-       * @default false
-       * @constant
-       */
-      submitted: false;
-      /** Reason */
-      reason?: string | null;
-    };
     /** NotificationPreferences */
     NotificationPreferences: {
       /**
@@ -7995,54 +5671,6 @@ export interface components {
        */
       created_at: string;
     };
-    /** ObservedNaukriJob */
-    ObservedNaukriJob: {
-      /** Requisition */
-      requisition: string;
-      /** Title */
-      title: string;
-      /** Company */
-      company: string;
-      /** Posting Recruiter */
-      posting_recruiter?: string | null;
-      /** Location */
-      location: string;
-      /** Description */
-      description: string;
-      /** Skills */
-      skills: string[];
-      /** Experience Min */
-      experience_min: number;
-      /** Experience Max */
-      experience_max?: number | null;
-      /** Posted At */
-      posted_at?: string | null;
-      /** Posted Date */
-      posted_date?: string | null;
-      /** Applicants Min */
-      applicants_min?: number | null;
-      /** Applicants Max */
-      applicants_max?: number | null;
-      /**
-       * Remote Type
-       * @default unknown
-       * @enum {string}
-       */
-      remote_type: "remote" | "hybrid" | "onsite" | "unknown";
-      /** Employment Type */
-      employment_type?:
-        ("full_time" | "part_time" | "contract" | "internship") | null;
-      /** Salary Min */
-      salary_min?: number | null;
-      /** Salary Max */
-      salary_max?: number | null;
-      /** Salary Currency */
-      salary_currency?: string | null;
-      /** Salary Period */
-      salary_period?: ("year" | "month") | null;
-      /** Evidence Sha256 */
-      evidence_sha256: string;
-    };
     /** OfficialPersonEvidence */
     OfficialPersonEvidence: {
       /** Full Name */
@@ -8075,27 +5703,6 @@ export interface components {
       business_email?: string | null;
       /** Email Publication Url */
       email_publication_url?: string | null;
-    };
-    /** OpenBrowser */
-    OpenBrowser: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Executor
-       * @constant
-       */
-      executor: "isolated_browser";
-      /** Approve Dedicated Profile */
-      approve_dedicated_profile: boolean;
-      /** Confirm Destination Permission */
-      confirm_destination_permission: boolean;
-      /**
-       * Confirm Asset Permissions
-       * @default false
-       */
-      confirm_asset_permissions: boolean;
-      /** Asset Policy Digest */
-      asset_policy_digest?: string | null;
     };
     /** PacketEdit */
     PacketEdit: {
@@ -8417,54 +6024,6 @@ export interface components {
       /** Manual People */
       manual_people?: components["schemas"]["PublicPerson"][];
     };
-    /** Plan */
-    Plan: {
-      /**
-       * Intent
-       * @enum {string}
-       */
-      intent:
-        | "search"
-        | "filter"
-        | "apply"
-        | "status"
-        | "cancel"
-        | "approve"
-        | "select_project"
-        | "fill"
-        | "inspect"
-        | "submission_status"
-        | "submit_approved"
-        | "stop_submissions"
-        | "clarify";
-      filters: components["schemas"]["Filters"];
-      /** Selected Jobs */
-      selected_jobs?: string[];
-      /** Actions */
-      actions?: components["schemas"]["ToolCall"][];
-      /**
-       * Max Steps
-       * @default 16
-       */
-      max_steps: number;
-      /**
-       * Max Tool Calls
-       * @default 16
-       */
-      max_tool_calls: number;
-      /**
-       * Max Tokens
-       * @default 4000
-       */
-      max_tokens: number;
-      /**
-       * Confirmation Required
-       * @default true
-       */
-      confirmation_required: boolean;
-      /** Missing Information */
-      missing_information?: string[];
-    };
     /** PlatformCapability */
     PlatformCapability: {
       /** Platform */
@@ -8523,81 +6082,6 @@ export interface components {
        * @constant
        */
       live_verified: false;
-    };
-    /** PlatformQueuePolicy */
-    PlatformQueuePolicy: {
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
-      /** Sources */
-      sources?: (
-        "approved_gmail_alerts" | "saved_verified_job" | "naukri_ui_search"
-      )[];
-      /**
-       * Mode
-       * @default PREPARE_ONLY
-       * @enum {string}
-       */
-      mode: "PREPARE_ONLY" | "SUPERVISED" | "AUTOMATIC";
-      /**
-       * Owner Submission Authorized
-       * @default false
-       */
-      owner_submission_authorized: boolean;
-      /**
-       * Cap Mode
-       * @default global
-       * @enum {string}
-       */
-      cap_mode: "global" | "custom";
-      /**
-       * Age Mode
-       * @default global
-       * @enum {string}
-       */
-      age_mode: "global" | "custom";
-      /**
-       * Applicants Mode
-       * @default global
-       * @enum {string}
-       */
-      applicants_mode: "global" | "custom";
-      /**
-       * Preferences Mode
-       * @default global
-       * @enum {string}
-       */
-      preferences_mode: "global" | "custom";
-      limits?: components["schemas"]["QueueLimits"];
-      preferences?: components["schemas"]["QueuePreferences"];
-      /**
-       * Discovery Interval Seconds
-       * @default 300
-       */
-      discovery_interval_seconds: number;
-      /**
-       * Supervised Submission Cap
-       * @default 1
-       */
-      supervised_submission_cap: number;
-      /**
-       * Hourly Submission Cap
-       * @default 5
-       */
-      hourly_submission_cap: number;
-      /**
-       * Notify Telegram
-       * @default false
-       */
-      notify_telegram: boolean;
-      /**
-       * Skill Match Mode
-       * @default all
-       * @enum {string}
-       */
-      skill_match_mode: "all" | "any";
     };
     /** PolicyUpdate */
     PolicyUpdate: {
@@ -8772,6 +6256,30 @@ export interface components {
        * @default false
        */
       allow_unknown_posting_age_default: boolean;
+      /**
+       * Circuit Failures
+       * @description Consecutive portal failures (circuit breaker)
+       * @default 0
+       */
+      circuit_failures: number;
+      /**
+       * Circuit Level
+       * @description Circuit back-off level; 0 = closed
+       * @default 0
+       */
+      circuit_level: number;
+      /**
+       * Circuit Open Until
+       * @description Portal skipped until this time
+       */
+      circuit_open_until?: string | null;
+      /** Circuit Reason */
+      circuit_reason?: string | null;
+      /**
+       * Last Fresh Sweep At
+       * @description Last fresh-first discovery sweep
+       */
+      last_fresh_sweep_at?: string | null;
     };
     /** PortalStatus */
     PortalStatus: {
@@ -8806,7 +6314,10 @@ export interface components {
       /** Waiting For User */
       waiting_for_user: number;
     };
-    /** PrepareBrowser */
+    /**
+     * PrepareBrowser
+     * @description Owner-pasted official application URL for draft packet intake (no navigation).
+     */
     PrepareBrowser: {
       /** Application Url */
       application_url: string;
@@ -8855,11 +6366,6 @@ export interface components {
        */
       owner_confirmed: true;
     };
-    /** ProfileDisconnect */
-    ProfileDisconnect: {
-      /** Expected Version */
-      expected_version: number;
-    };
     /** ProfileLinks */
     ProfileLinks: {
       /** Github */
@@ -8894,12 +6400,15 @@ export interface components {
        */
       other: string[];
     };
-    /** ProfileSelection */
-    ProfileSelection: {
-      /** Expected Version */
-      expected_version: number;
-      /** Profile Binding Id */
-      profile_binding_id: string | null;
+    /** ProfileSyncRequestBody */
+    ProfileSyncRequestBody: {
+      /** Portals */
+      portals: string[];
+      /**
+       * Dry Run
+       * @default true
+       */
+      dry_run: boolean;
     };
     /** ProjectApproveRequest */
     ProjectApproveRequest: {
@@ -9096,13 +6605,6 @@ export interface components {
        */
       outreach_mode: "manual";
     };
-    /** QuestionAnswer */
-    QuestionAnswer: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Answer */
-      answer: string;
-    };
     /** QuestionInput */
     QuestionInput: {
       /** Question */
@@ -9176,124 +6678,6 @@ export interface components {
       expected_revision: number;
       /** Questions */
       questions: components["schemas"]["QuestionInput"][];
-    };
-    /** QueueControl */
-    QueueControl: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "start" | "pause" | "stop";
-    };
-    /** QueueLimits */
-    QueueLimits: {
-      /**
-       * Daily Cap
-       * @default 80
-       */
-      daily_cap: number;
-      /**
-       * Max Job Age Days
-       * @default 2
-       */
-      max_job_age_days: number;
-      /**
-       * Applicant Limit
-       * @default 10000
-       */
-      applicant_limit: number | null;
-      /**
-       * Unknown Applicants
-       * @default needs_review
-       * @enum {string}
-       */
-      unknown_applicants:
-        "needs_review" | "skip" | "allow_lower_bound" | "allow";
-      /**
-       * Minimum Match Score
-       * @default 80
-       */
-      minimum_match_score: number;
-    };
-    /** QueuePolicy */
-    QueuePolicy: {
-      global_limits?: components["schemas"]["QueueLimits"];
-      /** Platforms */
-      platforms?: {
-        [key: string]: components["schemas"]["PlatformQueuePolicy"];
-      };
-      /**
-       * Day Timezone
-       * @default Asia/Kolkata
-       */
-      day_timezone: string;
-      /**
-       * Concurrency
-       * @default 1
-       * @constant
-       */
-      concurrency: 1;
-      /**
-       * Max Pending
-       * @default 200
-       */
-      max_pending: number;
-      /**
-       * Background Only
-       * @default true
-       * @constant
-       */
-      background_only: true;
-      /**
-       * Notify Submitted
-       * @default true
-       */
-      notify_submitted: boolean;
-    };
-    /** QueuePolicyUpdate */
-    QueuePolicyUpdate: {
-      /** Expected Revision */
-      expected_revision: number;
-      policy: components["schemas"]["QueuePolicy"];
-    };
-    /** QueuePreferences */
-    QueuePreferences: {
-      /** Roles */
-      roles?: string[];
-      /** Locations */
-      locations?: string[];
-      /** Experience Min */
-      experience_min?: number | null;
-      /** Experience Max */
-      experience_max?: number | null;
-      /** Minimum Salary */
-      minimum_salary?: number | null;
-      /** Maximum Salary */
-      maximum_salary?: number | null;
-      /**
-       * Salary Currency
-       * @default INR
-       */
-      salary_currency: string;
-      /**
-       * Salary Period
-       * @default year
-       * @enum {string}
-       */
-      salary_period: "year" | "month";
-      /** Excluded Companies */
-      excluded_companies?: string[];
-    };
-    /** ReadCompanySource */
-    ReadCompanySource: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Source Url */
-      source_url: string;
-      /** Confirm Public Source Permission */
-      confirm_public_source_permission: boolean;
     };
     /** ReadConnect */
     ReadConnect: {
@@ -9520,35 +6904,6 @@ export interface components {
       /** Expected Profile Version */
       expected_profile_version?: number | null;
     };
-    /** Result */
-    Result: {
-      /**
-       * Version
-       * @default 1
-       * @constant
-       */
-      version: 1;
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /**
-       * Correlation Id
-       * Format: uuid
-       */
-      correlation_id?: string;
-      /** Ok */
-      ok: boolean;
-      /** Capability */
-      capability: string;
-      /** Error Code */
-      error_code?: string | null;
-      /** Data */
-      data?: {
-        [key: string]: unknown;
-      };
-    };
     /** ResumeAuthRead */
     ResumeAuthRead: {
       /** Ok */
@@ -9647,15 +7002,6 @@ export interface components {
       resource_version: string;
       /** Download Path */
       download_path?: string | null;
-    };
-    /** ResumePage */
-    ResumePage: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Capture Digest */
-      capture_digest: string;
-      /** Confirm Same Application */
-      confirm_same_application: boolean;
     };
     /** ResumeReviewRead */
     ResumeReviewRead: {
@@ -9783,11 +7129,6 @@ export interface components {
       /** Retention Days */
       retention_days: number;
     };
-    /** Review */
-    Review: {
-      /** Field Ids */
-      field_ids: string[];
-    };
     /** ReviewInput */
     ReviewInput: {
       /** Expected Revision */
@@ -9811,24 +7152,6 @@ export interface components {
        */
       confirm_destination: boolean;
     };
-    /** ReviewOpportunity */
-    ReviewOpportunity: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Capture Digest */
-      capture_digest: string;
-      /** Job Text */
-      job_text: string;
-      /**
-       * Company Text
-       * @default
-       */
-      company_text: string;
-      /** Confirm Company Job And Source */
-      confirm_company_job_and_source: boolean;
-      /** Company Source Token */
-      company_source_token?: string | null;
-    };
     /** ReviewedDraft */
     ReviewedDraft: {
       /** Expected Generation */
@@ -9851,11 +7174,6 @@ export interface components {
       content_hash: string;
       /** Owner Reviewed */
       owner_reviewed: boolean;
-    };
-    /** RevisionInput */
-    RevisionInput: {
-      /** Expected Revision */
-      expected_revision: number;
     };
     /** RunRequest */
     RunRequest: {
@@ -9952,6 +7270,18 @@ export interface components {
       current_company?: string | null;
       /** English Proficiency */
       english_proficiency?: string | null;
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
       /**
        * Version
        * @description Current candidate_profiles.version
@@ -10001,6 +7331,18 @@ export interface components {
       current_company?: string | null;
       /** English Proficiency */
       english_proficiency?: string | null;
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
       /**
        * Version
        * @description candidate_profiles.version; send back on PATCH
@@ -10134,6 +7476,24 @@ export interface components {
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
       };
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
+      /** Profile Sync */
+      profile_sync?: {
+        [key: string]: {
+          [key: string]: boolean;
+        };
+      } | null;
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -10289,6 +7649,24 @@ export interface components {
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
       };
+      /** Max Required Experience Years */
+      max_required_experience_years?: number | null;
+      /** Headline */
+      headline?: string | null;
+      /** Internship Months */
+      internship_months?: number | null;
+      /** Graduation Month */
+      graduation_month?: string | null;
+      /** Open To Internships */
+      open_to_internships?: boolean | null;
+      /** Notify Early Bird */
+      notify_early_bird?: boolean | null;
+      /** Profile Sync */
+      profile_sync?: {
+        [key: string]: {
+          [key: string]: boolean;
+        };
+      } | null;
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -10487,11 +7865,6 @@ export interface components {
        * @default 24
        */
       interval_hours: number;
-    };
-    /** Start */
-    Start: {
-      /** Job Ids */
-      job_ids: string[];
     };
     /** StartupAttributes */
     StartupAttributes: {
@@ -10732,209 +8105,6 @@ export interface components {
       /** Created At */
       created_at?: string | null;
     };
-    /** Submission */
-    Submission: {
-      /**
-       * Id
-       * Format: uuid
-       */
-      id?: string;
-      /**
-       * Owner
-       * @default primary
-       * @constant
-       */
-      owner: "primary";
-      /**
-       * Application Id
-       * Format: uuid
-       */
-      application_id: string;
-      /**
-       * Job Id
-       * Format: uuid
-       */
-      job_id: string;
-      /**
-       * Employer Id
-       * Format: uuid
-       */
-      employer_id: string;
-      /** Employer */
-      employer: string;
-      /** Job Title */
-      job_title: string;
-      /**
-       * Plan Id
-       * Format: uuid
-       */
-      plan_id: string;
-      /**
-       * Campaign Id
-       * Format: uuid
-       */
-      campaign_id: string;
-      /** Campaign Revision */
-      campaign_revision: number;
-      /**
-       * Candidate Profile Id
-       * Format: uuid
-       */
-      candidate_profile_id: string;
-      /** Candidate Version */
-      candidate_version: number;
-      /** Context Digest */
-      context_digest: string;
-      /** Packet Revision */
-      packet_revision: number;
-      /** Project Digest */
-      project_digest: string;
-      /** Pdf Digest */
-      pdf_digest?: string | null;
-      /** Document Id */
-      document_id: string;
-      /** Document Digest */
-      document_digest: string;
-      /**
-       * Adapter
-       * @enum {string}
-       */
-      adapter: "greenhouse" | "lever" | "google";
-      /** Origin */
-      origin: string;
-      /** Application Url */
-      application_url: string;
-      /** Request Url */
-      request_url: string;
-      /** Confirmation Url */
-      confirmation_url: string;
-      /** Receipt Url */
-      receipt_url: string;
-      /**
-       * Nonce
-       * Format: uuid
-       */
-      nonce?: string;
-      /**
-       * Idempotency Key
-       * Format: uuid
-       */
-      idempotency_key?: string;
-      /** Expires At */
-      expires_at: string;
-      /**
-       * Review Digest
-       * @default
-       */
-      review_digest: string;
-      /**
-       * State
-       * @default prepared
-       * @enum {string}
-       */
-      state:
-        | "prepared"
-        | "form_inspected"
-        | "form_filled"
-        | "awaiting_submission_approval"
-        | "submitting"
-        | "submitted"
-        | "submission_uncertain"
-        | "manual_required"
-        | "failed";
-      /** Authorization */
-      authorization?: {
-        [key: string]: unknown;
-      } | null;
-      /**
-       * Released
-       * @default false
-       */
-      released: boolean;
-      /**
-       * Cancelled
-       * @default false
-       */
-      cancelled: boolean;
-      /**
-       * Fence
-       * @default 0
-       */
-      fence: number;
-      /** Lease Until */
-      lease_until?: string | null;
-      /** Dispatch Started At */
-      dispatch_started_at?: string | null;
-      evidence?: components["schemas"]["SubmissionEvidence"] | null;
-      /** Reason */
-      reason?: string | null;
-      /**
-       * Revision
-       * @default 0
-       */
-      revision: number;
-      /** Command Campaign Ids */
-      command_campaign_ids?: string[];
-    };
-    /** SubmissionApproval */
-    SubmissionApproval: {
-      /**
-       * Nonce
-       * Format: uuid
-       */
-      nonce: string;
-      /** Review Digest */
-      review_digest: string;
-      /** Campaign Revision */
-      campaign_revision: number;
-      /** Application Ids */
-      application_ids: string[];
-      /**
-       * Maximum Count
-       * @default 1
-       * @constant
-       */
-      maximum_count: 1;
-      /**
-       * Scope
-       * @default submit_application
-       * @constant
-       */
-      scope: "submit_application";
-    };
-    /** SubmissionAuthorization */
-    SubmissionAuthorization: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Preview Digest */
-      preview_digest: string;
-      /** Confirm Exact Application */
-      confirm_exact_application: boolean;
-      /** Reviewed Consent Ids */
-      reviewed_consent_ids?: string[];
-    };
-    /** SubmissionEvidence */
-    SubmissionEvidence: {
-      /**
-       * Type
-       * @enum {string}
-       */
-      type:
-        | "application_acknowledgment"
-        | "employer_confirmation_response"
-        | "known_confirmation_page";
-      /** Destination */
-      destination: string;
-      /** Timestamp */
-      timestamp: string;
-      /** Application Id */
-      application_id: string;
-      /**
-       * Correlation Id
-       * Format: uuid
-       */
-      correlation_id: string;
-    };
     /** SubmissionInput */
     SubmissionInput: {
       /** Expected Revision */
@@ -10955,13 +8125,6 @@ export interface components {
       receipt_reference?: string | null;
       /** Note */
       note?: string | null;
-    };
-    /** SubmissionPreviewRequest */
-    SubmissionPreviewRequest: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Confirm Page Context */
-      confirm_page_context: boolean;
     };
     /** SubmissionRead */
     SubmissionRead: {
@@ -10997,79 +8160,10 @@ export interface components {
        */
       created_at: string;
     };
-    /** SubmitApproved */
-    SubmitApproved: {
-      /** Expected Revision */
-      expected_revision: number;
-      /**
-       * Grant Id
-       * Format: uuid
-       */
-      grant_id: string;
-      /**
-       * Grant Token
-       * Format: password
-       */
-      grant_token: string;
-      /** Idempotency Key */
-      idempotency_key: string;
-    };
     /** SyncNow */
     SyncNow: {
       /** Expected Generation */
       expected_generation: number;
-    };
-    /** SyncPolicy */
-    SyncPolicy: {
-      /**
-       * Enabled
-       * @default false
-       */
-      enabled: boolean;
-      /**
-       * Auto Profile Sync
-       * @default false
-       */
-      auto_profile_sync: boolean;
-      /**
-       * Verify Saved Resume
-       * @default false
-       */
-      verify_saved_resume: boolean;
-      /** Profile Version */
-      profile_version?: number | null;
-      /** Approved Fields */
-      approved_fields?: (
-        | "full_name"
-        | "email"
-        | "phone"
-        | "summary"
-        | "skills"
-        | "experience"
-        | "education"
-        | "projects"
-        | "location"
-        | "preferences"
-        | "notice_period"
-        | "expected_compensation"
-        | "resume"
-        | "github"
-        | "portfolio"
-        | "linkedin"
-        | "headline"
-        | "professional_title"
-      )[];
-      /**
-       * Interval Seconds
-       * @default 1800
-       */
-      interval_seconds: number;
-    };
-    /** SyncPolicyUpdate */
-    SyncPolicyUpdate: {
-      /** Expected Revision */
-      expected_revision: number;
-      policy: components["schemas"]["SyncPolicy"];
     };
     /** SyncResult */
     SyncResult: {
@@ -11147,75 +8241,6 @@ export interface components {
        */
       metadata_note: string;
     };
-    /** TaskCapabilities */
-    TaskCapabilities: {
-      /**
-       * Preview
-       * @default true
-       * @constant
-       */
-      preview: true;
-      /**
-       * Assisted Fill
-       * @default false
-       */
-      assisted_fill: boolean;
-      /**
-       * Reviewed Submission
-       * @default false
-       * @constant
-       */
-      reviewed_submission: false;
-      /**
-       * Unattended Approved
-       * @default false
-       * @constant
-       */
-      unattended_approved: false;
-    };
-    /** TaskControl */
-    TaskControl: {
-      /**
-       * Action
-       * @enum {string}
-       */
-      action: "pause" | "resume" | "cancel";
-      /** Expected Version */
-      expected_version: number;
-    };
-    /** TaskCounts */
-    TaskCounts: {
-      /**
-       * Ready
-       * @default 0
-       */
-      ready: number;
-      /**
-       * Completed
-       * @default 0
-       */
-      completed: number;
-      /**
-       * Missing
-       * @default 0
-       */
-      missing: number;
-      /**
-       * Manual
-       * @default 0
-       */
-      manual: number;
-      /**
-       * Validation Errors
-       * @default 0
-       */
-      validation_errors: number;
-      /**
-       * Existing
-       * @default 0
-       */
-      existing: number;
-    };
     /** TelegramStatusRead */
     TelegramStatusRead: {
       /** Configured */
@@ -11255,35 +8280,6 @@ export interface components {
       /** Output Tokens */
       output_tokens?: number | null;
     };
-    /** ToolCall */
-    ToolCall: {
-      /**
-       * Name
-       * @enum {string}
-       */
-      name:
-        | "search_jobs"
-        | "filter_jobs"
-        | "rank_jobs"
-        | "get_candidate_profile"
-        | "get_approved_project_context"
-        | "get_canonical_resume"
-        | "get_application_history"
-        | "prepare_application"
-        | "generate_grounded_answer"
-        | "preview_application"
-        | "fill_application"
-        | "inspect_application"
-        | "submit_application"
-        | "get_campaign_status"
-        | "cancel_campaign"
-        | "find_founder_profiles"
-        | "create_outreach_draft";
-      /** Arguments */
-      arguments?: {
-        [key: string]: unknown;
-      };
-    };
     /** TrackingInput */
     TrackingInput: {
       /** Expected Revision */
@@ -11306,46 +8302,6 @@ export interface components {
         ("external_application_opened" | "withdrawn" | "abandoned") | null;
       /** Note */
       note?: string | null;
-    };
-    /** Understanding */
-    Understanding: {
-      /**
-       * Intent
-       * @enum {string}
-       */
-      intent:
-        | "search"
-        | "filter"
-        | "apply"
-        | "status"
-        | "cancel"
-        | "approve"
-        | "select_project"
-        | "fill"
-        | "inspect"
-        | "submission_status"
-        | "submit_approved"
-        | "stop_submissions"
-        | "clarify";
-      filters?: components["schemas"]["Filters"];
-      /** Positions */
-      positions?: number[];
-      /** Project */
-      project?: string | null;
-      /** Campaign Id */
-      campaign_id?: string | null;
-      /**
-       * Fill Prepared
-       * @default false
-       */
-      fill_prepared: boolean;
-      /**
-       * Prepare Count
-       * @default 0
-       */
-      prepare_count: number;
-      /** Missing Information */
-      missing_information?: string[];
     };
     /** ValidationError */
     ValidationError: {
@@ -12944,6 +9900,68 @@ export interface operations {
       };
     };
   };
+  profile_sync_status_api_v1_v2_profile_sync_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+    };
+  };
+  request_profile_sync_api_v1_v2_profile_sync_request_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileSyncRequestBody"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description No profile-sync scheduler in this process (worker_only) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unknown portal */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   list_applications_api_v1_v2_applications_get: {
     parameters: {
       query?: {
@@ -13940,243 +10958,7 @@ export interface operations {
       };
     };
   };
-  owner_command_api_v1_local_agent_commands_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Command"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Result"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  chrome_command_api_v1_local_agent_chrome_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Command"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Result"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   history_api_v1_local_agent_history_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  command_api_v1_agent_commands_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Message"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Campaign"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  history_api_v1_agent_campaigns_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Campaign"][];
-        };
-      };
-    };
-  };
-  status_api_v1_agent_campaigns__campaign_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        campaign_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Campaign"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  approve_api_v1_agent_campaigns__campaign_id__approve_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        campaign_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Approval"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Campaign"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  cancel_api_v1_agent_campaigns__campaign_id__cancel_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        campaign_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Campaign"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  provider_status_api_v1_agent_status_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -15928,26 +12710,6 @@ export interface operations {
     };
   };
   integrations_api_v1_integrations_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  mcp_integration_status_api_v1_integrations_mcp_status_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -17941,1057 +14703,6 @@ export interface operations {
       };
     };
   };
-  chrome_profiles_api_v1_browser_chrome_profiles_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ChromeProfiles"];
-        };
-      };
-    };
-  };
-  select_chrome_profile_api_v1_browser_chrome_profiles_select_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ProfileSelection"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        profile_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ProfileDisconnect"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  chrome_profile_command_api_v1_browser_chrome_profiles_commands_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ChromeCommandInput"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  extension_tasks_api_v1_browser_extension_tasks_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ExtensionTask"][];
-        };
-      };
-    };
-  };
-  extension_task_api_v1_browser_extension_tasks_application__application_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        application_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ExtensionTask"] | null;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  control_extension_task_api_v1_browser_extension_tasks__task_id__control_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        task_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["TaskControl"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ExtensionTask"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  plans_api_v1_browser_plans_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FillPlan"][];
-        };
-      };
-    };
-  };
-  review_api_v1_browser_plans__plan_id__review_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        plan_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Review"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["FillPlan"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  stop_api_v1_browser_stop_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  next_step_api_v1_browser_plans__plan_id__next_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        plan_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  submissions_api_v1_browser_submissions_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Submission"][];
-        };
-      };
-    };
-  };
-  approve_submission_api_v1_browser_submissions__application_id__approve_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        application_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubmissionApproval"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Submission"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  execute_submission_api_v1_browser_submissions__application_id__execute_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        application_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Submission"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  stop_submissions_api_v1_browser_submissions_stop_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  reconcile_submission_api_v1_browser_submissions__application_id__reconcile_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        application_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Submission"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_browser_policy_api_v1_browser_applications_policy_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  preview_current_page_api_v1_browser_applications__packet_id__page_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RevisionInput"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  resume_current_page_api_v1_browser_applications__packet_id__resume_page_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ResumePage"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  preview_step_api_v1_browser_applications__packet_id__step_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RevisionInput"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  advance_application_step_api_v1_browser_applications__packet_id__advance_step_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AdvanceStep"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  preview_opportunity_api_v1_browser_applications__packet_id__opportunity_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RevisionInput"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  preview_company_source_api_v1_browser_applications__packet_id__company_source_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReadCompanySource"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  approve_opportunity_api_v1_browser_applications__packet_id__opportunity_approve_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ReviewOpportunity"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  prepare_application_api_v1_browser_applications_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["PrepareBrowser"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_application_status_api_v1_browser_applications__packet_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  get_browser_operation_api_v1_browser_applications__packet_id__operation_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  open_application_api_v1_browser_applications__packet_id__open_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["OpenBrowser"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  application_action_api_v1_browser_applications__packet_id__actions_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["BrowserAction"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  submission_preview_api_v1_browser_applications__packet_id__submission_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubmissionPreviewRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  authorize_submission_api_v1_browser_applications__packet_id__authorize_submission_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubmissionAuthorization"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  submit_approved_application_api_v1_browser_applications__packet_id__submit_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SubmitApproved"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  recover_submission_api_v1_browser_applications__packet_id__recover_submission_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  owner_consent_api_v1_browser_applications__packet_id__consent_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ConsentAction"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   apify_status_api_v1_integrations_providers_apify_get: {
     parameters: {
       query?: never;
@@ -19052,714 +14763,6 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ActorMetadata"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  account_binding_status_api_v1_execution_naukri_account_binding_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  account_binding_approval_api_v1_execution_naukri_account_binding_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AccountApproval"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  profile_sync_status_api_v1_execution_naukri_profile_sync_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  profile_sync_policy_api_v1_execution_naukri_profile_sync_policy_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SyncPolicyUpdate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  application_queue_status_api_v1_execution_queue_get: {
-    parameters: {
-      query?: {
-        platform?: "naukri" | null;
-        stage?:
-          | (
-              | "DISCOVERED"
-              | "MATCHED"
-              | "ELIGIBLE"
-              | "PREPARING"
-              | "READY_TO_APPLY"
-              | "APPLYING"
-              | "QUESTIONS"
-              | "RESUME_ATTACHMENT"
-              | "VERIFYING"
-              | "SUBMITTED_RECORDED"
-              | "NEEDS_INPUT"
-              | "PAUSED"
-              | "BLOCKED_PLATFORM"
-              | "FAILED_RETRYABLE"
-              | "FAILED_FINAL"
-              | "SUBMISSION_UNKNOWN"
-              | "SUBMITTED_CONFIRMED"
-              | "SKIPPED"
-            )
-          | null;
-        search?: string | null;
-        location?: string | null;
-        minimum_score?: number | null;
-        limit?: number;
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  application_queue_policy_api_v1_execution_queue_policy_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QueuePolicyUpdate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  application_queue_control_api_v1_execution_queue_control_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QueueControl"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  status_api_v1_execution_naukri_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  configure_api_v1_execution_naukri_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Configuration"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  automation_policy_api_v1_execution_naukri_automation_policy_put: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AutomationPolicyUpdate"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  automation_control_api_v1_execution_naukri_automation_control_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["AutomationControl"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  imports_api_v1_execution_naukri_import_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ImportBatch"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  start_api_v1_execution_naukri_apply_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Start"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  control_api_v1_execution__execution_id__control_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        execution_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Control"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  ask_api_v1_execution__execution_id__questions__field_id__post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        execution_id: string;
-        field_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  pending_api_v1_execution_questions_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  reuse_api_v1_execution_questions__question_id__approve_reuse_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        question_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  ask_packet_question_api_v1_execution_packets__packet_id__questions__field_id__post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        packet_id: string;
-        field_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["RevisionInput"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  answer_question_api_v1_execution_questions__question_id__answer_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        question_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["QuestionAnswer"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  find_saved_api_v1_execution_naukri_jobs_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  events_api_v1_execution_events_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  acknowledge_api_v1_execution_events__event_id__ack_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        event_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  reuse_for_api_v1_execution__execution_id__questions__field_id__reuse__question_id__post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        execution_id: string;
-        field_id: string;
-        question_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
         };
       };
       /** @description Validation Error */

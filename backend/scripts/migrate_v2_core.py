@@ -5,10 +5,16 @@
     apply  runs 004 as the Supabase `postgres` admin (password prompted, never
            stored), then migrates the never-replay fences into `applications`
            through the restricted runtime role, and verifies 0 data loss.
+    apply-phase9  runs followup 005 (Phase 9: priority columns, circuit breakers,
+           watcher state, agent audit log + memory, profile-sync runs) as admin.
+           Requires 004. Additive/idempotent; verifies 0 data loss. Apply it only
+           together with code that recognises 005 (the strict public-schema verifier
+           of older releases refuses unknown tables at API startup).
 
 Usage (repo root):
     backend/venv/bin/python -m backend.scripts.migrate_v2_core check
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply --expected-fences 3
+    backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-phase9
 """
 
 from __future__ import annotations
@@ -138,15 +144,28 @@ async def _legacy_rows(connection) -> list[tuple[str, dict]]:
     return [(r["key"], json.loads(r["value"])) for r in records]
 
 
-async def _v2_present(connection) -> list[str]:
+async def _v2_present(connection, tables=None) -> list[str]:
     from backend.app.operations.v2_schema import TABLES
 
     rows = await connection.fetch(
         "SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace "
         "WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY($1::text[])",
-        sorted(TABLES),
+        sorted(TABLES if tables is None else tables),
     )
     return sorted(r["relname"] for r in rows)
+
+
+async def _phase9_columns(connection) -> dict[str, list[str]]:
+    from backend.app.operations.v2_schema import PHASE9_COLUMNS
+
+    present: dict[str, list[str]] = {}
+    for table, columns in PHASE9_COLUMNS.items():
+        rows = await connection.fetch(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema='public' AND table_name=$1 AND column_name=ANY($2::text[])",
+            table, list(columns))
+        present[table] = sorted(r["column_name"] for r in rows)
+    return present
 
 
 async def inspect(settings) -> dict:
@@ -154,9 +173,13 @@ async def inspect(settings) -> dict:
     try:
         async with connection.transaction(readonly=True):
             fences = classify_legacy_rows(await _legacy_rows(connection))
+            from backend.app.operations.v2_schema import PHASE9_TABLES
+
             return {
                 "counts": await _counts(connection),
                 "v2_tables_present": await _v2_present(connection),
+                "phase9_tables_present": await _v2_present(connection, PHASE9_TABLES),
+                "phase9_columns_present": await _phase9_columns(connection),
                 "never_replay_fences": [
                     {"external_job_id": f.external_job_id, "state": f.state, "reason": f.reason}
                     for f in fences
@@ -255,9 +278,67 @@ async def apply(settings, expected_fences: int, admin_password: str | None) -> d
     return report
 
 
+def phase9_status(state: dict) -> dict:
+    """Pure: is followup 005 fully, partly or not applied (from an `inspect` result)?"""
+    from backend.app.operations.v2_schema import PHASE9_COLUMNS, PHASE9_TABLES
+
+    tables = set(state.get("phase9_tables_present") or [])
+    columns = state.get("phase9_columns_present") or {}
+    missing_columns = {t: sorted(set(c) - set(columns.get(t, []))) for t, c in PHASE9_COLUMNS.items()}
+    missing_columns = {t: c for t, c in missing_columns.items() if c}
+    if tables == set(PHASE9_TABLES) and not missing_columns:
+        status = "applied"
+    elif not tables and len(missing_columns) == len(PHASE9_COLUMNS):
+        status = "missing"
+    else:
+        status = "partial"
+    return {"status": status, "missing_tables": sorted(set(PHASE9_TABLES) - tables),
+            "missing_columns": missing_columns}
+
+
+async def apply_phase9(settings, admin_password: str) -> dict:
+    import asyncpg
+
+    from backend.app.db.safety import database_connect_args, database_target
+    from backend.app.operations.v2_schema import PHASE9_MIGRATION, TABLES
+
+    before = await inspect(settings)
+    before.pop("_fences")
+    missing_core = sorted(set(TABLES) - set(before["v2_tables_present"]))
+    if missing_core:
+        raise SystemExit(f"refusing: followup 004 tables missing {missing_core}; apply 004 first")
+    target = database_target(settings)
+    admin_uri = target.set(
+        drivername="postgresql", username="postgres", password=admin_password,
+    ).render_as_string(hide_password=False)
+    admin = await asyncpg.connect(admin_uri, **database_connect_args(settings))
+    try:
+        await admin.execute(PHASE9_MIGRATION.read_text())
+    finally:
+        await admin.close()
+    after = await inspect(settings)
+    after.pop("_fences")
+    lost = {t: (before["counts"][t], after["counts"][t]) for t in PRESERVED_TABLES
+            if before["counts"][t] is not None
+            and (after["counts"][t] or 0) < before["counts"][t]}
+    status = phase9_status(after)
+    report = {"applied_at": datetime.now(UTC).isoformat(), "migration": PHASE9_MIGRATION.name,
+              "before": before, "after": after, "phase9": status, "data_loss": lost}
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = EVIDENCE_DIR / f"apply-phase9-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.private.json"
+    path.write_text(json.dumps(report, indent=2, default=str) + "\n")
+    os.chmod(path, 0o600)
+    if lost:
+        raise SystemExit(f"DATA LOSS DETECTED: {lost} (evidence {path})")
+    if status["status"] != "applied":
+        raise SystemExit(f"phase9 migration incomplete: {status} (evidence {path})")
+    report["evidence"] = str(path)
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("check", "apply"), nargs="?", default="check")
+    parser.add_argument("command", choices=("check", "apply", "apply-phase9"), nargs="?", default="check")
     parser.add_argument("--expected-fences", type=int)
     parser.add_argument("--sql-applied", action="store_true",
                         help="004 was already run in the Supabase SQL Editor: no admin password needed")
@@ -271,6 +352,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "check":
         result = asyncio.run(inspect(settings))
         result.pop("_fences")
+        result["phase9"] = phase9_status(result)
+    elif args.command == "apply-phase9":
+        from backend.app.browser_v2.env_loader import load_env
+
+        admin_password: str = (load_env(args.env_file).get("AUTOMATED_APPLY_DB_ADMIN_PASSWORD")
+                               or getpass.getpass("Supabase postgres admin password: "))
+        result = asyncio.run(apply_phase9(settings, admin_password))
     else:
         if args.expected_fences is None:
             parser.error("apply requires --expected-fences N (confirm the check output first)")

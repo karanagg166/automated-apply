@@ -13,7 +13,7 @@ import pytest
 from backend.app.browser_v2.digest import DigestScheduler
 from backend.app.browser_v2.hitl import EXPIRED_REASON, HITLResolutionService
 from backend.app.browser_v2.state import ApplicationState as S
-from backend.app.browser_v2.store import HitlRecord, MemoryStore
+from backend.app.browser_v2.store import HitlRecord, MemoryStore, agent_chat_key
 from backend.app.browser_v2.worker import Worker
 from backend.app.telegram_v2.client import (
     CHUNK_UNITS,
@@ -287,37 +287,42 @@ async def test_swipe_reply_targets_the_exact_request_among_several():
     await bot.client.aclose()
 
 
-async def test_unthreaded_reply_with_two_open_lists_refs_without_calling_the_agent():
-    class NoAgent:
-        async def run(self, text):  # pragma: no cover - must not be reached
-            raise AssertionError("agent must not guess")
-
+async def test_unthreaded_reply_goes_to_the_agent_and_offline_lists_refs_without_guessing():
+    """Phase 9C: plain text is LLM-first; with no provider the deterministic fallback never guesses."""
     store = MemoryStore()
     fake = FakeTelegram()
-    bot = make_bot(store, fake, agent=NoAgent())
+    bot = make_bot(store, fake)
     _, first = await waiting_job(store, 1, options=())
     _, second = await waiting_job(store, 2, options=(), company="Beta & <Co>")
     await bot.handle_update(msg("Bangalore"))
+    await bot.drain_agent()
     reply = fake.sent()[-1]["text"]
     assert first.ref in reply and second.ref in reply and "won't guess" in reply and "&lt;Co&gt;" in reply
     assert (await store.get_hitl(first.id)).status == "OPEN" and (await store.get_hitl(second.id)).status == "OPEN"
     await bot.client.aclose()
 
 
-async def test_chit_chat_never_answers_the_single_open_question():
-    class EchoAgent:
-        async def run(self, text):
-            return {"reply": "noted", "verdict": "help"}
+async def test_chit_chat_and_unthreaded_answers_both_go_to_the_agent():
+    class RecordingAgent:
+        def __init__(self):
+            self.calls = []
+
+        async def run_chat(self, text, *, chat_key, source):
+            self.calls.append((text, chat_key, source))
+            return {"reply_html": "noted", "confirmation": None, "hitl_resolutions": []}
 
     store = MemoryStore()
     fake = FakeTelegram()
-    bot = make_bot(store, fake, agent=EchoAgent())
+    agent = RecordingAgent()
+    bot = make_bot(store, fake, agent=agent)
     _, hitl = await waiting_job(store, options=())
     await bot.handle_update(msg("thanks!"))
-    await bot.drain_agent()
-    assert (await store.get_hitl(hitl.id)).status == "OPEN"
     await bot.handle_update(msg("Immediately"))
-    assert (await store.get_hitl(hitl.id)).answer_text == "Immediately"
+    await bot.drain_agent()
+    assert [c[0] for c in agent.calls] == ["thanks!", "Immediately"]
+    assert all(c[2] == "telegram" and c[1] == agent_chat_key("telegram", OWNER) for c in agent.calls)
+    assert (await store.get_hitl(hitl.id)).status == "OPEN"  # only the agent's tool may resolve it
+    assert fake.sent()[-1]["text"] == "🤖 noted"
     await bot.client.aclose()
 
 

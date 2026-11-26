@@ -143,31 +143,6 @@ def test_factory_has_no_cross_provider_fallback():
 
 
 @pytest.mark.asyncio
-async def test_actual_v2_tool_argument_json_is_locally_validated():
-    from backend.app.agent.tools import definitions
-    body = envelope(finish_reason="TOOL_CALL", message={"role": "assistant", "tool_calls": [
-        {"id": "tool-search", "type": "function", "function": {"name": "search_jobs", "arguments": '{"filters":{"role":"Python","limit":3}}'}}]})
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))) as client:
-        proposals, usage = await CohereProvider(config(), client).propose_tools("Propose a bounded search.", {"command": "Find Python jobs"}, definitions())
-    assert proposals[0].name == "search_jobs" and proposals[0].arguments["filters"]["limit"] == 3
-    assert usage.input_tokens == 42
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("name,arguments", [("submit_application", '{"job_id":"invented"}'),
-    ("search_jobs", '{"filters":{"limit":500}}'), ("search_jobs", '{"filters":{},"authorized":true}'),
-    ("search_jobs", {}), ("run_sql", '{"sql":"delete everything"}')])
-async def test_forged_tool_calls_never_become_executable(name, arguments):
-    from backend.app.agent.tools import definitions
-    body = envelope(finish_reason="TOOL_CALL", message={"role": "assistant", "tool_calls": [
-        {"id": "tool-1", "type": "function", "function": {"name": name, "arguments": arguments}}]})
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json=body))) as client:
-        with pytest.raises(ProviderError, match="invalid_tool_proposal") as caught:
-            await CohereProvider(config(), client).propose_tools("Propose.", {}, definitions())
-    assert caught.value.usage.output_tokens == 7
-
-
-@pytest.mark.asyncio
 async def test_timeout_is_bounded_no_retries():
     calls = []
     def handle(request):
@@ -177,34 +152,3 @@ async def test_timeout_is_bounded_no_retries():
         with pytest.raises(ProviderError, match="cohere_transport_error"):
             await CohereProvider(config(), client).json("Classify", {}, CommandFixture)
     assert len(calls) == 1
-
-
-@pytest.mark.asyncio
-async def test_command_consent_and_candidate_consent_independent():
-    from backend.app.agent.planner import CommandPlanner
-    # Injecting a transport here would bypass the runtime consent branch. Use the real factory;
-    # conftest forbids all network, so any accidental transmission fails the test immediately.
-    settings = config(COHERE_OWNER_TEXT_AUTHORIZED=False)
-    result, _ = await CommandPlanner(settings).understand("do that vague thing", {})
-    assert result.intent == "clarify"
-    settings = config(COHERE_OWNER_TEXT_AUTHORIZED=True, COHERE_CANDIDATE_DATA_AUTHORIZED=False)
-    for text in ["Use my resume facts to decide something", "I built a project involving private hospital records", "Contact me at owner@example.org", "Karan graduated from Example University"]:
-        result, _ = await CommandPlanner(settings).understand(text, {})
-        assert result.intent == "clarify"
-
-
-def test_every_v2_structured_object_has_required_properties():
-    from backend.app.agent.contracts import Understanding
-    from backend.app.agent.tools import definitions
-    from backend.app.ai.providers.cohere import supported_schema
-    def visit(value):
-        if isinstance(value, dict):
-            if value.get("type") == "object" and value.get("properties"):
-                assert value.get("required")
-            for item in value.values():
-                visit(item)
-        elif isinstance(value, list):
-            for item in value:
-                visit(item)
-    visit(supported_schema(Understanding.model_json_schema()))
-    visit(supported_schema(definitions()))

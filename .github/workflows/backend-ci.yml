@@ -56,12 +56,10 @@ jobs:
       - name: Core Phase 1 lint
         run: >-
           ruff check --isolated --select E9,F,I
-          backend/app/candidate_context backend/app/ai backend/app/agent
+          backend/app/candidate_context backend/app/ai
           backend/app/services/application_answer_service.py
           backend/tests/test_local_answer_integration.py backend/tests/test_cohere_provider.py
-          backend/tests/test_agent_planner.py backend/tests/test_agent_execution.py backend/tests/test_agent_execution_postgres.py backend/scripts/verify_command_postgres.py backend/scripts/run_command_worker.py
           backend/app/dashboard/candidate_context.py
-          backend/scripts/phase1/agy_isolation_check.py
           backend/tests/test_candidate_context*.py backend/tests/test_phase1_agy_diagnostics.py
       - name: Contact enrichment lint
         run: >-
@@ -70,7 +68,7 @@ jobs:
           backend/app/api/v1/contact_enrichment.py
           backend/app/models/contact_enrichment.py
           backend/tests/test_contact* backend/tests/contact_enrichment_fakes.py
-          backend/scripts/*contact* backend/scripts/verify_phase3_migration.py
+          backend/scripts/*contact*
       - name: Contact enrichment security scan
         run: >-
           bandit -q -r backend/app/services/contact_enrichment
@@ -79,18 +77,16 @@ jobs:
       - name: Phase 4A lint
         run: >-
           ruff check --isolated --select E9,F,I
-          backend/app/mcp backend/app/integrations
+          backend/app/integrations
           backend/app/services/outreach_drafting.py backend/app/services/saved_data.py
           backend/app/services/contact_read.py backend/app/api/v1/integrations.py
           backend/app/api/v1/outreach.py backend/app/models/connected_account.py
           backend/app/schemas/outreach.py backend/app/core/config.py backend/app/main.py
           backend/app/models/outreach.py
           backend/scripts/setup_gmail_oauth.py
-          backend/tests/phase4a_fakes.py backend/tests/test_mcp_auth.py
-          backend/tests/test_mcp_tool_permissions.py backend/tests/test_mcp_transport.py
+          backend/tests/phase4a_fakes.py
           backend/tests/test_gmail_oauth.py backend/tests/test_gmail_token_store.py
           backend/tests/test_gmail_connection.py backend/tests/test_outreach*.py
-          backend/tests/test_phase4a_postgres.py backend/scripts/verify_phase4a_migration.py
       - name: Phase 4B lint
         run: >-
           ruff check --isolated --select E9,F,I
@@ -103,49 +99,22 @@ jobs:
           backend/scripts/phase7_ui_fixture.py backend/scripts/resolve_owner_resume.py
           backend/scripts/configure_frontend_owner.py backend/tests/test_phase7_dashboard.py
           backend/app/api/v1/discovery.py
-      - name: Browser assistant lint
+      - name: Application assistant lint
         run: >-
-          ruff check --isolated --select E9,F,I backend/app/browser
+          ruff check --isolated --select E9,F,I
           backend/app/ai/optional_usage.py backend/app/ai/providers/optional.py
           backend/app/ai/output_contract.py backend/tests/test_ollama_contract.py
-          backend/scripts/browser_assistant.py backend/scripts/browser_mock_demo.py
-          backend/tests/test_browser_assistant.py backend/tests/test_optional_ai.py
-          backend/tests/test_browser_submissions.py backend/tests/test_browser_submission_postgres.py
-          backend/scripts/verify_browser_submission.py
-          backend/tests/browser_employers.py
+          backend/tests/test_optional_ai.py
           backend/app/knowledge backend/app/ai/fallback.py
           backend/app/ai/provider_factory.py backend/app/ai/providers/gemini.py
           backend/app/services/application_answer_service.py backend/app/api/v1/application_answers.py
           backend/app/schemas/candidate_profile.py backend/app/ai/schemas.py
           backend/tests/test_answer_reuse.py backend/tests/test_career_facts.py backend/tests/test_local_ai_fallback.py
           backend/tests/test_narrative_paraphrases.py
-          backend/app/core/text.py backend/tests/company_source_employers.py
-          backend/tests/test_company_source.py backend/tests/test_company_source_postgres.py
-          backend/scripts/verify_company_source.py
-          backend/tests/test_opportunity_context.py backend/tests/opportunity_fakes.py
-          backend/tests/test_browser_opportunity_postgres.py backend/scripts/verify_browser_opportunity.py
-          backend/tests/test_browser_choices.py backend/tests/test_browser_steps.py
-          backend/tests/test_browser_steps_postgres.py backend/scripts/verify_browser_steps.py
-          backend/tests/test_browser_navigation.py backend/tests/test_browser_navigation_postgres.py
-          backend/scripts/verify_browser_navigation.py
-          backend/tests/test_browser_narrative_submission.py backend/tests/test_complete_application_postgres.py
-          backend/scripts/verify_complete_application.py
-          backend/app/core/pinned_http.py backend/app/resume_sync/download_worker.py
-          backend/tests/test_public_assets.py backend/tests/test_browser_assets.py backend/tests/asset_employers.py
-          backend/tests/test_browser_assets_postgres.py backend/scripts/verify_browser_assets.py
-          backend/tests/dropdown_employers.py backend/tests/test_browser_dropdowns.py
-          backend/tests/test_browser_dropdowns_postgres.py backend/scripts/verify_browser_dropdowns.py
-          backend/tests/test_browser_field_reuse.py
-          backend/app/services/applications/multi_select.py
-          backend/tests/test_multi_select_answers.py backend/tests/test_browser_multiple.py
-          backend/tests/multiple_employers.py backend/scripts/verify_browser_multiple.py
-          backend/tests/test_browser_multiple_postgres.py
-          backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
-          backend/scripts/verify_browser_cancellation.py
-          backend/scripts/verify_live_ollama.py
+          backend/app/core/text.py backend/app/core/pinned_http.py backend/app/resume_sync/download_worker.py
+          backend/app/dashboard/owner_approval.py backend/app/services/applications/intake.py
+          backend/app/services/applications/multi_select.py backend/tests/test_multi_select_answers.py
           backend/app/ai/validation.py backend/app/ai/prompts.py
-      - name: PostgreSQL browser lifecycle demonstration
-        run: python backend/scripts/browser_mock_demo.py
       - name: Backend security scan
         run: bandit -q -r backend/app
       - name: Phase 10 lint
@@ -167,11 +136,11 @@ jobs:
           backend/app/services/applications backend/app/api/v1/applications.py
           backend/app/schemas/applications.py backend/app/models/application_packet.py
           backend/app/repositories/application_packet.py
-          backend/scripts/verify_phase5a_migration.py backend/scripts/demo_application_preparation.py
+          backend/scripts/demo_application_preparation.py
           backend/tests/phase5a_fakes.py backend/tests/test_application_packet*.py
           backend/tests/test_application_question_mapping.py backend/tests/test_application_resume_selection.py
           backend/tests/test_application_status_tracking.py backend/tests/test_naukri_application_capabilities.py
-          backend/tests/test_application_handoff.py backend/tests/test_phase5a_postgres.py
+          backend/tests/test_application_handoff.py
       - name: Phase 6A lint
         run: >-
           ruff check --isolated --select E9,F,I
@@ -184,7 +153,6 @@ jobs:
           backend/tests/startup_fakes.py backend/tests/test_live_startup_discovery.py
           backend/tests/test_startup_intelligence.py backend/tests/test_provider_connectivity.py
           backend/tests/test_startup_people_bridge.py backend/tests/test_startup_api_mcp.py
-          backend/tests/test_phase6a_postgres.py backend/scripts/verify_phase6a_migration.py
           backend/scripts/startup_discovery_demo.py
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
@@ -193,6 +161,7 @@ jobs:
           ruff check --isolated --select E9,F,I
           backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2 backend/app/enrichment_v2
           backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2
+          backend/app/api/v1/v2 backend/app/api/v1/automation_v2.py
           backend/scripts/migrate_v2_core.py backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
           backend/tests/test_phase6b_ops.py backend/tests/test_gmail_no_send_guardrail.py
           backend/tests/test_no_local_llm_guardrail.py
@@ -203,12 +172,13 @@ jobs:
           mypy --ignore-missing-imports --follow-imports=silent --check-untyped-defs --warn-unused-ignores \
             --explicit-package-bases backend/app/browser_v2 backend/app/ai_v2 backend/app/telegram_v2 \
             backend/app/enrichment_v2 backend/app/mail_v2 backend/app/agent_v2 backend/app/events_v2 \
-            backend/app/api/v1/automation_v2.py backend/app/core/origin_policy.py \
+            backend/app/api/v1/automation_v2.py backend/app/api/v1/v2 backend/app/core/origin_policy.py \
             backend/scripts/cutover_v2.py backend/scripts/cleanup_legacy_v1.py
       - name: Hard guardrails (Gmail read+draft only, no local generative LLM)
         run: >-
           python -m pytest -q -p no:cacheprovider
           backend/tests/test_gmail_no_send_guardrail.py backend/tests/test_no_local_llm_guardrail.py
+          backend/tests/test_architecture_standards_v2.py
       - name: Python v2 test pyramid (unit -> PG17 -> E2E)
         timeout-minutes: 10
         run: >-
@@ -228,6 +198,16 @@ jobs:
           backend/tests/test_telegram_v2_bot.py backend/tests/test_telegram_v2_postgres.py
           backend/tests/test_v2_migration_sql.py backend/tests/test_v2_live_smoke.py
           backend/tests/test_v2_full_pipeline_e2e.py backend/tests/test_v2_phase6a_browser_e2e.py
+          backend/tests/test_agent_v2_control.py backend/tests/test_agent_v2_fences.py backend/tests/test_agent_v2_postgres_store.py
+          backend/tests/test_agent_v2_react_graph.py backend/tests/test_agent_v2_tools.py backend/tests/test_ai_v2_multikey.py
+          backend/tests/test_circuit_breaker_v2.py backend/tests/test_early_bird_notifier_v2.py backend/tests/test_env_loader_v2.py
+          backend/tests/test_feed_clients_v2.py backend/tests/test_health_golive_v2.py backend/tests/test_health_phase9_v2.py
+          backend/tests/test_mail_alert_links_v2.py backend/tests/test_outcomes_v2.py backend/tests/test_portal_apply_flow_v2.py
+          backend/tests/test_priority_v2.py backend/tests/test_profile_autofill_v2.py backend/tests/test_profile_sync_api_v2.py
+          backend/tests/test_profile_sync_cli_v2.py backend/tests/test_profile_sync_diff_v2.py backend/tests/test_profile_sync_scheduler_v2.py
+          backend/tests/test_profile_sync_service_v2.py backend/tests/test_public_sources_v2.py backend/tests/test_scheduler_preemption_v2.py
+          backend/tests/test_store_priority_v2.py backend/tests/test_telegram_v2_llm_routing.py backend/tests/test_telegram_v2_reliability.py
+          backend/tests/test_v2_phase9_migration_sql.py backend/tests/test_watchers_v2.py backend/tests/test_worker_phase9_wiring.py
       - run: python -m compileall -q backend/app
       - name: Record isolated PostgreSQL baseline
         run: |
@@ -270,7 +250,6 @@ jobs:
           backend/scripts/check_providers.py backend/scripts/smoke_test.py
           backend/scripts/check_workspace.py backend/scripts/local_public_pilot.py
           backend/scripts/public_source_smoke.py backend/scripts/validate_gemini.py
-          backend/scripts/verify_phase6b_migration.py
           backend/tests/test_environment_readiness.py backend/tests/test_migration_preflight.py
           backend/tests/test_profile_onboarding_readiness.py backend/tests/test_operational_health.py
           backend/tests/test_startup_pilot_operations.py

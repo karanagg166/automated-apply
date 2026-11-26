@@ -257,7 +257,7 @@ async def test_api_requires_distinct_single_use_owner_proof_for_reuse_approval(
     import time
     from uuid import uuid4
 
-    from backend.app.browser.owner_approval import approval_header
+    from backend.app.dashboard.owner_approval import approval_header
 
     owner_key = "fictional-knowledge-owner-approval-key-separate"  # pragma: allowlist secret — fixture only
     monkeypatch.setenv("BROWSER_OWNER_APPROVAL_KEY", owner_key)

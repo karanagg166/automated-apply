@@ -76,7 +76,9 @@ class JobIngestionService:
                         if item.company_name and " ".join(
                             item.company_name.casefold().split()
                         ) != " ".join(company.name.casefold().split()):
-                            from backend.app.execution.naukri import normalized_url
+                            from backend.app.services.applications.platforms.naukri import (
+                                normalized_url,
+                            )
 
                             # Only the authenticated owner import may correct
                             # listing facts for the exact same Naukri requisition.

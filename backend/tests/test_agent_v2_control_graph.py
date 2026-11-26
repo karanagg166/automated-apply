@@ -225,19 +225,24 @@ async def test_pending_hitl_query_lists_open_requests():
     assert result["ok"] and hitl.ref in result["reply"] and "relocate" in result["reply"]
 
 
-async def test_telegram_single_open_question_still_wins_over_the_agent():
+async def test_telegram_plain_text_goes_to_the_agent_and_offline_answers_the_single_question():
+    """Phase 9C: plain text goes to the agent. Offline, a control command is handled by the deterministic
+    parser and never answers the open request; a plain reply with exactly one open QUESTION answers it."""
     store = store_with_profile()
     fake = FakeTelegram()
     bot = make_bot(store, fake)
     record, hitl = await waiting_job(store)
+    await bot.handle_update(msg("pause"))  # clearly a control command: handled by the deterministic fallback
+    await bot.drain_agent()
+    assert (await store.get_hitl(hitl.id)).status == "OPEN"
+    assert (await store.get_worker_control()).desired_state is WorkerState.PAUSED and "🤖" in last_reply(fake)
+    await bot.handle_update(msg("thanks"))  # chit-chat never answers
+    await bot.drain_agent()
+    assert (await store.get_hitl(hitl.id)).status == "OPEN"
     await bot.handle_update(msg("Yes"))
+    await bot.drain_agent()
     assert (await store.get_hitl(hitl.id)).status == "ANSWERED"
     assert (await store.get_application(record.id)).state is S.SCORED
-    _, other = await waiting_job(store, 2)
-    await bot.handle_update(msg("pause"))  # clearly a control command: not an answer to the open question
-    await bot.drain_agent()
-    assert (await store.get_hitl(other.id)).status == "OPEN"
-    assert (await store.get_worker_control()).desired_state is WorkerState.PAUSED and "🤖" in last_reply(fake)
 
 
 async def test_telegram_ask_command_and_refusal():

@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Jobs, getSourceDetails } from "@/features/jobs";
-import { detectAtsPlatform } from "@/features/browser-assistant";
 import { ConnectedEmails, detectUrlAts } from "@/features/connected-emails";
 import { api } from "@/lib/api";
 
@@ -43,17 +42,6 @@ it("never treats missing source metadata or recognized vendor hosts as verified 
       { id: "smartrecruiters", availability: "configuration_required" },
     ]).availability,
   ).toBe("configuration_required");
-  for (const url of [
-    "https://jobs.lever.co/company/id",
-    "https://tenant.myworkdayjobs.com/job/id",
-    "https://tenant.taleo.net/job/id",
-    "https://simplify.jobs/p/id",
-  ]) {
-    expect(detectAtsPlatform(url).supportedControls).toEqual([]);
-  }
-  expect(
-    detectAtsPlatform("https://lever.co.evil.example/application").isKnownAts,
-  ).toBe(false);
   expect(detectUrlAts("https://evilgreenhouse.io/application").isAts).toBe(
     false,
   );

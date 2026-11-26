@@ -10,7 +10,7 @@ This file is the authoritative instruction set for every AI coding agent and dev
 
 1. **Zero Paid Dependencies:** Never introduce paid APIs, paid proxies, paid cloud hosting, paid tunnels (e.g., paid ngrok), or paid vector databases. Every component must operate strictly within free tiers or local open-source tooling.
 2. **No Local Generative LLMs:** Never configure Ollama, llama.cpp, or local generative models. All reasoning/generation must go through the **Free External LLM Fallback Router**. *(Exception: lightweight local CPU ONNX/FastEmbed embedding models ~80 MB RAM for semantic caching are required.)*
-3. **Single Primary Orchestrator (Python v2):** Do NOT duplicate orchestration, scheduling, auth, or business logic across multiple runtimes (Python + Rust + Extension). **Python (`uv` + `asyncio` + `FastAPI` + `Playwright` + `FastMCP`)** is the only primary orchestrator (`backend/app/browser_v2/` for in-process browser automation and `backend/app/browser_v2/browser_mcp.py` for FastMCP exposure). `rust/`, `extension/`, the native messaging host, and their LaunchAgents are **frozen**: do not edit, extend, or delete them until the owner approves removal.
+3. **Single Primary Orchestrator (Python v2):** Do NOT duplicate orchestration, scheduling, auth, or business logic across multiple runtimes (Python + Rust + Extension). **Python (`uv` + `asyncio` + `FastAPI` + `Playwright` + `FastMCP`)** is the only primary orchestrator (`backend/app/browser_v2/` for in-process browser automation and `backend/app/browser_v2/browser_mcp.py` for FastMCP exposure). The v1 runtimes are gone: `rust/`, `extension/` and the native messaging host were removed on 2026-11-26, and Phase 9E removed the v1 Python agent/browser-assistant/execution/FastMCP packages (`backend/app/{agent,browser,execution,mcp}`), the v1 Telegram bot and their scripts. Do not reintroduce them; `backend/tests/test_v2_isolation.py` keeps them deleted and unimported.
 4. **Deterministic First, LLM Second:** Never spend LLM tokens on tasks that deterministic code can handle (navigation, pagination, login detection, filtering, standard profile fields, resume uploads). Call an LLM only for JD-to-preference scoring, dynamic/unseen screening questions, and personalized email draft copy.
 5. **M1 Fanless Resource Budget:** Keep total steady-state browser + worker footprint lean. Max **1 active browser worker tab** at any time (`tidy_tabs()` closes stray popups/tabs). No parallel multi-tab scraping storms. Keep SQLAlchemy pools clamped to `pool_size=2, max_overflow=1` (`backend/app/db/session.py`) and use one `asyncpg` connection per v2 worker process to respect Supabase's 5-connection runtime role ceiling.
 
@@ -55,14 +55,14 @@ Because this system runs on macOS (Apple Silicon M1) and interacts with native d
 
 - **Target Containerization:** Package installations, DB migrations, linting, type-checking, and test suites for core services should run inside Docker containers once the Compose stack is wired; during active host transition on macOS, use `backend/venv` via `uv` strictly (never bare `pip`, `pip3`, or `python -m pip`).
 - **Frontend/JS Package Manager:** Use **`pnpm` strictly**. Never run `npm`, `npx`, `yarn`, or `bun`, and never commit `package-lock.json` or `yarn.lock`.
-- **Database & Migrations:** Authoritative live state resides in **online Supabase PostgreSQL** (`public` schema + `pgvector` in schema `extensions`). v2 core tables (`portal_rules`, `applications`, `application_state_events`, `hitl_requests`, `semantic_cache`, `llm_provider_usage`, `enrichment_cache`, `enrichment_credits`, `email_drafts`) come from `supabase/fresh_public/followups/004_python_v2_core_tables.sql` and are applied ONLY through `backend/scripts/migrate_v2_core.py` (always run read-only `check` first). SQLite (including `sqlite-vec` when used locally) is restricted to tests, offline fixtures, and local cache benchmarks—never production job/application state.
+- **Database & Migrations:** Authoritative live state resides in **online Supabase PostgreSQL** (`public` schema + `pgvector` in schema `extensions`). v2 core tables (`portal_rules`, `applications`, `application_state_events`, `hitl_requests`, `semantic_cache`, `llm_provider_usage`, `enrichment_cache`, `enrichment_credits`, `email_drafts`) come from `supabase/fresh_public/followups/004_python_v2_core_tables.sql`; Phase 9 followup `005_python_v2_phase9.sql` adds `watcher_state`, `agent_audit_log` (append-only), `agent_conversation_turns`, `profile_sync_runs` plus priority/circuit-breaker columns on `applications`/`portal_rules`. Both are applied ONLY through `backend/scripts/migrate_v2_core.py` (`apply`, then `apply-phase9`; always run read-only `check` first). SQLite (including `sqlite-vec` when used locally) is restricted to tests, offline fixtures, and local cache benchmarks—never production job/application state.
 
 ---
 
 ## 4. Architecture & MCP Component Contracts
 
 ### 4.1 Browser MCP (`Playwright` + Persistent `Brave`)
-- **Frozen / Deprecated Path:** Do NOT build, modify, or extend the Chrome Extension (`extension/`), Rust workspace (`rust/`), or Native Messaging Host for the 24/7 application loop (Manifest V3 suspends idle service workers and breaks on cross-origin ATS redirects). Retain them untouched until the owner approves removal.
+- **Retired Path:** The Chrome Extension, Rust workspace and Native Messaging Host were removed (Manifest V3 suspends idle service workers and breaks on cross-origin ATS redirects). Do not rebuild them for the 24/7 application loop.
 - **Dedicated Brave Profile & Login Flow:**
   - Use Playwright `launch_persistent_context` pointed at macOS Brave (`/Applications/Brave Browser.app/Contents/MacOS/Brave Browser`) with the single dedicated user-data directory `~/Library/Application Support/automated-apply/brave` (override via `AUTOMATED_APPLY_BRAVE_PROFILE_DIR`; never under `~/Desktop`, `~/Documents`, or `~/Downloads`), isolated from the user's personal Brave profiles.
   - One-time manual login uses `backend/venv/bin/python -m backend.app.browser_v2.cli login-setup`, which launches plain Brave with zero Playwright/CDP/`--enable-automation` flags. Automation launches headful with `--enable-automation` removed and refuses concurrent runs against the same profile lock.
@@ -139,6 +139,7 @@ Triggered **only** when a platform reaches a daily limit (dashboard cap or porta
 
 ### 4.6 Telegram HITL MCP (Free Long Polling)
 - Use Telegram Bot API **long polling** (never require a public webhook server or paid tunnel).
+- **LLM-first agent:** free-text messages go to the v2 agent (`backend/app/agent_v2`), which may only call allow-listed, audited tools; every tool call is recorded in `public.agent_audit_log` and conversation memory in `public.agent_conversation_turns`. Slash commands remain deterministic.
 - Triggers: CAPTCHA, OTP, `AUTH_REQUIRED` login expiry, ambiguous/unseen screening question (below confidence threshold / not in stored facts or semantic cache), or repeated submission failure.
 - **Non-Blocking Rule:** When a job needs human input:
   1. Transition **only that job** to `WAITING_FOR_USER` and persist a `public.hitl_requests` row + form context.
@@ -186,16 +187,16 @@ DISCOVERED
 ## 6. Continuity, Workspace Ownership, Coding Standards & Verification
 
 ### A. Account-Independent Continuity & Workspace Lifecycle
-- Canonical local repository: `/Users/karanagg/Desktop/Projects/automated-apply` (`karanagg166/automated-apply`). Never create duplicate full clones; use linked Git worktrees under `~/Library/Application Support/Automated Apply/development-worktrees/<agent>-<task>` if isolation is needed, and inspect `.git/automated-apply/worktree-ownership.json` before touching shared checkouts. Follow [the workspace policy](docs/workspace-policy.md).
+- Canonical local repository: `/Users/karanagg/Desktop/Projects/automated-apply` (`karanagg166/automated-apply`). Never create duplicate full clones; use linked Git worktrees under `<repo>/.worktrees/<name>` if isolation is needed, and inspect `.git/automated-apply/worktree-ownership.json` before touching shared checkouts. Follow [the workspace policy](docs/workspace-policy.md).
 - Keep [the resume record](docs/project-state.md) and private snapshots updated at milestones (`uv run --no-project python scripts/project_continuity.py snapshot|verify|resume`). Never rewrite Codex account ownership or session identities.
-- Never delete directories, historical releases, worktrees, or frozen artifacts (`rust/`, `extension/`) without separate explicit owner approval of the exact cleanup batch.
+- Never delete directories, historical releases or worktrees without separate explicit owner approval of the exact cleanup batch.
 
 ### B. Coding Style & Development Commands
 - **Python:** 4-space indentation, `snake_case` modules/functions, `PascalCase` classes; keep HTTP handlers thin and business logic in services/repositories (`backend/app/browser_v2/`, `backend/app/services/`).
 - **TypeScript / Next.js:** Prettier, 2-space indentation, `PascalCase` React components, `kebab-case` filenames (`frontend/src/`). Regenerate OpenAPI types after API contract changes (`backend/venv/bin/python backend/scripts/export_openapi.py`, then `pnpm -C frontend api:types`).
 - **Standard Commands:**
-  - Migration check/apply: `backend/venv/bin/python -m backend.scripts.migrate_v2_core check` (then `apply --expected-fences N`)
-  - Browser v2 CLI: `backend/venv/bin/python -m backend.app.browser_v2.cli {login-setup|check-session|test-apply|mcp}`
+  - Migration check/apply: `backend/venv/bin/python -m backend.scripts.migrate_v2_core check` (then `apply --expected-fences N`, then `apply-phase9` for followup 005)
+  - Browser v2 CLI: `backend/venv/bin/python -m backend.app.browser_v2.cli {login-setup|check-session|test-apply|mcp|sync-profile|health-check}`
   - API & Frontend dev: `uvicorn backend.app.main:app --reload --port 8000` and `pnpm -C frontend {install|dev|build|typecheck|format:check|test|e2e}`
 
 ### C. Mandatory Post-Edit Verification Gate & Turn Reporting

@@ -10,12 +10,7 @@ vi.mock("../src/lib/security", () => ({
   allowedRequest: () => true,
   validSession: () => true,
   validCsrf: (_s: string, csrf: string) => csrf === "fictional-csrf",
-  configuration: () => ({ secure: true }),
 }));
-import {
-  GET as workflowGet,
-  PUT as workflowPut,
-} from "../src/app/api/workflow/[...path]/route";
 import { GET as backendGet } from "../src/app/api/backend/[...path]/route";
 const retire: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -42,49 +37,6 @@ async function fixture(listener: RequestListener) {
   );
   return socket;
 }
-it("routes guarded workflow mutations over private IPC without claiming forwarded TLS", async () => {
-  let calls = 0;
-  const socket = await fixture((req, res) => {
-    calls++;
-    expect(req.url).toBe("/api/v1/rust-agent/discovery/schedule");
-    expect(req.headers["x-forwarded-proto"]).toBeUndefined();
-    expect(req.headers.host).toBe("127.0.0.1:18011");
-    expect(req.headers.authorization).toBe(
-      "Bearer 0123456789abcdefghijklmnopqrstuvwxyzABCDEF",
-    );
-    res.setHeader("Content-Type", "application/json");
-    res.end('{"revision":2}');
-  });
-  vi.stubEnv("RUST_AGENT_URL", "http://127.0.0.1:18011");
-  vi.stubEnv("RUST_AGENT_UNIX_SOCKET", socket);
-  vi.stubEnv("RUST_AGENT_TRUST_LOOPBACK_PROXY", "true");
-  const context = {
-    params: Promise.resolve({ path: ["discovery", "schedule"] }),
-  };
-  const makeRequest = (csrf: string) =>
-    new NextRequest(
-      "https://workspace.example/api/workflow/discovery/schedule",
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-        body: '{"expected_revision":1}',
-      },
-    );
-  expect((await workflowPut(makeRequest("wrong"), context)).status).toBe(403);
-  expect(calls).toBe(0);
-  const result = await workflowPut(makeRequest("fictional-csrf"), context);
-  expect(result.status).toBe(200);
-  expect(await result.json()).toEqual({ revision: 2 });
-  expect(calls).toBe(1);
-  const denied = await workflowGet(
-    new NextRequest(
-      "https://workspace.example/api/workflow/discovery/schedule?extra=1",
-    ),
-    context,
-  );
-  expect(denied.status).toBe(404);
-  expect(calls).toBe(1);
-});
 it("routes ordinary API reads over IPC preserving response status and ETag", async () => {
   let calls = 0;
   const socket = await fixture((req, res) => {

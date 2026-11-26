@@ -35,20 +35,18 @@ def test_no_http_route_can_send_email():
 
 
 async def test_no_mcp_tool_or_capability_can_send():
-    from backend.app.browser_v2 import browser_mcp
-    from backend.app.mcp import permissions, registry
+    import importlib.util
 
-    for server in (registry.mcp, browser_mcp.mcp):
-        names = {tool.name for tool in await server.list_tools()}
-        assert not any("send" in name or "deliver" in name or "smtp" in name for name in names), names
-        mail_tools = {name for name in names if "mail" in name}
-        # Phase 5: only the enumerated READ + DRAFT tools may mention mail at all.
-        allowed = browser_mcp.DRAFT_ONLY_MAIL_TOOLS if server is browser_mcp.mcp else frozenset()
-        assert mail_tools <= allowed, mail_tools - allowed
-    assert set(browser_mcp.TOOL_NAMES) == {tool.name for tool in await browser_mcp.mcp.list_tools()}
-    assert "send_email" not in {c.value for c in permissions.Capability}
-    assert "send_email" not in permissions.allowed_capabilities()
-    assert "send_email" not in permissions.TOOL_CAPABILITIES.values()
+    from backend.app.browser_v2 import browser_mcp
+
+    # The legacy FastMCP server/registry was retired in Phase 9E and must stay gone.
+    assert importlib.util.find_spec("backend.app.mcp") is None
+    names = {tool.name for tool in await browser_mcp.mcp.list_tools()}
+    assert not any("send" in name or "deliver" in name or "smtp" in name for name in names), names
+    mail_tools = {name for name in names if "mail" in name}
+    # Phase 5: only the enumerated READ + DRAFT tools may mention mail at all.
+    assert mail_tools <= browser_mcp.DRAFT_ONLY_MAIL_TOOLS, mail_tools - browser_mcp.DRAFT_ONLY_MAIL_TOOLS
+    assert set(browser_mcp.TOOL_NAMES) == names
 
 
 def test_oauth_never_requests_gmail_send_scope():
@@ -155,10 +153,14 @@ def test_mail_app_runner_rejects_any_action_but_draft_and_probe():
 
 
 # --- Phase 6A: read-only inbox reader, control agent, event bus, auto-login, 9 new adapters -----------
+# The read-only reader: the reader.py facade plus the modules it was split into (Phase 9A).
+READER_SOURCES = [*sorted((APP / "mail_v2").glob("read*.py")),
+                  *(APP / "mail_v2" / name for name in ("imap_reader.py", "gmail_api_reader.py",
+                                                         "mail_app_reader.py", "event_store.py"))]
 PHASE6A_SOURCES = [*sorted((APP / "agent_v2").rglob("*.py")), *sorted((APP / "events_v2").rglob("*.py")),
-                   APP / "mail_v2/reader.py", APP / "browser_v2/auth.py", APP / "browser_v2/digest.py",
+                   *READER_SOURCES, APP / "browser_v2/auth.py", APP / "browser_v2/digest.py",
                    APP / "browser_v2/resume.py", APP / "browser_v2/receipts.py",
-                   *sorted((APP / "browser_v2/adapters").glob("*.py"))]
+                   *sorted(p for p in (APP / "browser_v2/adapters").rglob("*.py") if "__pycache__" not in p.parts)]
 
 
 def test_phase6a_packages_exist():
@@ -177,8 +179,10 @@ def test_phase6a_python_has_no_email_delivery_code(path):
 
 
 def test_mail_reader_imap_is_examine_and_peek_only():
-    source = (MAIL_V2 / "reader.py").read_text()
+    assert MAIL_V2 / "reader.py" in READER_SOURCES and MAIL_V2 / "imap_reader.py" in READER_SOURCES
+    source = "\n".join(path.read_text() for path in READER_SOURCES)
     calls = set(re.findall(r"imap\.(\w+)\(", source))
+    assert {"login", "select", "search", "fetch"} <= calls, calls
     assert calls <= {"login", "logout", "select", "search", "fetch"}, calls
     assert "readonly=True" in source and "BODY.PEEK[]" in source
     assert not re.search(r"imap\.(?:store|expunge|copy|move|append|uid)\(", source)  # no flag writes at all
