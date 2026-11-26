@@ -267,8 +267,14 @@ class FeedAdapter:
         """Backlog jobs after a restart: re-read the (cached) feed and find the posting."""
         if listing.external_job_id in self.jobs:
             return self.jobs[listing.external_job_id]
+        found: FeedJob | None = None
         for job in await self.fetch(listing.title or "", 200):
             self.remember(job)
+            if job.external_job_id == listing.external_job_id:
+                found = job  # the LRU cache is capped; never rely on it for the job being inspected
+        if found is not None:
+            self.remember(found)
+            return found
         return self.jobs.get(listing.external_job_id)
 
     # --- session / inspection -------------------------------------------------------------
