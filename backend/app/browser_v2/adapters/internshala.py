@@ -38,6 +38,7 @@ class InternshalaAdapter(InteractivePortalAdapter):
                      r"your application (?:has been|was) (?:sent|submitted)",
         limit_text=r"(?:daily|today'?s?)\s+application\s+limit|reached\s+(?:the|your)\s+(?:daily\s+)?application\s+limit",
         form_page_after_apply=True,
+        apply_opens_form=True,
         # Live 2026-11-26: four equivalent "Apply now" CTAs; `.company` also contains the title.
         apply_selector="#apply_now_button",
         company_selector=".company_name, .link_display_like_text")

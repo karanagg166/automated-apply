@@ -35,6 +35,8 @@ class WellfoundAdapter(InteractivePortalAdapter):
         applied_text=r"^(?:applied|application sent)$",
         confirm_text=r"application sent|applied successfully|your application (?:has been|was) (?:sent|submitted)|"
                      r"thanks for applying",
+        apply_opens_form=True,
+        external_modal_text=r"managed outside of wellfound|apply on (?:the )?(?:company(?:'s)? )?website",
         limit_text=r"too many (?:applications|requests)|application limit|reached (?:the|your) (?:daily )?limit")
 
     def search_url(self, query: str, job_age_days: int | None = None) -> str:

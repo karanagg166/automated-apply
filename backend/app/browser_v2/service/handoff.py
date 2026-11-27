@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -11,6 +12,8 @@ from backend.app.browser_v2.service.gates import GatesMixin
 from backend.app.browser_v2.service.helpers import S
 from backend.app.browser_v2.store import ApplicationRecord, DiscoveryMeta
 from backend.app.browser_v2.store.phase9_records import PRIORITY_MUTABLE_STATES
+
+EXTERNAL_AFTER_CLICK = "external_company_site_after_click"
 
 
 class HandoffMixin(GatesMixin):
@@ -62,6 +65,16 @@ class HandoffMixin(GatesMixin):
             return None
         target = ats_handoff_target(detail.apply_url)
         return target if target is not None and target.platform in self.adapters else None
+
+    def after_click_handoff(self, platform: str, detail: Any, result: Any) -> tuple[Any, Any] | None:
+        """The Apply modal said "apply on the company website" (nothing sent): a supported ATS link
+        there is handed off like a pre-click external link -> (external detail, target)."""
+        link = (result.receipt or {}).get("external_url") if result.reason == EXTERNAL_AFTER_CLICK else None
+        if not isinstance(link, str):
+            return None
+        external = replace(detail, apply_mode="external", apply_url=link)
+        target = self.handoff_target(platform, external)
+        return (external, target) if target is not None else None
 
     async def hand_off(self, record: ApplicationRecord, detail: Any, target: Any, *,
                        record_filters: bool) -> dict[str, Any]:
