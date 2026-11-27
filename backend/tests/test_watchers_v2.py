@@ -307,3 +307,14 @@ async def test_feed_adapters_sort_newest_first_and_carry_posted_at():
     listings = await adapter.discover_jobs(None, query="backend engineer", limit=2)
     assert [item.external_job_id for item in listings] == ["2", "3"]
     assert listings[0].posted_at == posted[1] and listings[0].posted_at.tzinfo is not None
+
+
+def test_target_roles_reads_dashboard_target_titles_and_filters_on_every_role():
+    from backend.app.browser_v2.watchers.models import MAX_ROLES, target_roles
+
+    titles = [f"Role {i}" for i in range(8)] + ["Backend Developer"]
+    prefs = {"target_titles": titles}  # live 2026-11-27: the profile stores only target_titles
+    assert target_roles(prefs, limit=None)[-1] == "Backend Developer" and len(target_roles(prefs, limit=None)) == 9
+    assert len(target_roles(prefs)) == MAX_ROLES  # per-role query sources stay capped
+    merged = target_roles({"target_roles": ["SWE"], "target_titles": ["SWE", "DevOps Engineer"]}, limit=None)
+    assert merged == ["SWE", "DevOps Engineer"]
