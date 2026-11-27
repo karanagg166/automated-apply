@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.app.ai_v2.observability import trace_context
 from backend.app.ai_v2.router import AllLLMProvidersExhaustedError, LLMRouter
 from backend.app.ai_v2.semantic_cache import SemanticCache
 from backend.app.browser_v2.answers import (
@@ -205,8 +206,11 @@ class ScreeningAnswerer:
         user_prompt = json.dumps({"candidate_profile": self.safe_profile, "job": job, "question": question,
                                   "options": list(options)}, ensure_ascii=False)
         try:
-            result = await self.router.generate_json("screening_qa", SYSTEM_PROMPT, user_prompt,
-                                                     LLMScreeningAnswer, max_output_tokens=300)
+            with trace_context(tags=["feature:screening"], metadata={
+                    "portal": context.get("platform") or context.get("portal"), "company": job.get("company"),
+                    "role": job.get("title"), "has_options": bool(options)}):
+                result = await self.router.generate_json("screening_qa", SYSTEM_PROMPT, user_prompt,
+                                                         LLMScreeningAnswer, max_output_tokens=300)
         except AllLLMProvidersExhaustedError as exc:
             return ResolvedAnswer(None, 3, "human", _ms(started), "llm_exhausted",
                                   llm_chain=tuple(f"{a['provider']}:{a['outcome']}" for a in exc.attempts))

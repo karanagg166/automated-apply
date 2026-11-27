@@ -229,11 +229,11 @@ async def test_real_langfuse_sdk_accepts_our_calls_and_exports_only_scrubbed_spa
     router.register_secrets(["Zed Example"])
     result = await router.generate_json("screening_qa", "sys", "I am Zed Example", Reply)
     provider.force_flush()
-    spans = {span.name: span for span in exporter.get_finished_spans()}
-    assert set(spans) == {"llm.screening_qa", "groq", "gemini"}
+    spans = list(exporter.get_finished_spans())
+    assert sorted(span.name for span in spans) == ["generate", "generate", "llm.screening_qa"]
     assert result.trace_id and len(result.trace_id) == 32
-    assert all(format(span.context.trace_id, "032x") == result.trace_id for span in spans.values())
-    exported = json.dumps({name: dict(span.attributes) for name, span in spans.items()}, default=str)
+    assert all(format(span.context.trace_id, "032x") == result.trace_id for span in spans)
+    exported = json.dumps([dict(span.attributes) for span in spans], default=str)
     assert "Zed Example" not in exported
     assert "http_503" in exported and "gemini-" in exported.lower()
 
@@ -318,3 +318,31 @@ async def test_judge_sees_the_proposed_answer_and_never_runs_on_the_generator_fa
     screening, _, seen = answerer(judge, "enforce", RecordingTracer())
     await screening.resolve(QUESTION, ("Yes", "No"), FACTS)
     assert seen == [GROQ, GEMINI] and "proposed_answer" in bodies[0] and "rotational shifts" in bodies[0]
+
+
+async def test_trace_has_review_input_reply_output_and_context():
+    """Best practice: root input = the question, root output = the answer, context in metadata/tags."""
+    import langfuse
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+        InMemorySpanExporter,
+    )
+
+    from backend.app.ai_v2.observability import trace_context
+
+    exporter, provider = InMemorySpanExporter(), TracerProvider()
+    tracer = LangfuseTracer(None)
+    tracer._client = langfuse.Langfuse(
+        public_key="TEST_FAKE_PUBLIC_CONTEXT", secret_key="TEST_FAKE_SECRET_CONTEXT", base_url="http://127.0.0.1:9",
+        tracer_provider=provider, span_exporter=exporter, mask=tracer.mask)
+    router, _ = make_router({GROQ: {"answer": "Yes", "confidence": 0.9}}, tracer)
+    user = json.dumps({"candidate_profile": {"big": "profile"}, "question": "Do you know Python?", "options": ["Yes", "No"]})
+    with trace_context(tags=["feature:screening"], metadata={"portal": "naukri", "company": "Acme"}):
+        await router.generate_json("screening_qa", "sys", user, Reply)
+    provider.force_flush()
+    root = next(s for s in exporter.get_finished_spans() if s.name == "llm.screening_qa")
+    attrs = {k: str(v) for k, v in dict(root.attributes).items()}
+    blob = json.dumps(attrs)
+    assert "Do you know Python?" in blob and "big" not in attrs.get("langfuse.observation.input", "")
+    assert '"answer"' in attrs.get("langfuse.observation.output", "") or "Yes" in attrs.get("langfuse.observation.output", "")
+    assert "feature:screening" in blob and "task:screening_qa" in blob and "naukri" in blob
