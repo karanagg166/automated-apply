@@ -32,11 +32,14 @@ class WellfoundAdapter(InteractivePortalAdapter):
         # Live 2026-11-26 (Phase 8): top action-bar "Apply" + bottom "Apply now" (two components) -> the
         # action-bar button is the primary control (counted only if it reads Apply).
         apply_selector='[class*="actionBar"] button',
-        applied_text=r"^(?:applied|application sent)$",
+        # Live 2026-11-27: the badge reads "✓  Applied" (check mark + nbsp).
+        applied_text=r"^(?:[✓✔]\s*)?(?:applied|application sent)$",
         confirm_text=r"application sent|applied successfully|your application (?:has been|was) (?:sent|submitted)|"
                      r"thanks for applying",
-        apply_opens_form=True,
+        # NOT apply_opens_form: live 2026-11-27 an "Apply" click alone sent applications (badge
+        # "✓ Applied" with no modal), so a missing form after the click stays a fence.
         external_modal_text=r"managed outside of wellfound|apply on (?:the )?(?:company(?:'s)? )?website",
+        ineligible_modal_text=r"does not support the locations? or timezones?",
         limit_text=r"too many (?:applications|requests)|application limit|reached (?:the|your) (?:daily )?limit")
 
     def search_url(self, query: str, job_age_days: int | None = None) -> str:

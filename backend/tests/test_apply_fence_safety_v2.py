@@ -5,7 +5,7 @@
   SUBMISSION_UNKNOWN.
 - Internshala's form page has <input type=number> "Mobile number": typing "+91-..." raised a
   Playwright Error that fenced the job forever. Number inputs now get digits (phone: national number).
-- Portals whose Apply click only opens a form (`apply_opens_form`): an error or a missing form before
+- Portals whose Apply click only opens a form (`apply_opens_form`, Internshala): an error or a missing form before
   any submit click is a retryable FAILED; after a submit click it still propagates (fence).
 """
 
@@ -78,12 +78,33 @@ async def test_wellfound_external_modal_is_filtered_with_the_ats_link_never_fenc
     assert result.receipt == {"external_url": GH_LINK}
 
 
-async def test_wellfound_apply_without_a_form_is_retryable_failed(web, tmp_path):
+async def test_wellfound_apply_without_a_form_stays_fenced(web, tmp_path):
+    # Live 2026-11-27: a bare Wellfound "Apply" click can send the application (no modal).
     page, site = web
     site.add(WF_URL, wellfound_page("<p>Something went wrong</p>"))
     adapter = WellfoundAdapter(receipts_root=tmp_path, **FAST)
     result = await adapter.apply_job(page, await wellfound_detail(page, adapter), facts(tmp_path), dry_run=False)
-    assert result.state is S.FAILED and result.reason == "apply_form_not_submitted"
+    assert result.state is S.SUBMISSION_UNKNOWN and result.reason == "confirmation_ambiguous"
+
+
+async def test_wellfound_check_mark_applied_badge_is_already_applied(web, tmp_path):
+    page, site = web
+    site.add(WF_URL, html("""<nav><a href="/jobs/applications">Applied</a></nav>
+      <main><h1>Software Developer</h1><div class="styles_actionBar__jZgoT"><button>Save</button>
+        <button>&#10003;&nbsp; Applied</button></div><p>Python backend</p></main>"""))
+    adapter = WellfoundAdapter(receipts_root=tmp_path, **FAST)
+    detail = await wellfound_detail(page, adapter)
+    assert detail.already_applied is True
+
+
+async def test_wellfound_location_not_supported_modal_is_filtered(web, tmp_path):
+    page, site = web
+    site.add(WF_URL, wellfound_page("""<div class="ReactModal__Content" role="dialog"><h3>YOUR APPLICATION</h3>
+      <p>This job does not support the locations or timezones for remote work on your profile.</p>
+      <textarea aria-label="Cover Letter"></textarea><button disabled>Send application</button></div>"""))
+    adapter = WellfoundAdapter(receipts_root=tmp_path, **FAST)
+    result = await adapter.apply_job(page, await wellfound_detail(page, adapter), facts(tmp_path), dry_run=False)
+    assert result.state is S.FILTERED_OUT and result.reason == "portal_says_location_not_supported"
 
 
 def internshala_pages(site: Any) -> None:

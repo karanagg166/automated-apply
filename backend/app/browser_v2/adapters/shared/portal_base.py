@@ -51,6 +51,9 @@ class PortalConfig:
     # Text of an after-click modal saying the employer takes applications elsewhere (live 2026-11-27
     # Wellfound: "Applications to this job are managed outside of Wellfound ... Apply on website").
     external_modal_text: str | None = None
+    # Text of an after-click modal saying the candidate cannot apply (its send button is disabled), e.g.
+    # live 2026-11-27 Wellfound "This job does not support the locations or timezones ... on your profile".
+    ineligible_modal_text: str | None = None
     # Live 2026-11-26: the single primary Apply control when a page repeats equivalent CTAs, and the
     # precise company element when a generic [class*=company] container also holds the title.
     apply_selector: str | None = None
