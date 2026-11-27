@@ -173,6 +173,7 @@ class JobSearchPreferences(ProfileSchema):
     # Phase 8 canonical screening facts (Greenhouse Country, Lever Current company / English).
     country: ShortText | None = None
     current_company: ShortText | None = None
+    current_title: ShortText | None = None
     english_proficiency: ShortText | None = None
     open_to_relocation: StrictBool | None = None
     relocation_locations: StringList = Field(default_factory=list)

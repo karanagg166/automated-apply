@@ -12,7 +12,7 @@ SCREENING_FIELDS = (
     "target_roles", "keywords_required", "keywords_excluded", "tech_stack", "company_blacklist",
     "remote_policy", "skill_match_mode", "min_match_score", "current_ctc", "expected_ctc", "min_ctc",
     "notice_period_days", "total_experience_years", "current_location", "willing_to_relocate",
-    "skill_years", "country", "current_company", "english_proficiency",
+    "skill_years", "country", "current_company", "current_title", "english_proficiency",
     # Phase 9B
     "max_required_experience_years", "headline", "internship_months", "graduation_month",
     "open_to_internships", "notify_early_bird",

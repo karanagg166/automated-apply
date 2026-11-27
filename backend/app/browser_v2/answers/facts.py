@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from backend.app.browser_v2.answers.education import education_from_profile
 from backend.app.browser_v2.answers.geography import country_of, place_facts
 from backend.app.browser_v2.answers.normalizers import (
     _float,
@@ -93,9 +94,11 @@ class CandidateFacts:
     country_source: str | None = None
     relocation_locations: tuple[str, ...] = ()
     current_company: str | None = None
+    current_title: str | None = None
     work_authorization: str | None = None
     work_authorizations: tuple[WorkAuthorization, ...] = ()
     english_proficiency: str | None = None
+    education: Any = None  # Phase 9: answers.education.Education from candidate_profiles.education
 
     @classmethod
     def from_profile(cls, profile: dict[str, Any],
@@ -128,6 +131,7 @@ class CandidateFacts:
                 identity.setdefault(key, value)
         # Only explicitly stored facts: never derive expected CTC from min_ctc.
         return cls(
+            education=education_from_profile(profile),
             experience_years=total if total is not None else _float(profile.get("verified_experience_years")),
             skills=tuple(skills),
             skill_years=skill_years,
@@ -146,6 +150,7 @@ class CandidateFacts:
             relocation_locations=tuple(x.strip() for x in prefs.get("relocation_locations") or ()
                                        if isinstance(x, str) and x.strip()),
             current_company=company,
+            current_title=_text(prefs.get("current_title")),
             work_authorization=_text(prefs.get("work_authorization")),
             work_authorizations=_work_authorizations(prefs.get("work_authorizations")),
             english_proficiency=_text(prefs.get("english_proficiency")),

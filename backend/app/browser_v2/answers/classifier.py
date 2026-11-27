@@ -63,8 +63,12 @@ COUNTRY_Q = re.compile(r"^\s*(?:current\s+|your\s+)?country(?:\s*/\s*region)?(?:
                        r"\bcountry\s+(?:where\s+)?you\s+(?:currently\s+)?(?:live|reside|are based|are located)\b",
                        re.IGNORECASE)
 CURRENT_COMPANY_Q = re.compile(r"\b(?:current|present)\s+(?:company|employer|organi[sz]ation)(?:\s+name)?\b|"
-                               r"\bwhere do you (?:currently )?work\b|\bcompany you (?:currently )?work (?:for|at)\b",
+                               r"\bwhere do you (?:currently )?work\b|\bcompany you (?:currently )?work (?:for|at)\b|"
+                               r"\b(?:current\s+or\s+(?:previous|most recent|last)|most recent|latest|last|previous)\s+"
+                               r"(?:company|employer|organi[sz]ation)(?:\s+name)?\b",
                                re.IGNORECASE)
+CURRENT_TITLE_Q = re.compile(r"\b(?:(?:current|present)(?:\s+or\s+(?:previous|most recent|last))?|most recent|latest|last|"
+                             r"previous)\s+(?:job\s+)?(?:title|designation|role|position)\b", re.IGNORECASE)
 LINK_CONTEXT = re.compile(r"\bhear about\b|\bhow did you (?:find|learn|discover)\b|\bsource\b|\brefer", re.IGNORECASE)
 LINKEDIN_Q = re.compile(r"^\s*linked\s?in(?:\s+(?:url|profile|link|page))*\s*\??$|"
                         r"\blinked\s?in\b.*\b(?:url|profile|link|page)\b|\b(?:url|profile|link)\b.*\blinked\s?in\b",

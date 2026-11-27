@@ -24,7 +24,8 @@ BODY_PREVIEW_CHARS = 280
 
 
 PROFILE_KEYS = ("verified_experience_years", "verified_skills", "verified_roles", "projects", "preferences",
-                "full_name", "email", "phone", "linkedin_url", "github_url", "portfolio_url", "personal_website")
+                "full_name", "email", "phone", "linkedin_url", "github_url", "portfolio_url", "personal_website",
+                "education")
 
 
 class RulesNotFound(LookupError):
