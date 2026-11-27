@@ -47,7 +47,17 @@ def role_query_match(title: str | None, query: str | None) -> bool:
 
     if not query or not query.strip():
         return True
-    return bool(title) and _role_matches(title or "", query)
+    # Phase 9: "Backend Engineer | AI Engineer | ..." matches any of the owner's target roles at once.
+    roles = [part.strip() for part in query.split(ROLE_QUERY_SEPARATOR) if part.strip()]
+    return bool(title) and any(_role_matches(title or "", role) for role in roles)
+
+
+ROLE_QUERY_SEPARATOR = "|"
+
+
+def multi_role_query(roles: list[str] | tuple[str, ...]) -> str:
+    """One discovery query that matches every target role (whole-feed adapters only)."""
+    return f" {ROLE_QUERY_SEPARATOR} ".join(role.strip() for role in roles if role and role.strip())
 
 
 # --- shared answer resolution ---------------------------------------------------------------

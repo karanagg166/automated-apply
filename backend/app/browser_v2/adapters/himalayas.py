@@ -85,6 +85,8 @@ class HimalayasAdapter(FeedAdapter):
             if self.http_client is None:
                 await client.aclose()
 
+    whole_feed = False  # the query is sent to Himalayas' search API
+
     async def fetch(self, query: str, limit: int) -> list[FeedJob]:
         query = " ".join(query.split())[:100]
 

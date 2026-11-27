@@ -288,6 +288,11 @@ class ExecutorMixin(WorkerLoop):
 
     def next_query(self, platform: str, prefs: CandidatePreferences) -> str:
         queries = list(prefs.target_roles) or [DEFAULT_QUERY]
+        adapter = getattr(self.service, "adapters", {}).get(platform)
+        if getattr(adapter, "whole_feed", False) and len(queries) > 1:
+            from backend.app.browser_v2.adapters.shared.text import multi_role_query
+
+            return multi_role_query(queries)  # whole-board feeds: every role, every cycle
         index = self.query_index.get(platform, 0)
         self.query_index[platform] = index + 1
         return queries[index % len(queries)]

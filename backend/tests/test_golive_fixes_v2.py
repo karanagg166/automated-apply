@@ -82,3 +82,31 @@ def test_backlog_listing_keeps_posting_age() -> None:
     legacy = SimpleNamespace(platform="lever", external_job_id="y", job_url=None, role_title=None,
                              company_name=None, posted_at=None)
     assert ExecutorMixin.backlog_listing(legacy).posted_age_days is None
+
+
+def test_multi_role_query_matches_any_target_role() -> None:
+    from backend.app.browser_v2.adapters.shared.text import (
+        multi_role_query,
+        role_query_match,
+    )
+
+    query = multi_role_query(["Backend Engineer", "AI Engineer", " ", "Software Development Engineer"])
+    assert query == "Backend Engineer | AI Engineer | Software Development Engineer"
+    assert role_query_match("Applied AI Engineer, Enterprise AI", query)
+    assert role_query_match("Backend Developer (Python)", query)  # engineer ~ developer synonym
+    assert not role_query_match("Account Executive", query)
+    assert role_query_match("Anything", "") and role_query_match("Backend Engineer", "Backend Engineer")
+
+
+def test_worker_uses_one_all_roles_query_for_whole_feed_adapters_only() -> None:
+    from backend.app.browser_v2.adapters.greenhouse import GreenhouseAdapter
+    from backend.app.browser_v2.adapters.himalayas import HimalayasAdapter
+
+    prefs = CandidatePreferences(target_roles=("Backend Engineer", "AI Engineer"))
+    worker = SimpleNamespace(service=SimpleNamespace(adapters={"greenhouse": GreenhouseAdapter(),
+                                                               "himalayas": HimalayasAdapter()}),
+                             query_index={})
+    assert ExecutorMixin.next_query(worker, "greenhouse", prefs) == "Backend Engineer | AI Engineer"  # type: ignore[arg-type]
+    rotating = [ExecutorMixin.next_query(worker, "himalayas", prefs) for _ in range(3)]  # type: ignore[arg-type]
+    assert rotating == ["Backend Engineer", "AI Engineer", "Backend Engineer"]
+    assert GreenhouseAdapter.whole_feed and not HimalayasAdapter.whole_feed

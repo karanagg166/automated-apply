@@ -230,6 +230,10 @@ class FeedAdapter:
         return value
 
     # --- discovery ----------------------------------------------------------------------
+    # Phase 9: adapters whose fetch reads the whole feed/board (query used only to filter locally)
+    # get every target role in one discovery pass; remote-search adapters (Himalayas) opt out.
+    whole_feed = True
+
     async def fetch(self, query: str, limit: int) -> list[FeedJob]:
         raise NotImplementedError
 
