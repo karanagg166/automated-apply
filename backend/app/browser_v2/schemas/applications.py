@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool
@@ -40,6 +40,71 @@ class StateEventRead(BaseModel):
     event_type: str
     payload: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
+
+
+class PortalSummary(BaseModel):
+    platform: str = Field(description="Portal key, or 'all' for the overall totals")
+    applied_total: int = 0
+    applied_today: int = Field(0, description="APPLIED with applied_at on the current local day")
+    applied_7d: int = Field(0, description="APPLIED with applied_at in the last 7 local days (incl. today)")
+    submission_unknown: int = 0
+    failed: int = 0
+    waiting_for_user: int = 0
+    applying: int = 0
+    queued: int = Field(0, description="DISCOVERED + SCORED (not yet attempted)")
+    quota_parked: int = Field(0, description="QUOTA_HIT_PENDING + DRAFTED_AND_QUEUED")
+    filtered_out: int = 0
+    total: int = 0
+    states: dict[str, int] = Field(default_factory=dict, description="Current count per state")
+
+
+class DailyApplied(BaseModel):
+    date: date
+    applied: int
+    by_platform: dict[str, int] = Field(default_factory=dict)
+
+
+class ApplicationSummary(BaseModel):
+    generated_at: datetime
+    timezone: str
+    days: int
+    totals: PortalSummary
+    portals: list[PortalSummary]
+    daily: list[DailyApplied] = Field(description="Oldest first, one entry per local day (zeros included)")
+
+
+class ScreeningAnswer(BaseModel):
+    question: str
+    answer: str
+    source: str | None = None
+
+
+class ReceiptSummary(BaseModel):
+    """Safe projection of `applications.receipt` + the latest apply event (no paths, no raw JSON)."""
+    verified: bool = False
+    source: str | None = None
+    ats: str | None = None
+    portal_status: str | None = None
+    verified_at: datetime | None = None
+    confirmation_url: str | None = None
+    external_url: str | None = None
+    resume: str | None = None
+    clicked_apply: bool | None = None
+    has_screenshot: bool = False
+    answers: list[ScreeningAnswer] = Field(default_factory=list)
+    answers_source: Literal["receipt", "event"] | None = None
+
+
+class TimelineEvent(BaseModel):
+    from_state: str | None = None
+    to_state: str
+    event_type: str
+    created_at: datetime | None = None
+
+
+class ApplicationDetail(ApplicationRead):
+    receipt: ReceiptSummary
+    timeline: list[TimelineEvent] = Field(default_factory=list)
 
 
 class WorkerControlRead(BaseModel):

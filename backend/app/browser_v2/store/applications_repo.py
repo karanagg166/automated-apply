@@ -12,7 +12,7 @@ from backend.app.browser_v2.state import (
 )
 from backend.app.browser_v2.store.base import PostgresBase, _json, _record, _uuid
 from backend.app.browser_v2.store.discovery_repo import QUEUE_ORDER
-from backend.app.browser_v2.store.records import ApplicationRecord
+from backend.app.browser_v2.store.records import ApplicationRecord, like_pattern
 
 
 class ApplicationsRepo(PostgresBase):
@@ -83,13 +83,16 @@ class ApplicationsRepo(PostgresBase):
             platform, since)
 
     async def list_applications(self, query):
-        where = """($1::text IS NULL OR platform=$1) AND ($2::text IS NULL OR state=$2)
+        where = r"""($1::text IS NULL OR platform=$1) AND ($2::text IS NULL OR state=$2)
                    AND ($3::timestamptz IS NULL OR updated_at >= $3)
-                   AND ($4::timestamptz IS NULL OR updated_at < $4)"""
-        params = (query.platform, query.state, query.since, query.until)
+                   AND ($4::timestamptz IS NULL OR updated_at < $4)
+                   AND ($5::text IS NULL OR company_name ILIKE $5 ESCAPE '\'
+                        OR role_title ILIKE $5 ESCAPE '\')"""
+        params = (query.platform, query.state, query.since, query.until,
+                  like_pattern(query.q) if query.q else None)
         rows = await self.connection.fetch(
             f"""SELECT {self.COLUMNS} FROM public.applications WHERE {where}
-                ORDER BY updated_at DESC, id LIMIT $5 OFFSET $6""",
+                ORDER BY updated_at DESC, id LIMIT $6 OFFSET $7""",
             *params, query.limit, query.offset)
         total = await self.connection.fetchval(
             f"SELECT count(*) FROM public.applications WHERE {where}", *params)

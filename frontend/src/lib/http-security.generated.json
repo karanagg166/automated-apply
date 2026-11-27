@@ -51,6 +51,10 @@
       "methods": ["GET"]
     },
     {
+      "pattern": "^v2\\/applications\\/(summary|[a-f0-9-]{36})$",
+      "methods": ["GET"]
+    },
+    {
       "pattern": "^v2\\/worker\\/(start|pause|stop|run-once)$",
       "methods": ["POST"]
     },

@@ -267,6 +267,13 @@ class ApplicationQuery:
     until: datetime | None = None
     limit: int = 50
     offset: int = 0
+    q: str | None = None  # case-insensitive substring of company_name or role_title
+
+
+def like_pattern(text: str) -> str:
+    """`%text%` for a parameterized ILIKE, with the LIKE wildcards in `text` escaped (ESCAPE '\\')."""
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
 
 
 def _now() -> datetime:

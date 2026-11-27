@@ -16,6 +16,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { api, type Schema } from "@/lib/api";
+import { AppliedKpis, useAppliedSummary } from "@/features/applied";
 import {
   Badge,
   Button,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui";
 type Metrics = Record<string, number>;
 export function Overview() {
+  const applied = useAppliedSummary();
   const overview = useQuery({
     queryKey: ["overview"],
     queryFn: () => api<Metrics>("dashboard/overview"),
@@ -119,6 +121,24 @@ export function Overview() {
           <Compass size={42} strokeWidth={1} />
         </div>
       </div>
+      <section className="spaced" aria-labelledby="overview-applied-h">
+        <div className="split overview-applied-head">
+          <h2 id="overview-applied-h">Autopilot applications</h2>
+          <Link href="/applied" className="external">
+            See everything applied
+            <ArrowUpRight size={14} />
+          </Link>
+        </div>
+        {applied.isPending ? (
+          <Skeleton />
+        ) : applied.isError ? (
+          <p className="muted">
+            Applied totals are unavailable right now: {applied.error.message}
+          </p>
+        ) : (
+          <AppliedKpis summary={applied.data} />
+        )}
+      </section>
       {overview.isPending ? (
         <Skeleton />
       ) : overview.isError ? (

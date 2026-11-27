@@ -192,3 +192,22 @@ async def test_api_borrows_pooled_connection_and_commits(database):
             assert (await again.get_worker_control()).desired_state is WorkerState.PAUSED
     finally:
         await engine.dispose()
+
+
+async def test_applied_summary_and_search(store):
+    applied = await store.transition(await store.upsert_discovered(listing(1)), S.APPLYING, "apply_started")
+    applied = await store.transition(applied, S.APPLIED, "confirmed", receipt={"source": "dom"})
+    await store.connection.execute(  # 00:30 IST on 2026-11-27 is still the 26th in UTC
+        "UPDATE public.applications SET applied_at='2026-11-26T19:00:00+00' WHERE id=$1::uuid", applied.id)
+    await store.upsert_discovered(listing(2, company="100% Remote_Co"))
+    await store.upsert_discovered(listing(3, platform="lever", company="Zepto"))
+    states, daily = await store.application_summary(datetime(2026, 11, 20, tzinfo=UTC), "Asia/Kolkata")
+    assert states == {"naukri": {"APPLIED": 1, "DISCOVERED": 1}, "lever": {"DISCOVERED": 1}}
+    assert daily == [("naukri", datetime(2026, 11, 27).date(), 1)]
+    assert (await store.application_summary(datetime(2026, 11, 27, tzinfo=UTC), "Asia/Kolkata"))[1] == []
+    rows, total = await store.list_applications(ApplicationQuery(q="remote_co"))
+    assert total == 1 and rows[0].company_name == "100% Remote_Co"
+    assert (await store.list_applications(ApplicationQuery(q="100%")))[1] == 1
+    assert (await store.list_applications(ApplicationQuery(q="1_0")))[1] == 0  # "_" is literal, not a wildcard
+    assert (await store.list_applications(ApplicationQuery(q="PYTHON", platform="lever")))[1] == 1
+    assert (await store.list_applications(ApplicationQuery(q="nope")))[1] == 0

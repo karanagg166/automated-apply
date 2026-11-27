@@ -1,4 +1,6 @@
 import { Autopilot } from "@/features/autopilot";
+import { Applied } from "@/features/applied";
+import { AppliedDetail } from "@/features/applied-detail";
 import { notFound } from "next/navigation";
 import { StartupExplorer } from "@/features/startups";
 import { CompanyDetail } from "@/features/company";
@@ -28,12 +30,15 @@ export default async function Page({
     return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
   if (detail?.length) {
     if (detail.length !== 1 || !/^[-a-f0-9]{36}$/.test(detail[0])) notFound();
+    if (section === "applied") return <AppliedDetail id={detail[0]} />;
     if (section === "startups") return <CompanyDetail id={detail[0]} />;
     if (section === "applications") return <ApplicationDetail id={detail[0]} />;
     if (section === "outreach") return <OutreachDetail id={detail[0]} />;
     notFound();
   }
   switch (section) {
+    case "applied":
+      return <Applied />;
     case "autopilot":
       return <Autopilot />;
     case "startups":

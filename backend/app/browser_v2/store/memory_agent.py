@@ -7,6 +7,7 @@ import uuid
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from backend.app.browser_v2.domain import JobListing
 from backend.app.browser_v2.store.agent_records import (
@@ -20,7 +21,7 @@ from backend.app.browser_v2.store.agent_records import (
     check_turn_limit,
     empty_funnel,
 )
-from backend.app.browser_v2.store.analytics_repo import funnel_since
+from backend.app.browser_v2.store.analytics_repo import SummaryCounts, funnel_since
 from backend.app.browser_v2.store.memory_priority import MemoryPriorityMixin
 from backend.app.browser_v2.store.phase9_records import (
     PRIORITY_REASON_CHARS,
@@ -86,6 +87,18 @@ class MemoryAgentMixin(MemoryPriorityMixin):
             if name is not None and touched:
                 bucket[name] += 1
         return out
+
+    async def application_summary(self, since: datetime, tz: str) -> SummaryCounts:
+        zone = ZoneInfo(tz)
+        states: dict[str, dict[str, int]] = {}
+        daily: dict[tuple[str, Any], int] = {}
+        for record in self.records.values():
+            bucket = states.setdefault(record.platform, {})
+            bucket[record.state.value] = bucket.get(record.state.value, 0) + 1
+            if record.state.value == "APPLIED" and record.applied_at is not None and record.applied_at >= since:
+                key = (record.platform, record.applied_at.astimezone(zone).date())
+                daily[key] = daily.get(key, 0) + 1
+        return states, [(platform, day, n) for (platform, day), n in daily.items()]
 
     # --- owner queue (never-replay fence enforced here) -------------------------------------------
     async def enqueue_owner_job(self, listing: JobListing, meta: DiscoveryMeta) -> DiscoveryResult:
