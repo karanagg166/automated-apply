@@ -7,7 +7,9 @@ from __future__ import annotations
 from datetime import timedelta
 
 import httpx
+import pytest
 
+from backend.app.agent_v2 import chat as chat_module
 from backend.app.agent_v2.chat import HITL_MARKER
 from backend.app.agent_v2.control_graph import ControlAgent
 from backend.app.agent_v2.tools import PendingConfirmations
@@ -31,6 +33,15 @@ from backend.tests.test_telegram_v2_bot import waiting_job
 
 KEY = agent_chat_key("telegram", 4242)
 
+
+
+@pytest.fixture(autouse=True)
+def _fresh_fallback_note_window():
+    """chat._last_note is a process-wide hourly rate limit; another test file's fallback must not
+    hide this file's "invalid steps twice" notice (order-dependent failure in the full suite)."""
+    chat_module._last_note.clear()
+    yield
+    chat_module._last_note.clear()
 
 async def chat(bot, text, key=KEY):
     return await bot.run_chat(text, chat_key=key, source="telegram")
