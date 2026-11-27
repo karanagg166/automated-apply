@@ -74,7 +74,8 @@ async def check_session(portal: str, restart: bool, debug_selectors: bool = Fals
 
 async def default_query(service: Any) -> str:
     profile, _ = await service.store.load_profile()
-    roles = (profile.get("preferences") or {}).get("target_roles") or []
+    prefs = profile.get("preferences") or {}
+    roles = prefs.get("target_roles") or prefs.get("target_titles") or []
     return roles[0] if roles else "software engineer"
 
 

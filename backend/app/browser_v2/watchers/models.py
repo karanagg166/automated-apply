@@ -114,12 +114,17 @@ def aware(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value
 
 
-def target_roles(prefs: Mapping[str, Any]) -> list[str]:
-    roles = prefs.get("target_roles") if isinstance(prefs, Mapping) else None
-    if not isinstance(roles, (list, tuple)):
+def target_roles(prefs: Mapping[str, Any], limit: int | None = MAX_ROLES) -> list[str]:
+    """`target_roles` plus the dashboard schema's `target_titles` (the live profile stores only the latter;
+    reading just `target_roles` left the watchers with no role filter -> every feed job queued P1).
+    `limit` caps per-role query sources (HiringCafe/Himalayas); role FILTERS pass limit=None (all roles)."""
+    if not isinstance(prefs, Mapping):
         return []
+    roles = [r for key in ("target_roles", "target_titles") if isinstance(prefs.get(key), (list, tuple))
+             for r in prefs[key]]
     cleaned = [" ".join(str(r).split())[:100] for r in roles if isinstance(r, str) and r.strip()]
-    return list(dict.fromkeys(cleaned))[:MAX_ROLES]
+    unique = list(dict.fromkeys(cleaned))
+    return unique if limit is None else unique[:limit]
 
 
 def role_slug(role: str) -> str:
@@ -139,7 +144,7 @@ def passes_prefilter(job: FeedJob, roles: list[str], now: datetime) -> bool:
 def fallback_score_listing(listing: JobListing, prefs: Mapping[str, Any], *, now: datetime, newly_seen: bool,
                            via: str) -> DiscoveryMeta:
     """Used only when no service scorer is injected: role match = strong match, pure `priority.score`."""
-    roles = target_roles(prefs)
+    roles = target_roles(prefs, limit=None)
     strong = bool(roles) and any(role_query_match(listing.title, role) for role in roles)
     posted = posted_from(now=now, age_hours=listing.posted_age_hours, age_days=listing.posted_age_days,
                          posted_at=listing.posted_at, lower_bound=listing.age_is_lower_bound)

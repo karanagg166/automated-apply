@@ -155,7 +155,7 @@ def build_safe_llm_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
             if isinstance(name, str) and name.strip():
                 projects.append({"name": name.strip()[:80], "tech": tech})
     safe = {
-        "target_roles": _strings(prefs.get("target_roles")),
+        "target_roles": _strings(prefs.get("target_roles") or prefs.get("target_titles")),
         "tech_stack": _strings(prefs.get("tech_stack")),
         "skills": _strings(profile.get("verified_skills")),
         "skill_years": skill_years,

@@ -187,7 +187,7 @@ class WatcherPoller:
 
     async def _discover(self, source: WatchSource, jobs: list[FeedJob], prefs: Mapping[str, Any], now: datetime,
                         outcome: PollOutcome, resolve: Resolver | None) -> None:
-        roles = target_roles(prefs)
+        roles = target_roles(prefs, limit=None)
         via = f"watcher:{source.platform}"
         for job in jobs:
             if not passes_prefilter(job, roles, now):
