@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import re
 from dataclasses import dataclass, field
@@ -18,6 +19,10 @@ from backend.app.browser_v2.adapters.shared.text import (
 )
 from backend.app.browser_v2.answers import CandidateFacts, ScreeningResolver
 from backend.app.browser_v2.resume import pick_resume
+
+logger = logging.getLogger(__name__)
+ACTION_TIMEOUT_MS = 8_000  # one form widget never blocks the apply for 30 s
+MAX_COMBOBOX_OPTIONS = 400
 
 # --- hosted form scanning + filling ---------------------------------------------------------
 IDENTITY_FIELDS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -194,9 +199,21 @@ class HostedFormFiller:
             await locator.press("Escape")
         except Exception:  # noqa: BLE001 - unknown widget: treat as free text
             return ()
-        return tuple(dict.fromkeys(" ".join(t.split()) for t in texts if t.strip()))[:50]
+        # Phase 9: country / phone-code lists have ~250 options ("India +91" is far past the first 50).
+        return tuple(dict.fromkeys(" ".join(t.split()) for t in texts if t.strip()))[:MAX_COMBOBOX_OPTIONS]
 
     async def _apply_answer(self, page: Any, item: dict[str, Any], answer: str) -> bool:
+        """False (-> owner question) when the widget cannot take the answer; never raises.
+
+        Phase 9 go-live: a non-fillable Greenhouse widget made `locator.fill` wait the default 30 s and
+        the exception fenced the job as SUBMISSION_UNKNOWN although nothing had been submitted."""
+        try:
+            return await self._apply_answer_unsafe(page, item, answer)
+        except Exception as exc:  # noqa: BLE001 - Playwright timeout / detached / not editable
+            logger.info("form field %s not answerable: %s", item.get("idx"), type(exc).__name__)
+            return False
+
+    async def _apply_answer_unsafe(self, page: Any, item: dict[str, Any], answer: str) -> bool:
         kind = item.get("kind")
         if kind in ("radio", "checkbox"):
             options = item.get("options") or []
@@ -209,17 +226,17 @@ class HostedFormFiller:
                 return False
             locator = page.locator(f'[data-aa-field="{target["idx"]}"]')
             if kind == "checkbox":
-                await locator.check(force=True)
+                await locator.check(force=True, timeout=ACTION_TIMEOUT_MS)
             else:
-                await locator.check(force=True)
+                await locator.check(force=True, timeout=ACTION_TIMEOUT_MS)
             return True
         locator = page.locator(f'[data-aa-field="{item["idx"]}"]')
         if kind == "select":
-            await locator.select_option(label=answer)
+            await locator.select_option(label=answer, timeout=ACTION_TIMEOUT_MS)
             return True
         if kind == "combobox":
-            await locator.click()
-            await locator.fill(answer)
+            await locator.click(timeout=ACTION_TIMEOUT_MS)
+            await locator.fill(answer, timeout=ACTION_TIMEOUT_MS)
             await page.wait_for_timeout(self.settle_ms)
             listbox = (await locator.get_attribute("aria-controls") or await locator.get_attribute("aria-owns")
                        or "").split(" ")[0]
@@ -227,9 +244,9 @@ class HostedFormFiller:
             option = scope.locator("[role=option]").filter(
                 has_text=re.compile(r"^\s*" + re.escape(answer) + r"\s*$")).filter(visible=True)
             if await option.count():
-                await option.first.click()
+                await option.first.click(timeout=ACTION_TIMEOUT_MS)
             else:
-                await locator.press("Enter")
+                await locator.press("Enter", timeout=ACTION_TIMEOUT_MS)
             return True
-        await locator.fill(answer)
+        await locator.fill(answer, timeout=ACTION_TIMEOUT_MS)
         return True

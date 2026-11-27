@@ -40,6 +40,9 @@ SCAN_JS = r"""
     if (["hidden", "submit", "button", "image", "reset", "search"].includes(type)) continue;
     if (type !== "file" && !visible(el) && !(["radio", "checkbox"].includes(type) && el.labels && [...el.labels].some(visible))) continue;
     if (el.disabled || el.readOnly) continue;
+    // react-select (Greenhouse 2026) adds an aria-hidden, tabindex=-1 "requiredInput" next to every
+    // dropdown; it mirrors the combobox and can never be typed into - not a separate field.
+    if (!["radio", "checkbox", "file"].includes(type) && el.getAttribute("aria-hidden") === "true" && el.tabIndex < 0) continue;
     if (type === "radio" || type === "checkbox") {
       const key = type + ":" + (el.name || ("#" + i));
       if (seen.has(key)) continue;

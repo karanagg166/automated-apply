@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -29,6 +30,8 @@ CONFIRM_TEXT = (r"thank(?:s| you) for (?:your )?appl(?:ying|ication)|application
 SUBMIT_TEXT = (r"^(?:submit(?: (?:your )?application)?|send(?: application)?|apply(?: now)?|"
                r"submit & apply|finish|complete(?: application)?|confirm(?: application)?)$")
 NEXT_TEXT = r"^(?:next|continue|save (?:and|&) continue|proceed)$"
+
+logger = logging.getLogger(__name__)
 
 
 async def form_state(page: Any, root: str | None, *, submit_re: str = SUBMIT_TEXT,
@@ -113,6 +116,32 @@ class HostedAtsApplier:
         if ats not in SUPPORTED_ATS:
             return ApplyResult(S.FILTERED_OUT, f"external_unsupported_ats:{urlsplit(url).hostname or 'unknown'}",
                                dry_run)
+        try:
+            prepared = await self._prepare(page, detail, facts, ats=ats, url=url, platform=platform,
+                                           dry_run=dry_run, hitl_answers=hitl_answers, navigate=navigate)
+        except Exception as exc:  # nothing was submitted: retryable FAILED, never a never-replay fence
+            logger.warning("hosted form error before submit (%s)", type(exc).__name__, exc_info=True)
+            return ApplyResult(S.FAILED, f"ats_form_error_before_submit:{type(exc).__name__}", dry_run,
+                               clicked_apply=False)
+        if isinstance(prepared, ApplyResult):
+            return prepared
+        outcome, submits, answers = prepared
+        planned = (f"submit {ats} application for {job_id} ({detail.listing.title} @ {detail.listing.company})"
+                   + (f"; upload {', '.join(outcome.planned_uploads)}" if outcome.planned_uploads else ""))
+        if dry_run:
+            shot = await self.shot(page, platform, job_id, "dry-run")
+            return ApplyResult(S.SCORED, "dry_run_stopped_before_submit", True, planned_action=planned,
+                               screenshot=shot, answers=answers)
+        start_url = str(page.url)
+        await submits[0].click()
+        return await self._after_submit(page, outcome, answers, ats=ats, url=url, platform=platform, job_id=job_id,
+                                        start_url=start_url)
+
+    async def _prepare(self, page: Any, detail: JobDetail, facts: CandidateFacts, *, ats: str, url: str,
+                       platform: str, dry_run: bool, hitl_answers: dict[str, str] | None,
+                       navigate: bool) -> ApplyResult | tuple[Any, list[Any], tuple[dict[str, str], ...]]:
+        """Open + fill the hosted form up to (never including) the submit click."""
+        job_id = detail.listing.external_job_id
         if navigate:
             await self.open_form(page, url, ats)
         state = await form_state(page, None)
@@ -133,14 +162,10 @@ class HostedAtsApplier:
         submits = await visible_buttons(page, None, SUBMIT_TEXT)
         if len(submits) != 1:
             return ApplyResult(S.FAILED, f"ats_submit_control_{len(submits)}", dry_run, answers=answers)
-        planned = (f"submit {ats} application for {job_id} ({detail.listing.title} @ {detail.listing.company})"
-                   + (f"; upload {', '.join(outcome.planned_uploads)}" if outcome.planned_uploads else ""))
-        if dry_run:
-            shot = await self.shot(page, platform, job_id, "dry-run")
-            return ApplyResult(S.SCORED, "dry_run_stopped_before_submit", True, planned_action=planned,
-                               screenshot=shot, answers=answers)
-        start_url = str(page.url)
-        await submits[0].click()
+        return outcome, submits, answers
+
+    async def _after_submit(self, page: Any, outcome: Any, answers: tuple[dict[str, str], ...], *, ats: str,
+                            url: str, platform: str, job_id: str, start_url: str) -> ApplyResult:
         state = await poll_state(page, None, lambda st: bool(
             confirmation_source(st, start_url) or st.get("errors") or st.get("challenge")), self.confirm_timeout_s)
         source = confirmation_source(state, start_url)

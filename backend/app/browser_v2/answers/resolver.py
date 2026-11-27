@@ -9,6 +9,7 @@ from backend.app.browser_v2.answers.classifier import (
     CURRENT_COMPANY_Q,
     CURRENT_CTC,
     CURRENT_LOCATION,
+    CURRENT_TITLE_Q,
     ENGLISH_Q,
     EXPECTED_CTC,
     GENERIC_FIELDS,
@@ -35,6 +36,7 @@ from backend.app.browser_v2.answers.deterministic import (
     choose_text_option,
     ctc_answer,
 )
+from backend.app.browser_v2.answers.education import education_answer
 from backend.app.browser_v2.answers.facts import CandidateFacts
 from backend.app.browser_v2.answers.geography import (
     _same_place,
@@ -58,6 +60,9 @@ def resolve_answer(question: str, options: tuple[str, ...], facts: CandidateFact
     saved = facts.saved_answers.get(normalize(question))
     if saved:
         return choose_option(options, saved)
+    handled_education, education = education_answer(question, options, facts.education)
+    if handled_education:
+        return education
     if facts.notice_period_days is not None:
         within = JOIN_WITHIN.search(question)
         if within:
@@ -96,6 +101,8 @@ def resolve_answer(question: str, options: tuple[str, ...], facts: CandidateFact
         return choose_place(options, facts.current_location) if facts.current_location else None
     if CURRENT_COMPANY_Q.search(question):
         return choose_text_option(options, facts.current_company) if facts.current_company else None
+    if CURRENT_TITLE_Q.search(question):
+        return choose_text_option(options, facts.current_title) if facts.current_title else None
     if ENGLISH_Q.search(question):
         return choose_text_option(options, facts.english_proficiency) if facts.english_proficiency else None
     handled, answer = _link_answer(question, options, facts)
