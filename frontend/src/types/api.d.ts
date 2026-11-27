@@ -659,6 +659,48 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/v2/applications/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Applications Summary
+     * @description Per-portal counts by state (all time), applied today / last 7 days on the owner's local
+     *     calendar (Asia/Kolkata) and a daily applied series for the last `days` days.
+     */
+    get: operations["applications_summary_api_v1_v2_applications_summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/applications/{application_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Application Detail
+     * @description One application plus a safe receipt projection (screening Q&A, verification, screenshot flag;
+     *     never file paths or raw JSON) and its state timeline.
+     */
+    get: operations["application_detail_api_v1_v2_applications__application_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/v2/applications/{application_id}/events": {
     parameters: {
       query?: never;
@@ -3460,6 +3502,43 @@ export interface components {
       sources: components["schemas"]["SourceConfig"][];
       local_budget: components["schemas"]["ApifyLocalBudget"];
     };
+    /** ApplicationDetail */
+    ApplicationDetail: {
+      /** Id */
+      id: string;
+      /** Platform */
+      platform: string;
+      /** External Job Id */
+      external_job_id: string;
+      /** Company Name */
+      company_name?: string | null;
+      /** Role Title */
+      role_title?: string | null;
+      /** Job Url */
+      job_url?: string | null;
+      /** State */
+      state: string;
+      /** Reason */
+      reason?: string | null;
+      /**
+       * Attempts
+       * @default 0
+       */
+      attempts: number;
+      /** Applied At */
+      applied_at?: string | null;
+      /** Retry After */
+      retry_after?: string | null;
+      /** Draft Created At */
+      draft_created_at?: string | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+      receipt: components["schemas"]["ReceiptSummary"];
+      /** Timeline */
+      timeline?: components["schemas"]["TimelineEvent"][];
+    };
     /** ApplicationEventRead */
     ApplicationEventRead: {
       /**
@@ -3587,6 +3666,26 @@ export interface components {
       | "DRAFTED_AND_QUEUED"
       | "SUBMISSION_UNKNOWN"
       | "FAILED";
+    /** ApplicationSummary */
+    ApplicationSummary: {
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Timezone */
+      timezone: string;
+      /** Days */
+      days: number;
+      totals: components["schemas"]["PortalSummary"];
+      /** Portals */
+      portals: components["schemas"]["PortalSummary"][];
+      /**
+       * Daily
+       * @description Oldest first, one entry per local day (zeros included)
+       */
+      daily: components["schemas"]["DailyApplied"][];
+    };
     /** ApproveResume */
     ApproveResume: {
       /**
@@ -4031,6 +4130,20 @@ export interface components {
       providers: components["schemas"]["ProviderBudgetSummary"][];
       /** Total Credits Remaining */
       total_credits_remaining: number;
+    };
+    /** DailyApplied */
+    DailyApplied: {
+      /**
+       * Date
+       * Format: date
+       */
+      date: string;
+      /** Applied */
+      applied: number;
+      /** By Platform */
+      by_platform?: {
+        [key: string]: number;
+      };
     };
     /** Destination */
     Destination: {
@@ -6326,6 +6439,80 @@ export interface components {
       /** Waiting For User */
       waiting_for_user: number;
     };
+    /** PortalSummary */
+    PortalSummary: {
+      /**
+       * Platform
+       * @description Portal key, or 'all' for the overall totals
+       */
+      platform: string;
+      /**
+       * Applied Total
+       * @default 0
+       */
+      applied_total: number;
+      /**
+       * Applied Today
+       * @description APPLIED with applied_at on the current local day
+       * @default 0
+       */
+      applied_today: number;
+      /**
+       * Applied 7D
+       * @description APPLIED with applied_at in the last 7 local days (incl. today)
+       * @default 0
+       */
+      applied_7d: number;
+      /**
+       * Submission Unknown
+       * @default 0
+       */
+      submission_unknown: number;
+      /**
+       * Failed
+       * @default 0
+       */
+      failed: number;
+      /**
+       * Waiting For User
+       * @default 0
+       */
+      waiting_for_user: number;
+      /**
+       * Applying
+       * @default 0
+       */
+      applying: number;
+      /**
+       * Queued
+       * @description DISCOVERED + SCORED (not yet attempted)
+       * @default 0
+       */
+      queued: number;
+      /**
+       * Quota Parked
+       * @description QUOTA_HIT_PENDING + DRAFTED_AND_QUEUED
+       * @default 0
+       */
+      quota_parked: number;
+      /**
+       * Filtered Out
+       * @default 0
+       */
+      filtered_out: number;
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
+      /**
+       * States
+       * @description Current count per state
+       */
+      states?: {
+        [key: string]: number;
+      };
+    };
     /**
      * PrepareBrowser
      * @description Owner-pasted official application URL for draft packet intake (no navigation).
@@ -6777,6 +6964,42 @@ export interface components {
        * @default false
        */
       stale: boolean;
+    };
+    /**
+     * ReceiptSummary
+     * @description Safe projection of `applications.receipt` + the latest apply event (no paths, no raw JSON).
+     */
+    ReceiptSummary: {
+      /**
+       * Verified
+       * @default false
+       */
+      verified: boolean;
+      /** Source */
+      source?: string | null;
+      /** Ats */
+      ats?: string | null;
+      /** Portal Status */
+      portal_status?: string | null;
+      /** Verified At */
+      verified_at?: string | null;
+      /** Confirmation Url */
+      confirmation_url?: string | null;
+      /** External Url */
+      external_url?: string | null;
+      /** Resume */
+      resume?: string | null;
+      /** Clicked Apply */
+      clicked_apply?: boolean | null;
+      /**
+       * Has Screenshot
+       * @default false
+       */
+      has_screenshot: boolean;
+      /** Answers */
+      answers?: components["schemas"]["ScreeningAnswer"][];
+      /** Answers Source */
+      answers_source?: ("receipt" | "event") | null;
     };
     /** ResolveRequest */
     ResolveRequest: {
@@ -7238,6 +7461,15 @@ export interface components {
       /** Expected Version */
       expected_version: number;
       configuration: components["schemas"]["ScheduleConfiguration"];
+    };
+    /** ScreeningAnswer */
+    ScreeningAnswer: {
+      /** Question */
+      question: string;
+      /** Answer */
+      answer: string;
+      /** Source */
+      source?: string | null;
     };
     /**
      * ScreeningDisclosures
@@ -8333,6 +8565,17 @@ export interface components {
       owner_chat_id: string | null;
       /** Open Hitl Count */
       open_hitl_count: number;
+    };
+    /** TimelineEvent */
+    TimelineEvent: {
+      /** From State */
+      from_state?: string | null;
+      /** To State */
+      to_state: string;
+      /** Event Type */
+      event_type: string;
+      /** Created At */
+      created_at?: string | null;
     };
     /** TokenUsage */
     TokenUsage: {
@@ -10032,6 +10275,8 @@ export interface operations {
         until?: string | null;
         limit?: number;
         offset?: number;
+        /** @description Company or role contains (case-insensitive) */
+        q?: string | null;
       };
       header?: never;
       path?: never;
@@ -10046,6 +10291,68 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApplicationPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  applications_summary_api_v1_v2_applications_summary_get: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplicationSummary"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_detail_api_v1_v2_applications__application_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplicationDetail"];
         };
       };
       /** @description Validation Error */

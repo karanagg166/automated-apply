@@ -119,7 +119,9 @@ class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, Mem
                 if (query.platform is None or r.platform == query.platform)
                 and (query.state is None or r.state.value == query.state)
                 and (query.since is None or (r.updated_at and r.updated_at >= query.since))
-                and (query.until is None or (r.updated_at and r.updated_at < query.until))]
+                and (query.until is None or (r.updated_at and r.updated_at < query.until))
+                and (not query.q or any(query.q.casefold() in (text or "").casefold()
+                                        for text in (r.company_name, r.role_title)))]
         rows.sort(key=lambda r: r.updated_at or _now(), reverse=True)
         return [replace(r) for r in rows[query.offset: query.offset + query.limit]], len(rows)
 

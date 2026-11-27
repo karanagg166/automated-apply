@@ -21,6 +21,7 @@ import {
   Moon,
   Plug,
   Search,
+  Send,
   Settings2,
   ShieldCheck,
   Sun,
@@ -32,6 +33,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
 const nav = [
   ["Overview", "/", LayoutDashboard],
+  ["Applied", "/applied", Send],
   ["Autopilot", "/autopilot", Bot],
   ["Discover", "/discover", Compass],
   ["Startups", "/startups", Building2],

@@ -53,7 +53,9 @@ from backend.app.api.v1.v2.routers.ai_cache import (
     list_semantic_cache,
 )
 from backend.app.api.v1.v2.routers.applications import (
+    application_detail,
     application_events,
+    applications_summary,
     list_applications,
 )
 from backend.app.api.v1.v2.routers.hitl import (
@@ -107,7 +109,9 @@ __all__ = [
     "StoreDep",
     "agent_chat",
     "ai_status",
+    "application_detail",
     "application_events",
+    "applications_summary",
     "automation_status",
     "create_semantic_cache_entry",
     "delete_semantic_cache_entry",
