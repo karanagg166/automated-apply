@@ -162,7 +162,7 @@ class BraveBrowserManager:
             self._playwright = await self._playwright_factory().start()
             options = self.launch_options()
             user_data_dir = options.pop("user_data_dir")
-            owner_app = front_bundle_id() if self.background else None
+            owner_app = await asyncio.to_thread(front_bundle_id) if self.background else None
             self._context = await self._playwright.chromium.launch_persistent_context(
                 user_data_dir, **options)
             if owner_app:
@@ -222,17 +222,18 @@ class BraveBrowserManager:
             await route.continue_()
 
     async def _return_focus(self, owner_app: str) -> None:
-        """Brave activates itself a moment after launch on macOS: hand focus back a few times."""
+        """Brave activates itself a moment after launch on macOS: hand focus back a few times.
+        lsappinfo / `open -b` run in a thread: the worker loop also serves Telegram."""
         for delay in (0.0, 0.4, 1.2):
             await asyncio.sleep(delay)
-            if front_bundle_id() in BRAVE_BUNDLE_IDS:
-                refocus(owner_app)
+            if await asyncio.to_thread(front_bundle_id) in BRAVE_BUNDLE_IDS:
+                await asyncio.to_thread(refocus, owner_app)
 
     async def page(self) -> Any:
         """The single reusable worker tab."""
         await self.start()
         if self._worker is None or self._worker.is_closed():
-            owner_app = front_bundle_id() if self.background else None
+            owner_app = await asyncio.to_thread(front_bundle_id) if self.background else None
             self._worker = await self._context.new_page()
             if owner_app:
                 await self._return_focus(owner_app)

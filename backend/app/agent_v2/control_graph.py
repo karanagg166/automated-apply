@@ -73,6 +73,8 @@ class ControlAgent:
         self.context = ToolContext(store, ai=ai, mail_events=mail_events, event_bus=event_bus, clock=self.clock,
                                    wake=wake, profile_sync=profile_sync, _legacy=self.tools)
         self.runner = AuditedToolRunner(self.context, pending=pending)
+        self.fast: Any = None  # SemanticRouter override (tests); run_chat builds the default one
+        self.fast_path = True  # False: every message goes to the ReAct agent (tests of the LLM path)
 
     def _build(self) -> Any:
         graph = StateGraph(AgentState)
@@ -202,13 +204,20 @@ class ControlAgent:
     async def run_chat(self, text: str, *, chat_key: str, source: str) -> dict[str, Any]:
         """LLM ReAct agent with audited tools; deterministic `run` (no LLM) as the fallback.
         Returns the `run` keys (reply, tool, source, verdict, ok, data) plus reply_html, tools,
-        mode (llm | deterministic | confirmation), confirmation {token, tool} and hitl_resolutions."""
+        mode (llm | deterministic | confirmation | router), confirmation {token, tool} and hitl_resolutions."""
         from backend.app.agent_v2.chat import AgentChat
+        from backend.app.agent_v2.semantic_router import (
+            SemanticRouter,
+            routing_embedder,
+        )
 
         async def deterministic(message: str) -> dict[str, Any]:
             return await self.run(message, use_llm=False)  # never re-sends the raw text to an LLM
 
-        chat = AgentChat(self.tools.store, self.router, self.runner, fallback=deterministic, clock=self.clock)
+        fast = None if not self.fast_path else self.fast or SemanticRouter(
+            self.tools, help_text=HELP, embedder=routing_embedder(self.tools.ai), clock=self.clock)
+        chat = AgentChat(self.tools.store, self.router, self.runner, fallback=deterministic, clock=self.clock,
+                         fast=fast)
         return await chat.handle(text, chat_key=chat_key, source=source)
 
     async def confirm_pending(self, token: str | None, *, chat_key: str, source: str) -> dict[str, Any]:

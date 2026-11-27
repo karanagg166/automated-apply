@@ -117,10 +117,14 @@ async def test_exhausted_router_falls_back_and_no_provider_configured_too():
     store = store_with_profile()
     router = ScriptedRouter([AllLLMProvidersExhaustedError("agent_react", [
         {"provider": "groq", "outcome": "http_429"}, {"provider": "gemini", "outcome": "unconfigured"}])])
-    result = await chat(agent(store, router), "how many applied today?", agent_chat_key("telegram", 31337))
+    llm_path = agent(store, router)
+    llm_path.fast_path = False  # read-only queries are otherwise answered by the zero-LLM semantic router
+    result = await chat(llm_path, "how many applied today?", agent_chat_key("telegram", 31337))
     assert result["mode"] == "deterministic" and "groq: http_429" in result["reply_html"]
     assert "gemini" not in result["reply_html"]
-    offline = await chat(agent(store_with_profile(), None), "status", agent_chat_key("api", "x"))
+    offline_agent = agent(store_with_profile(), None)
+    offline_agent.fast_path = False
+    offline = await chat(offline_agent, "status", agent_chat_key("api", "x"))
     assert offline["mode"] == "deterministic" and "no LLM provider is configured" in offline["reply_html"]
 
 

@@ -60,9 +60,13 @@ async def test_digits_without_an_open_otp_and_free_text_go_to_the_agent():
     router = ScriptedRouter([final("60 is a number."), final("All good.")])
     bot = make_bot(store, fake, agent=agent(store, router))
     await bot.handle_update(msg("60"))
-    await bot.handle_update(msg("thanks!"))
+    await bot.drain_agent()
+    await bot.handle_update(msg("what should we try next?"))
     await bot.drain_agent()
     assert len(router.prompts) == 2 and last_reply(fake) == "🤖 All good."
+    await bot.handle_update(msg("thanks!"))  # a pleasantry: the zero-LLM semantic router answers it
+    await bot.drain_agent()
+    assert len(router.prompts) == 2 and last_reply(fake).startswith("🤖 ") and last_reply(fake) != "🤖 All good."
     await bot.client.aclose()
 
 
