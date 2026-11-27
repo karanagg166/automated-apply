@@ -149,3 +149,19 @@ def better(a: int | None, b: int | None) -> int:
     """The more urgent of two tiers (used when a row is re-discovered or handed off)."""
     values = [int(v) for v in (a, b) if v is not None]
     return min(values) if values else int(Priority.P2)
+
+
+# --- adaptive cadence (IST hiring hours) -------------------------------------------------------
+PEAK_HOURS_IST = (9, 20)  # 09:00-20:00 Asia/Kolkata: most Indian postings go live
+
+
+def is_peak(now: datetime, hours: tuple[int, int] = PEAK_HOURS_IST) -> bool:
+    from zoneinfo import ZoneInfo
+
+    local = now.astimezone(ZoneInfo("Asia/Kolkata"))
+    return hours[0] <= local.hour < hours[1]
+
+
+def cadence_factor(now: datetime, *, peak: float = 1.0, off_peak: float = 2.0) -> float:
+    """Interval multiplier: poll at full speed in IST hiring hours, back off overnight."""
+    return peak if is_peak(now) else off_peak

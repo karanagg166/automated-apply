@@ -46,6 +46,7 @@ MAX_ANSWER_CHARS = 1000
 ANSWERABLE_KINDS = frozenset({"QUESTION", "OTP", "CAPTCHA"})
 REQUEUE_FROM = frozenset({S.WAITING_FOR_USER, S.FAILED})
 REQUEUE_REASON = "hitl_resolved_requeued"
+HITL_RESUMED_REASON = "hitl_resumed"
 SKIP_REASON = "skipped_by_owner_hitl"
 EXPIRED_REASON = "hitl_expired"
 HITL_TTL: dict[str, timedelta] = {"OTP": timedelta(minutes=30), "CAPTCHA": timedelta(hours=24),
@@ -159,8 +160,13 @@ class HITLResolutionService:
         cached = False
         if learn and self.cache is not None:
             try:
-                await self.cache.store_verified_user_answer(hitl.prompt_text, text)
-                cached = True
+                # Phase 4: scoped/localized promotion; refused questions (cover letters, country-less
+                # work authorization, ...) stay one-time and a contradicted cache entry is quarantined.
+                from backend.app.ai_v2.semantic_cache.promotion import (
+                    promote_human_answer,
+                )
+
+                cached = await promote_human_answer(self.cache, hitl, text, store=self.store)
             except Exception as exc:  # noqa: BLE001 - the answer still re-enqueues the job
                 logger.warning("hitl cache_store_failed ref=%s error=%s", hitl.ref, type(exc).__name__)
         shown = text if hitl.kind == "QUESTION" and cacheable_question(hitl.prompt_text) else "[redacted]"
@@ -278,6 +284,10 @@ class HITLResolutionService:
         except InvalidTransition:
             current = await self.store.get_application(hitl.application_id)
             return False, current.state.value if current else None
+        try:  # the owner answered: finish this application first (P0 lane, exempt from decay)
+            await self.store.set_priority(moved.id, 0, HITL_RESUMED_REASON)
+        except Exception as exc:  # noqa: BLE001 - the SCORED requeue alone still re-runs it
+            logger.info("hitl_resumed priority not set for %s: %s", moved.id, type(exc).__name__)
         return True, moved.state.value
 
     @staticmethod

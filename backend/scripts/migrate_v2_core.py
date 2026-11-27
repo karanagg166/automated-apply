@@ -15,6 +15,7 @@ Usage (repo root):
     backend/venv/bin/python -m backend.scripts.migrate_v2_core check
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply --expected-fences 3
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-phase9
+    backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-followup 007   # then 006
 """
 
 from __future__ import annotations
@@ -336,9 +337,50 @@ async def apply_phase9(settings, admin_password: str) -> dict:
     return report
 
 
+async def apply_followup(settings, admin_password: str, name: str) -> dict:
+    """Run one additive followup (006, 007, ...) as the admin role, with the same no-data-loss check."""
+    import asyncpg
+
+    from backend.app.db.safety import database_connect_args, database_target
+    from backend.app.operations.v2_schema import FOLLOWUP_MIGRATIONS
+
+    path = FOLLOWUP_MIGRATIONS.get(name)
+    if path is None or not path.exists():
+        raise SystemExit(f"unknown followup {name!r}: choose from {sorted(FOLLOWUP_MIGRATIONS)}")
+    before = await inspect(settings)
+    before.pop("_fences")
+    if phase9_status(before)["status"] != "applied":
+        raise SystemExit("refusing: followup 005 (apply-phase9) must be applied first")
+    target = database_target(settings)
+    admin_uri = target.set(
+        drivername="postgresql", username="postgres", password=admin_password,
+    ).render_as_string(hide_password=False)
+    admin = await asyncpg.connect(admin_uri, **database_connect_args(settings))
+    try:
+        await admin.execute(path.read_text())
+    finally:
+        await admin.close()
+    after = await inspect(settings)
+    after.pop("_fences")
+    lost = {t: (before["counts"][t], after["counts"][t]) for t in PRESERVED_TABLES
+            if before["counts"][t] is not None and (after["counts"][t] or 0) < before["counts"][t]}
+    report = {"applied_at": datetime.now(UTC).isoformat(), "migration": path.name, "data_loss": lost,
+              "before": before["counts"], "after": after["counts"]}
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True, mode=0o700)
+    evidence = EVIDENCE_DIR / f"apply-{name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.private.json"
+    evidence.write_text(json.dumps(report, indent=2, default=str) + "\n")
+    os.chmod(evidence, 0o600)
+    if lost:
+        raise SystemExit(f"DATA LOSS DETECTED: {lost} (evidence {evidence})")
+    report["evidence"] = str(evidence)
+    return report
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("check", "apply", "apply-phase9"), nargs="?", default="check")
+    parser.add_argument("command", choices=("check", "apply", "apply-phase9", "apply-followup"), nargs="?",
+                        default="check")
+    parser.add_argument("followup", nargs="?", help="apply-followup: 006 | 007")
     parser.add_argument("--expected-fences", type=int)
     parser.add_argument("--sql-applied", action="store_true",
                         help="004 was already run in the Supabase SQL Editor: no admin password needed")
@@ -353,6 +395,14 @@ def main(argv: list[str] | None = None) -> int:
         result = asyncio.run(inspect(settings))
         result.pop("_fences")
         result["phase9"] = phase9_status(result)
+    elif args.command == "apply-followup":
+        if not args.followup:
+            parser.error("apply-followup requires a name, e.g. apply-followup 007")
+        from backend.app.browser_v2.env_loader import load_env
+
+        followup_password: str = (load_env(args.env_file).get("AUTOMATED_APPLY_DB_ADMIN_PASSWORD")
+                                  or getpass.getpass("Supabase postgres admin password: "))
+        result = asyncio.run(apply_followup(settings, followup_password, args.followup))
     elif args.command == "apply-phase9":
         from backend.app.browser_v2.env_loader import load_env
 

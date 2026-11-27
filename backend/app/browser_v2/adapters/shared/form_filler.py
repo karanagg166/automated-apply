@@ -15,7 +15,7 @@ from backend.app.browser_v2.adapters.shared.dom_scripts import OPTIONS_JS, SCAN_
 from backend.app.browser_v2.adapters.shared.text import (
     COVER_NOTE,
     NoteComposer,
-    resolve_question,
+    resolve_question_detail,
 )
 from backend.app.browser_v2.answers import CandidateFacts, ScreeningResolver
 from backend.app.browser_v2.resume import pick_resume
@@ -162,15 +162,19 @@ class HostedFormFiller:
                 options = ("Yes", "No")
             if kind == "combobox":
                 options = await self._combobox_options(page, item)
-            answer, source, reason = await resolve_question(label, options, facts, detail, self.answerer,
-                                                            hitl_answers)
+            resolved = await resolve_question_detail(label, options, facts, detail, self.answerer, hitl_answers,
+                                                     field_kind=kind, platform=platform)
+            answer, source, reason = resolved.answer, resolved.source, resolved.reason
             if answer is None and kind in ("textarea", "text") and COVER_NOTE.search(label) \
                     and self.composer is not None:
                 answer = await self.composer(detail, facts)
                 source, reason = ("composer", "intro_note") if answer else (source, reason)
             if answer is None:
+                # Phase 4: the card shows (and the cache later learns) the LOCALIZED question, so an
+                # answer given for an India job is never reused for a US job.
                 outcome.question = self._question(
-                    detail, label, options, "choice" if options else "text", platform, reason)
+                    detail, resolved.prompt, options, "choice" if options else "text", platform, reason,
+                    extra={"field_kind": kind, "role_country": resolved.role_country})
                 return outcome
             if kind == "checkbox" and item.get("single") and answer.strip().lower() not in ("yes", "y", "true"):
                 outcome.question = self._question(detail, label, ("Yes", "No"), "choice", platform,
@@ -181,17 +185,20 @@ class HostedFormFiller:
                 outcome.question = self._question(detail, label, options, "choice" if options else "text",
                                                   platform, "answer_not_applicable")
                 return outcome
-            outcome.filled.append({"question": label, "answer": answer, "source": source})
+            filled = {"question": label, "answer": answer, "source": source}
+            if resolved.cache_entry_id:  # lets the caller quarantine it if the portal rejects the value
+                filled["cache_entry_id"] = resolved.cache_entry_id
+            outcome.filled.append(filled)
         return outcome
 
     def _question(self, detail: JobDetail, prompt: str, options: tuple[str, ...], input_kind: str,
-                  platform: str, reason: str) -> HitlQuestion:
+                  platform: str, reason: str, extra: dict[str, Any] | None = None) -> HitlQuestion:
+        context = {"job_id": detail.listing.external_job_id, "url": detail.apply_url or detail.listing.url,
+                   "title": detail.listing.title, "company": detail.listing.company, "platform": platform,
+                   "resolver_reason": reason}
+        context.update({k: v for k, v in (extra or {}).items() if v is not None})
         return HitlQuestion(kind="QUESTION", prompt=prompt or "Unlabelled required field", options=options,
-                            input_kind=input_kind,
-                            context={"job_id": detail.listing.external_job_id, "url": detail.apply_url
-                                     or detail.listing.url, "title": detail.listing.title,
-                                     "company": detail.listing.company, "platform": platform,
-                                     "resolver_reason": reason})
+                            input_kind=input_kind, context=context)
 
     async def _type_identity(self, page: Any, item: dict[str, Any], key: str, value: str) -> bool:
         """Type a stored identity value; a field that refuses it (live 2026-11-27 Internshala:

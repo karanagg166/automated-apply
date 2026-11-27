@@ -82,6 +82,24 @@ class ApplicationsRepo(PostgresBase):
             "SELECT count(*) FROM public.applications WHERE platform=$1 AND applied_at >= $2",
             platform, since)
 
+    async def ambiguous_submits_since(self, platform: str, since: datetime) -> int:
+        """Submits with an ambiguous outcome since `since` (-> SUBMISSION_UNKNOWN, not reconciled to
+        APPLIED): each may really have been sent, so the daily/hourly caps must count them."""
+        return await self.connection.fetchval(
+            """SELECT count(DISTINCT e.application_id) FROM public.application_state_events e
+               JOIN public.applications a ON a.id = e.application_id
+               WHERE a.platform=$1 AND e.to_state='SUBMISSION_UNKNOWN' AND a.state <> 'APPLIED'
+                 AND e.created_at >= $2""",
+            platform, since)
+
+    async def stale_applying(self, older_than: datetime, limit: int = 20) -> list[ApplicationRecord]:
+        """APPLYING rows untouched since `older_than`: a crash/kill between reserve and outcome."""
+        rows = await self.connection.fetch(
+            f"""SELECT {self.COLUMNS} FROM public.applications
+                WHERE state='APPLYING' AND updated_at < $1 ORDER BY updated_at LIMIT $2""",
+            older_than, limit)
+        return [_record(r) for r in rows]
+
     async def list_applications(self, query):
         where = r"""($1::text IS NULL OR platform=$1) AND ($2::text IS NULL OR state=$2)
                    AND ($3::timestamptz IS NULL OR updated_at >= $3)

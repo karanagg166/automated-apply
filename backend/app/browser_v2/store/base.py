@@ -32,7 +32,8 @@ def _hitl(row: Any) -> HitlRecord:
         resolved_at=data.get("resolved_at"), resolved_via=data.get("resolved_via"),
         consumed_at=data.get("consumed_at"), company_name=data.get("company_name"),
         role_title=data.get("role_title"), job_url=data.get("job_url"),
-        application_state=data.get("application_state"))
+        application_state=data.get("application_state"),
+        telegram_card_closed_at=data.get("telegram_card_closed_at"))
 
 
 def _uuid(value: str | None) -> str | None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import Any
 
 from backend.app.browser_v2.adapters.base import JobListing
 from backend.app.browser_v2.rules import (
@@ -55,6 +56,30 @@ class GatesMixin(BrowserServiceBase):
         if record_filters and record.state != S.FILTERED_OUT and can_move(record, S.FILTERED_OUT):
             return await self.store.transition(record, S.FILTERED_OUT, reason)
         return record
+
+    async def watcher_gate(self, listing: JobListing, prefs: Any) -> str | None:
+        """Ingestion-time hard rules for a fast-poll watcher card (no LLM, no browser, no row):
+        blacklist / excluded keywords / experience / age / applicants and cross-portal duplicates.
+        A title that only *might* match (gray zone) passes: the worker's full gate decides."""
+        from backend.app.browser_v2.rules.normalize import dedup_key
+        from backend.app.browser_v2.service.scoring import as_preferences
+
+        parsed = as_preferences(prefs)
+        rules = await self.store.get_rules(listing.platform)
+        verdict = evaluate_pipeline(
+            age_days=listing.posted_age_days, applicants=listing.applicants or UNKNOWN_APPLICANTS,
+            rules=rules, prefs=parsed, title=listing.title, company=listing.company,
+            age_is_lower_bound=listing.age_is_lower_bound, require_description=False,
+            experience_text=listing.experience_text)
+        if verdict.decision is Decision.FILTERED and not is_title_mismatch_only(verdict):
+            return format_reason(verdict)
+        key = dedup_key(listing.company, listing.title)
+        if key:
+            for other in await self.store.find_duplicates(key, platform=listing.platform,
+                                                          external_job_id=listing.external_job_id):
+                if other.state in DUPLICATE_BLOCKING:
+                    return f"duplicate_of: {other.platform}:{other.external_job_id} ({other.state.value})"
+        return None
 
     async def prefilter(self, listing: JobListing, rules: PortalRules, prefs: CandidatePreferences,
                         *, record_filters: bool, via: str | None = None, newly_seen: bool = False,

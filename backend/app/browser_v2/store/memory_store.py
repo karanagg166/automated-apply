@@ -18,6 +18,7 @@ from backend.app.browser_v2.store.memory_agent import MemoryAgentMixin
 from backend.app.browser_v2.store.memory_base import MemoryBase
 from backend.app.browser_v2.store.memory_drafts import MemoryDraftsMixin
 from backend.app.browser_v2.store.memory_hitl import MemoryHitlMixin
+from backend.app.browser_v2.store.memory_notify import MemoryNotifyMixin
 from backend.app.browser_v2.store.memory_priority import (
     MemoryPriorityMixin,
     queue_sort_key,
@@ -36,7 +37,7 @@ from backend.app.browser_v2.store.records import (
 
 
 class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, MemoryHitlMixin, MemoryDraftsMixin,
-                  MemoryBase):
+                  MemoryNotifyMixin, MemoryBase):
     async def get_rules(self, platform: str) -> PortalRules:
         return self.rules.get(platform, PortalRules(platform=platform))
 
@@ -113,6 +114,18 @@ class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, Mem
 
     async def applied_since(self, platform: str, since: datetime) -> int:
         return sum(1 for p, at in self.applied_at if p == platform and at >= since)
+
+    async def ambiguous_submits_since(self, platform: str, since: datetime) -> int:
+        ids = {r.id for (p, _), r in self.records.items()
+               if p == platform and r.state != ApplicationState.APPLIED}
+        return len({e["application_id"] for e in self.events if e["application_id"] in ids
+                    and e["to"] == ApplicationState.SUBMISSION_UNKNOWN and e["created_at"] >= since})
+
+    async def stale_applying(self, older_than: datetime, limit: int = 20) -> list[ApplicationRecord]:
+        rows = [replace(r) for r in self.records.values() if r.state == ApplicationState.APPLYING
+                and (r.updated_at or _now()) < older_than]
+        rows.sort(key=lambda r: r.updated_at or _now())
+        return rows[:limit]
 
     async def list_applications(self, query):
         rows = [r for r in self.records.values()

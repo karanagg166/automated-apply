@@ -30,6 +30,19 @@ def classify_ats(url: str | None) -> str | None:
     return None
 
 
+def ats_of_host(url: str | None) -> str | None:
+    """greenhouse | lever by https host alone (embed/form paths included), else None."""
+    parts = urlsplit(url or "")
+    host = (parts.hostname or "").lower()
+    if parts.scheme != "https":
+        return None
+    if host in GREENHOUSE_HOSTS:
+        return "greenhouse"
+    if host in LEVER_HOSTS:
+        return "lever"
+    return None
+
+
 @dataclass(frozen=True)
 class AtsHandoff:
     """A supported hosted-ATS posting found behind another portal's external apply link."""

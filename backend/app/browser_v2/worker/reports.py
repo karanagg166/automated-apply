@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -39,6 +40,11 @@ COOLDOWN = "cooldown"  # handle_listing: portal cooling down after a live apply 
 CIRCUIT_TRIP_AFTER = 3  # consecutive breaker outcomes / portal-level exceptions
 CIRCUIT_OPEN_SEC = (15 * 60, 30 * 60, 60 * 60)  # level 1, 2, 3+ (cap)
 DECAY_EVERY_SEC = 10 * 60
+# APPLYING untouched this long means the process died between reserve and outcome (an apply,
+# OTP wait included, never takes 15 minutes). Swept at boot and every 10 minutes.
+STALE_APPLYING_AFTER_SEC = 15 * 60
+STALE_APPLYING_EVERY_SEC = 10 * 60
+JOB_WALL_CLOCK_SEC = 10 * 60  # one job (inspect + fill + submit + OTP wait) never holds the tab longer
 FRESH_SWEEP_PLATFORMS = ("naukri", "instahyre", "internshala", "wellfound", "work_at_a_startup")
 FRESH_SWEEP_EVERY_SEC = 20 * 60
 FRESH_SWEEP_JITTER = 0.2  # +- 20 %
@@ -54,8 +60,11 @@ def is_transient(exc: BaseException) -> bool:
         ("playwright", "httpx", "httpcore"))
 
 
-def env_forces_dry_run() -> bool:
-    return os.environ.get("DRY_RUN", "").strip().lower() in {"1", "true", "yes", "on"}
+def env_forces_dry_run(environ: Mapping[str, str] | None = None) -> bool:
+    """DRY_RUN=true in the process env OR in the loaded project .env forces a dry run (fail safe:
+    it used to be read from the process env only, so DRY_RUN in <repo>/.env was silently ignored)."""
+    sources = [os.environ] + ([environ] if environ is not None else [])
+    return any((src.get("DRY_RUN") or "").strip().lower() in {"1", "true", "yes", "on"} for src in sources)
 
 
 @dataclass

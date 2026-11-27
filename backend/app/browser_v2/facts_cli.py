@@ -3,6 +3,8 @@
     facts report                 which canonical facts are present / missing (values masked)
     facts set <key> <value>      validated write into candidate_profiles.preferences
     facts reseed-cache           idempotent reviewed-answer import into semantic_cache
+    facts stamp-cache            one-time after followup 006: owner-verified answers get the current
+                                 profile_version_hash (else every pre-006 factual answer counts as stale)
 
 Values are never printed in clear (phone, e-mail, CTC, location are PII). Writes go
 through `store.update_preferences`, i.e. the same `JobSearchPreferences` validation as
@@ -209,6 +211,27 @@ async def reseed_cache(store: Any, ai: Any) -> dict[str, Any]:
     return {"cache_backend": ai.cache.store.backend, **counts}
 
 
+async def stamp_cache(store: Any, ai: Any, env: dict[str, str]) -> dict[str, Any]:
+    """Stamp pre-006 owner-verified cache rows (source user/profile, no hash yet) with the hash the
+    worker computes now - the same facts build as `ApplyMixin.process_job` (profile + .env overrides)."""
+    from backend.app.ai_v2.semantic_cache.keys import profile_version_hash
+    from backend.app.browser_v2.service.helpers import (
+        apply_env_profile,
+        env_profile_overrides,
+    )
+
+    connection = getattr(getattr(getattr(ai, "cache", None), "store", None), "connection", None)
+    if connection is None:
+        return {"ok": False, "error": "postgres semantic cache required (DATABASE_URL)"}
+    profile, reviewed = await store.load_profile()
+    facts = apply_env_profile(CandidateFacts.from_profile(profile, reviewed), env_profile_overrides(env))
+    digest = profile_version_hash(facts)
+    result = await connection.execute(
+        """UPDATE public.semantic_cache SET profile_version_hash=$1, updated_at=now()
+           WHERE profile_version_hash IS NULL AND status='active' AND source IN ('user','profile')""", digest)
+    return {"ok": True, "stamped": int(str(result).rsplit(" ", 1)[-1] or 0), "profile_hash": (digest or "")[:12]}
+
+
 # --- argparse wiring (cli.py imports these; this module never edits cli.py) ---------------
 def register(subparsers: Any) -> argparse.ArgumentParser:
     parser: argparse.ArgumentParser = subparsers.add_parser(
@@ -219,6 +242,8 @@ def register(subparsers: Any) -> argparse.ArgumentParser:
     setter.add_argument("key", choices=sorted(SETTABLE))
     setter.add_argument("value")
     actions.add_parser("reseed-cache", help="idempotent reviewed-answer import into semantic_cache")
+    actions.add_parser("stamp-cache", help="after followup 006: stamp owner-verified answers with the current "
+                                           "profile hash (they would count as stale otherwise)")
     return parser
 
 
@@ -236,6 +261,11 @@ async def _run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             from backend.app.ai_v2.runtime import AIRuntime
 
             result = await reseed_cache(store, await AIRuntime.for_store(store))
+        elif action == "stamp-cache":
+            from backend.app.ai_v2.runtime import AIRuntime
+            from backend.app.browser_v2.env_loader import load_env
+
+            result = await stamp_cache(store, await AIRuntime.for_store(store), load_env())
         else:
             return 2, {"error": f"unknown facts action: {action}"}
     finally:

@@ -28,6 +28,10 @@ def runtime_privileges(tables):
     # Phase 9: the agent's sliding-window memory prunes old turns and /forget clears a chat.
     if "agent_conversation_turns" in privileges:
         privileges["agent_conversation_turns"].add("DELETE")
+    # Followup 007: delivered digest rows and 30-day-old ledger rows are pruned.
+    for name in ("telegram_notification_ledger", "telegram_digest_queue"):
+        if name in privileges:
+            privileges[name].add("DELETE")
     return privileges
 
 

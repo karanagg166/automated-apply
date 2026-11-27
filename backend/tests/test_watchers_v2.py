@@ -318,3 +318,25 @@ def test_target_roles_reads_dashboard_target_titles_and_filters_on_every_role():
     assert len(target_roles(prefs)) == MAX_ROLES  # per-role query sources stay capped
     merged = target_roles({"target_roles": ["SWE"], "target_titles": ["SWE", "DevOps Engineer"]}, limit=None)
     assert merged == ["SWE", "DevOps Engineer"]
+
+
+async def test_production_scorer_accepts_the_watcher_prefs_mapping():
+    """Regression (P0, 2026-11-28): the worker wires `service.scoring.score_listing`, which used to
+    require `CandidatePreferences`; the hub passes the raw preferences mapping, so every new posting
+    raised AttributeError and the watchers never inserted a single job in production."""
+    from backend.app.browser_v2.service.scoring import score_listing
+
+    jobs = [gh_job(1, "Backend Engineer", NOW - timedelta(days=1))]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"jobs": jobs})
+
+    h = Harness(handler)
+    h.hub.score_listing = score_listing
+    assert (await h.hub.poll_once(GH)).status == "baseline"
+    h.now = NOW + timedelta(minutes=3)
+    jobs.append(gh_job(2, "Backend Engineer", h.now - timedelta(minutes=20)))
+    outcome = await h.hub.poll_once(GH)
+    assert (outcome.status, outcome.upserted, outcome.p0) == ("polled", 1, 1)
+    assert (await row(h.store, "greenhouse", "2")).priority == 0
+    assert h.wakes == ["watcher:greenhouse"]

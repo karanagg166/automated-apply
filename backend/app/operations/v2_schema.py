@@ -17,6 +17,11 @@ TABLES = frozenset({
 })
 # Phase 9 (followup 005): a second all-or-none group that requires the 004 core.
 PHASE9_MIGRATION = ROOT / "supabase/fresh_public/followups/005_python_v2_phase9.sql"
+# Additive followups applied with `migrate_v2_core apply-followup <name>` (after 004 + 005).
+FOLLOWUP_MIGRATIONS = {
+    "006": ROOT / "supabase/fresh_public/followups/006_semantic_cache_v2.sql",
+    "007": ROOT / "supabase/fresh_public/followups/007_telegram_notifications.sql",
+}
 PHASE9_TABLES = frozenset({
     "watcher_state", "agent_audit_log", "agent_conversation_turns", "profile_sync_runs",
 })
@@ -26,7 +31,9 @@ PHASE9_COLUMNS = {
     "portal_rules": ("circuit_failures", "circuit_level", "circuit_open_until", "circuit_reason",
                      "last_fresh_sweep_at"),
 }
-ALL_TABLES = TABLES | PHASE9_TABLES
+# Followup 007 (zero-spam Telegram): a third all-or-none group that requires 004 + 005.
+NOTIFY_TABLES = frozenset({"telegram_notification_ledger", "telegram_digest_queue"})
+ALL_TABLES = TABLES | PHASE9_TABLES | NOTIFY_TABLES
 APPEND_ONLY = frozenset({"application_state_events", "agent_audit_log"})
 KEYED_SECTIONS = ("tables", "columns", "constraints", "triggers", "policies", "service_grants")
 
@@ -38,7 +45,10 @@ def installed_tables(actual_tables):
     phase9 = PHASE9_TABLES.intersection(actual_tables)
     if phase9 and (phase9 != PHASE9_TABLES or not present):
         raise RuntimeError("python_v2_phase9_schema_partial_install")
-    return present | phase9
+    notify = NOTIFY_TABLES.intersection(actual_tables)
+    if notify and (notify != NOTIFY_TABLES or not phase9):
+        raise RuntimeError("python_v2_followup007_schema_partial_install")
+    return present | phase9 | notify
 
 
 def phase9_installed(actual_tables) -> bool:

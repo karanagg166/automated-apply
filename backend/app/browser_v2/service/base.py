@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +23,9 @@ from backend.app.browser_v2.store import Store
 if TYPE_CHECKING:
     from backend.app.ai_v2.runtime import AIRuntime
 
+
+logger = logging.getLogger(__name__)
+JD_SCORING_DEADLINE_SEC = 30.0  # fresh jobs are never delayed by a slow free-LLM chain
 
 class BrowserServiceBase:
     def __init__(self, manager: BraveBrowserManager, store: Store,
@@ -62,8 +67,13 @@ class BrowserServiceBase:
         """LLM tie-breaker for a job that passed every hard filter except an ambiguous title."""
         if self.ai is None or not title or not description or not passes_without_title.passed:
             return verdict
-        decision = await self.ai.jd_scorer.score(title=title, company=company, description=description,
-                                                 target_roles=prefs.target_roles)
+        try:  # one overall deadline: 8 providers x 20 s must never hold the single tab for minutes
+            decision = await asyncio.wait_for(
+                self.ai.jd_scorer.score(title=title, company=company, description=description,
+                                        target_roles=prefs.target_roles), timeout=JD_SCORING_DEADLINE_SEC)
+        except Exception as exc:  # noqa: BLE001 - TimeoutError / cache errors: keep the deterministic verdict
+            logger.info("jd scoring fell back to rules: %s", type(exc).__name__)
+            decision = None
         if decision is None:
             return FilterResult(verdict.decision, verdict.reasons + ("llm_jd_unavailable",))
         note = f"llm_jd_{'match' if decision.accepted else 'reject'}: {decision.score:.2f} via {decision.source}"

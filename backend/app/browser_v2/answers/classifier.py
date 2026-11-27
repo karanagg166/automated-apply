@@ -38,7 +38,11 @@ SKILL_YES_NO = re.compile(
     r"\b(?:do you have|have you (?:worked|used)|are you (?:familiar|proficient|comfortable))\b"
     r".*?\b(?:with|in|on|using)?\s*(?P<skill>[A-Za-z0-9.+#/ -]{1,40}?)\s*(?:experience)?\s*\??$",
     re.IGNORECASE)
-NOTICE = re.compile(r"\bnotice period\b|\bhow soon can you join\b|\bjoin(?:ing)? (?:date|time)\b", re.IGNORECASE)
+# Phase 4: "How many days notice do you need to serve?" is the notice-period fact too (it used to
+# miss Tier 0 and fall through to a stale cached answer).
+NOTICE = re.compile(r"\bnotice period\b|\bhow soon can you join\b|\bjoin(?:ing)? (?:date|time)\b|"
+                    r"\b(?:days?|weeks?|months?)(?:'s?)?\s+(?:of\s+)?notice\b|\bserve\s+(?:a\s+|your\s+|the\s+)?notice\b|"
+                    r"\bnotice\s+(?:do|will|would)\s+you\b", re.IGNORECASE)
 START_WHEN = re.compile(r"\bwhen can you (?:start|join)\b|\bhow soon can you start\b|"
                         r"\bavailab(?:le|ility) to (?:start|join)\b", re.IGNORECASE)
 CURRENT_CTC = re.compile(r"\bcurrent\s+(?:annual\s+|yearly\s+|fixed\s+|total\s+)?(?:ctc|salary|compensation|package)\b|"

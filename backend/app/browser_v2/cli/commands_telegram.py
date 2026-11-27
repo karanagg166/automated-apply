@@ -31,9 +31,9 @@ async def telegram_status_command(probe: bool) -> int:
                 checks["bot_username"] = me.get("username")
                 webhook = await client.get_webhook_info()
                 checks["webhook_set"] = bool(webhook.get("url"))
-                # No offset -> confirms nothing; a running poller may see one harmless 409.
-                await client.get_updates(None, timeout=0, limit=1)
-                checks["conflict"] = False
+                # Never call getUpdates here: it would steal the worker's long poll and make the
+                # worker itself see a 409 (60 s inbound outage + a misleading diagnosis).
+                checks["conflict"] = bool(result["state"].get("conflict_detected"))
             except TelegramConflict:
                 checks["conflict"] = True
                 checks["hint"] = ("another poller is using this token (likely com.automated-apply.rust); "

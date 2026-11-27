@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from backend.app.browser_v2.quota import Notifier, QuotaHitProcessor
+from backend.app.browser_v2.redact import describe_exception
 from backend.app.browser_v2.rules import CandidatePreferences, PortalRules
 from backend.app.browser_v2.service import BrowserService
 from backend.app.browser_v2.store import Store, WorkerControl, WorkerState
@@ -75,6 +76,8 @@ class WorkerLoop:
     draining: bool
     global_gap_sec: tuple[float, float]
     last_decay: datetime | None
+    last_stale_recovery: datetime | None
+    notifier: Any  # followup 007: NotificationRouter (None without Telegram)
     sweep_due: dict[str, datetime]
     sweep_loads: dict[str, list[datetime]]
     sweep_query_index: dict[str, int]
@@ -200,6 +203,8 @@ class WorkerLoop:
         self.turn_observed = {}
         self.attempted = set()  # jobs opened this cycle (never re-opened by the lane in the same cycle)
         self.last_decay = None
+        self.last_stale_recovery = None  # None = run on the first housekeeping tick (boot)
+        self.notifier = None
         self.sweep_due = {}
         self.sweep_loads = {}
         self.sweep_query_index = {}
@@ -312,8 +317,16 @@ class WorkerLoop:
                         clear_run_once=control.run_once_requested_at is not None)
                 except Exception as exc:  # one bad cycle must not kill the 24/7 loop
                     logger.exception("worker cycle failed")
-                    await self.store.worker_heartbeat("RUNNING", last_error=f"{type(exc).__name__}: {exc}",
-                                                      clear_run_once=control.run_once_requested_at is not None)
+                    try:  # last_error reaches the API + Telegram: never raw exception text (URLs/tokens)
+                        await self.store.worker_heartbeat(
+                            "RUNNING", last_error=describe_exception(exc, 500),
+                            clear_run_once=control.run_once_requested_at is not None)
+                    except Exception as beat_exc:  # noqa: BLE001 - a DB blip here must not kill the loop
+                        logger.warning("heartbeat after a failed cycle failed: %s", type(beat_exc).__name__)
+                    publish = getattr(self.service, "publish", None)
+                    if publish is not None:  # P1, one alert per fingerprint per 2 h (notification ledger)
+                        await publish("system.error", {"fingerprint": type(exc).__name__,
+                                                       "detail": describe_exception(exc, 200)})
                     if once:
                         raise
                     await self.sleep(ERROR_BACKOFF_SEC)

@@ -51,7 +51,32 @@ _EMPLOYMENT = {
     "internship": re.compile(r"\b(?:intern(?:ship)?)\b"),
     "night_shift": re.compile(r"\bnight shifts?\b"),
 }
-_NEGATION = re.compile(r"\b(?:not|never|no|without|n t|cannot|can t|don t|won t)\b")
+_NEGATION = re.compile(r"\b(?:not|never|no|without|n t|cannot|can t|don t|won t|unable|no longer|except)\b")
+# Regions a work-authorization / relocation question can name besides a single country.
+_REGIONS = {
+    "eu": re.compile(r"\b(?:eu|european union|europe|eea|schengen)\b"),
+    "north_america": re.compile(r"\bnorth america\b"),
+    "apac": re.compile(r"\b(?:apac|asia pacific)\b"),
+    "emea": re.compile(r"\bemea\b"),
+    "latam": re.compile(r"\b(?:latam|latin america)\b"),
+}
+# Opposite-intent pairs: two questions that share almost every word but ask opposite things.
+_POLARITY = {
+    "needs_sponsorship": re.compile(r"\b(?:require|need|needs|requiring|will you need|will you require)\b.*\bsponsor"),
+    "no_sponsorship": re.compile(r"\bwithout\b.*\bsponsor|\bsponsor\w*\b.*\bnot (?:be )?(?:required|needed)\b"),
+    "future_move": re.compile(r"\b(?:relocat\w*|willing to (?:move|shift)|open to (?:moving|relocat\w*))\b"),
+    "current_residence": re.compile(r"\b(?:currently|presently|now)\s+(?:located|based|living|residing)\b|"
+                                    r"\bdo you (?:live|reside)\b"),
+    "ever": re.compile(r"\b(?:have you ever|ever been|ever had|ever worked|previously)\b"),
+    "currently_are": re.compile(r"\bare you currently\b|\bdo you currently\b"),
+    "adult": re.compile(r"\b(?:18|eighteen) (?:years )?(?:of age )?(?:or|and) (?:older|above|over)\b|"
+                        r"\b(?:over|above|at least) (?:the age of )?(?:18|eighteen)\b"),
+    "minor": re.compile(r"\b(?:under|below|younger than|less than) (?:the age of )?(?:18|eighteen)\b"),
+    "minimum": re.compile(r"\b(?:minimum|least|lowest)\b"),
+    "maximum": re.compile(r"\b(?:maximum|most|highest)\b"),
+}
+POLARITY_FIELDS = ("negation", "polarity", "temporal")
+ENTITY_FIELDS = ("tech", "city", "country", "unit", "number", "work_mode", "employment")
 
 
 @dataclass(frozen=True)
@@ -64,10 +89,18 @@ class Qualifiers:
     negation: bool = False
     work_mode: frozenset[str] = frozenset()
     employment: frozenset[str] = frozenset()
+    country: frozenset[str] = frozenset()  # ISO codes + regions (eu, apac, ...)
+    polarity: frozenset[str] = frozenset()  # opposite-intent tags (needs_sponsorship vs no_sponsorship ...)
 
     def differences(self, other: Qualifiers) -> list[str]:
-        names = ("tech", "temporal", "city", "unit", "number", "negation", "work_mode", "employment")
+        names = ("tech", "temporal", "city", "unit", "number", "negation", "work_mode", "employment",
+                 "country", "polarity")
         return [name for name in names if getattr(self, name) != getattr(other, name)]
+
+    def entities(self) -> dict[str, list[str]]:
+        """JSON-friendly snapshot stored with a cache entry (non-empty entity sets only)."""
+        out = {name: sorted(getattr(self, name)) for name in ("tech", "city", "country", "work_mode", "employment")}
+        return {k: v for k, v in out.items() if v}
 
 
 _NUMBER_WORDS = {"zero": "0", "one": "1", "two": "2", "three": "3", "four": "4", "five": "5", "six": "6",
@@ -75,6 +108,14 @@ _NUMBER_WORDS = {"zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
                  "fifteen": "15", "twenty": "20", "thirty": "30", "forty": "40", "forty five": "45",
                  "sixty": "60", "ninety": "90"}
 _NUMBER_WORD = re.compile(r"\b(" + "|".join(sorted(_NUMBER_WORDS, key=len, reverse=True)) + r")\b")
+
+
+def _countries(question: str, text: str) -> frozenset[str]:
+    from backend.app.browser_v2.answers.geography import countries_mentioned
+
+    found = set(countries_mentioned(question or ""))
+    found.update(name for name, pattern in _REGIONS.items() if pattern.search(text))
+    return frozenset(found)
 
 
 def extract_qualifiers(question: str) -> Qualifiers:
@@ -89,6 +130,8 @@ def extract_qualifiers(question: str) -> Qualifiers:
         negation=bool(_NEGATION.search(text)),
         work_mode=frozenset(k for k, p in _WORK_MODE.items() if p.search(text)),
         employment=frozenset(k for k, p in _EMPLOYMENT.items() if p.search(text)),
+        country=_countries(question, text),
+        polarity=frozenset(k for k, p in _POLARITY.items() if p.search(text)),
     )
 
 

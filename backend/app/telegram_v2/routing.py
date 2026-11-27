@@ -51,7 +51,11 @@ class RoutingMixin(AgentBridgeMixin):
             if head == "/ask":
                 self.dispatch_agent(text[len(text.split(maxsplit=1)[0]):].strip(), message_id)
                 return
-            await self.reply(await self.handle_command(text), message_id)
+            response = await self.handle_command(text)
+            if isinstance(response, tuple):
+                await self.reply(response[0], message_id, reply_markup=response[1])
+            else:
+                await self.reply(response, message_id)
             return
         reply_to = message.get("reply_to_message")
         if isinstance(reply_to, dict) and reply_to.get("message_id") is not None:
@@ -89,10 +93,10 @@ class RoutingMixin(AgentBridgeMixin):
         await self.reply(_outcome(result), message_id)
         return True
 
-    async def reply(self, text: str, reply_to: int | None = None) -> None:
+    async def reply(self, text: str, reply_to: int | None = None, *, reply_markup: dict[str, Any] | None = None) -> None:
         """HTML reply, chunked to <= 4000 chars, plain-text fallback on a parse error (client)."""
         assert self.client is not None
-        await self.client.send_message(self.chat_id, text, reply_to=reply_to)
+        await self.client.send_message(self.chat_id, text, reply_to=reply_to, reply_markup=reply_markup)
 
     async def _safe_reply(self, text: str, reply_to: int | None = None) -> None:
         try:
@@ -122,6 +126,9 @@ class RoutingMixin(AgentBridgeMixin):
                 notice = await self._resolve_button(action, rest, message_id)
             elif action in {"agc", "agx"}:
                 notice = await self.agent_confirmation(action, rest, message_id)
+            elif action == "q":
+                verb, _, application_id = rest.partition(":")
+                notice = await self.queue_button("skip" if verb == "skip" else "go", application_id)
             else:
                 notice = "Unknown button."
         except Exception as exc:  # noqa: BLE001 - the toast still answers; nothing half-applied is hidden

@@ -16,6 +16,7 @@ from backend.app.browser_v2.adapters.shared.dom_scripts import FORM_STATE_JS
 from backend.app.browser_v2.adapters.shared.external_handoff import (
     SUPPORTED_ATS,
     ats_form_url,
+    ats_of_host,
     classify_ats,
 )
 from backend.app.browser_v2.adapters.shared.form_filler import HostedFormFiller
@@ -32,6 +33,14 @@ SUBMIT_TEXT = (r"^(?:submit(?: (?:your )?application)?|send(?: application)?|app
 NEXT_TEXT = r"^(?:next|continue|save (?:and|&) continue|proceed)$"
 
 logger = logging.getLogger(__name__)
+
+
+def off_ats_host(page: Any, ats: str) -> str | None:
+    """The current host when the page left the vetted ATS host (redirect to a careers site etc.)."""
+    current = str(getattr(page, "url", "") or "")
+    if ats_of_host(current) == ats:
+        return None
+    return (urlsplit(current).hostname or "unknown")[:80]
 
 
 async def form_state(page: Any, root: str | None, *, submit_re: str = SUBMIT_TEXT,
@@ -132,10 +141,34 @@ class HostedAtsApplier:
             shot = await self.shot(page, platform, job_id, "dry-run")
             return ApplyResult(S.SCORED, "dry_run_stopped_before_submit", True, planned_action=planned,
                                screenshot=shot, answers=answers)
+        redirected = off_ats_host(page, ats)
+        if redirected is not None:  # the page moved while filling: never click submit elsewhere
+            return ApplyResult(S.FAILED, f"ats_redirected_before_submit:{redirected}", False, answers=answers)
         start_url = str(page.url)
         await submits[0].click()
         return await self._after_submit(page, outcome, answers, ats=ats, url=url, platform=platform, job_id=job_id,
                                         start_url=start_url)
+
+    async def quarantine_rejected(self, answers: tuple[dict[str, str], ...], errors: list[str]) -> int:
+        """A portal rejected values we filled: quarantine the semantic-cache entries behind the fields
+        the error messages name, so a bad cached answer never poisons another application."""
+        cache = getattr(getattr(self.filler, "answerer", None), "cache", None)
+        record = getattr(cache, "record_form_validation_error", None)
+        if record is None:
+            return 0
+        text = " ".join(str(e) for e in errors).casefold()
+        quarantined = 0
+        for answer in answers:
+            entry_id, label = answer.get("cache_entry_id"), str(answer.get("question") or "").casefold()
+            words = [w for w in re.findall(r"[a-z]{4,}", label)][:6]
+            if not entry_id or not words or not (label in text or sum(w in text for w in words) >= 2):
+                continue
+            try:
+                await record(entry_id)
+                quarantined += 1
+            except Exception as exc:  # noqa: BLE001 - quarantine is best effort; the HITL still opens
+                logger.info("cache quarantine of %s failed: %s", entry_id, type(exc).__name__)
+        return quarantined
 
     async def _prepare(self, page: Any, detail: JobDetail, facts: CandidateFacts, *, ats: str, url: str,
                        platform: str, dry_run: bool, hitl_answers: dict[str, str] | None,
@@ -144,6 +177,9 @@ class HostedAtsApplier:
         job_id = detail.listing.external_job_id
         if navigate:
             await self.open_form(page, url, ats)
+        redirected = off_ats_host(page, ats)
+        if redirected is not None:  # never type PII / upload the resume on a host we did not vet
+            return ApplyResult(S.FILTERED_OUT, f"ats_redirected:{redirected}", dry_run)
         state = await form_state(page, None)
         if state.get("challenge"):
             return ApplyResult(S.WAITING_FOR_USER, "ats_captcha_before_submit", dry_run,
@@ -178,6 +214,7 @@ class HostedAtsApplier:
                                answers=answers)
         if state.get("errors") and state.get("submits") == 1 and not state.get("challenge"):
             # The form rejected the submission (still on the form with validation errors).
+            await self.quarantine_rejected(answers, state.get("errors") or [])
             return ApplyResult(S.WAITING_FOR_USER, "ats_validation_errors", False, clicked_apply=True,
                                answers=answers, screenshot=shot,
                                question=HitlQuestion(kind="ERROR", prompt="Form rejected: " + "; ".join(

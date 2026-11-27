@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from backend.app.browser_v2.adapters.base import JobListing
@@ -21,6 +22,8 @@ from backend.app.browser_v2.service.handoff import HandoffMixin
 from backend.app.browser_v2.service.helpers import S, apply_env_profile, plain
 from backend.app.browser_v2.service.registry import job_id_from_url
 from backend.app.browser_v2.state import ReplayRefused, guard_apply
+
+logger = logging.getLogger(__name__)
 
 
 class ApplyMixin(HandoffMixin):
@@ -135,27 +138,36 @@ class ApplyMixin(HandoffMixin):
                                                  hitl_answers=hitl_answers)
                 return summary | plain(result)
             record = await self.store.transition(record, S.APPLYING, "apply_started", count_attempt=True)
+            started_at = datetime.now(UTC)
             try:
                 result = await adapter.apply_job(page, detail, facts, dry_run=False,
                                                  existing_state=S.DISCOVERED.value,
                                                  hitl_answers=hitl_answers)
-            except Exception as exc:
-                await self.store.transition(record, S.SUBMISSION_UNKNOWN,
-                                            "exception_after_reservation:" + type(exc).__name__)
+            except BaseException as exc:  # incl. CancelledError (SIGTERM): never leave APPLYING behind
+                await self.reservation_unknown(record, "exception_after_reservation:" + type(exc).__name__)
                 raise
-            after_click = self.after_click_handoff(platform, detail, result)
-            if after_click is not None:
-                return summary | await self.hand_off(record, *after_click, record_filters=True)
-            record = await self.store.transition(
-                record, result.state, result.reason, receipt=result.receipt,
-                payload={"answers": list(result.answers), "clicked_apply": result.clicked_apply,
-                         "screenshot": result.screenshot})
+            try:
+                after_click = self.after_click_handoff(platform, detail, result)
+                if after_click is not None:
+                    return summary | await self.hand_off(record, *after_click, record_filters=True)
+                receipt = result.receipt
+                if result.state == S.APPLIED:
+                    receipt = (receipt or {}) | first_mover_timing(record, started_at, datetime.now(UTC))
+                record = await self.store.transition(
+                    record, result.state, result.reason, receipt=receipt,
+                    payload={"answers": list(result.answers), "clicked_apply": result.clicked_apply,
+                             "screenshot": result.screenshot})
+            except BaseException as exc:
+                await self.reservation_unknown(record, "outcome_write_failed:" + type(exc).__name__)
+                raise
             if result.reason.startswith("portal_daily_limit"):
                 await self.store.record_portal_limit(platform)
             if result.state == S.APPLIED:
+                timing = (record.receipt or {}).get("timing") or {}
                 await self.publish("job.applied", {"platform": platform, "external_job_id": job_id,
                                                    "company": detail.listing.company, "title": detail.listing.title,
-                                                   "url": detail.listing.url, "priority": record.priority})
+                                                   "url": detail.listing.url, "priority": record.priority,
+                                                   "first_mover_lag_seconds": timing.get("first_mover_lag_seconds")})
             elif result.state == S.QUOTA_HIT_PENDING:
                 await self.publish("job.quota_hit", {"platform": platform, "external_job_id": job_id,
                                                      "reason": result.reason})
@@ -170,3 +182,29 @@ class ApplyMixin(HandoffMixin):
                                                    "external_job_id": job_id})
         await self.manager.maybe_recycle_between_jobs()
         return summary | plain(result) | {"hitl_request_id": hitl_id}
+
+    async def reservation_unknown(self, record: Any, reason: str) -> None:
+        """Best effort APPLYING -> SUBMISSION_UNKNOWN (never-replay); the stale-APPLYING sweep
+        (`WorkerLoop.recover_stale_applying`) catches whatever this cannot write."""
+        try:
+            await self.store.transition(record, S.SUBMISSION_UNKNOWN, reason[:80])
+        except Exception as exc:  # noqa: BLE001 - the original exception is what the caller re-raises
+            logger.warning("could not mark %s SUBMISSION_UNKNOWN (%s): %s", getattr(record, "id", "?"),
+                           reason, type(exc).__name__)
+
+
+def first_mover_timing(record: Any, started_at: datetime, submitted_at: datetime) -> dict[str, Any]:
+    """Receipt `timing`: discovered (first seen) -> started -> submitted, and the first-mover lag
+    measured from the real posting time when known, else from first discovery."""
+    discovered = getattr(record, "created_at", None)
+    posted = getattr(record, "posted_at", None)
+    origin = posted or discovered
+    timing: dict[str, Any] = {
+        "discovered_at": discovered.isoformat() if discovered else None,
+        "posted_at": posted.isoformat() if posted else None,
+        "started_at": started_at.isoformat(), "submitted_at": submitted_at.isoformat(),
+        "apply_seconds": round((submitted_at - started_at).total_seconds(), 1),
+        "first_mover_lag_seconds": round((submitted_at - origin).total_seconds()) if origin else None,
+        "lag_from": "posted_at" if posted else ("discovered_at" if discovered else None),
+        "priority": getattr(record, "priority", None)}
+    return {"timing": timing}

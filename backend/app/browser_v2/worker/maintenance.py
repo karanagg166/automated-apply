@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from backend.app.browser_v2.worker.loop import WorkerLoop
 from backend.app.browser_v2.worker.reports import (
     DECAY_EVERY_SEC,
     HITL_EXPIRY_EVERY_SEC,
+    STALE_APPLYING_AFTER_SEC,
+    STALE_APPLYING_EVERY_SEC,
     logger,
 )
 
@@ -23,7 +25,9 @@ class MaintenanceMixin(WorkerLoop):
                 or (now - self.last_mail_scan).total_seconds() >= self.mail_scan_interval_sec):
             self.last_mail_scan = now
             try:
-                replies = await reader.scan_recruiter_replies(self.store, notify=self.notify)
+                # With the router, alerts go out via the bus topic below (P1 rollup, deduped) only.
+                direct = None if getattr(self, "notifier", None) is not None else self.notify
+                replies = await reader.scan_recruiter_replies(self.store, notify=direct)
                 publish = getattr(self.service, "publish", None)
                 for alert in replies.alerts:
                     if publish is not None:
@@ -33,11 +37,38 @@ class MaintenanceMixin(WorkerLoop):
                                               "alert_jobs": alerts.discovered, "tier": replies.tier})
             except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
                 logger.warning("mail watcher failed: %s", type(exc).__name__)
+        await self.recover_stale_applying(now)
         await self.expire_hitl(now)
         await self.decay_priorities(now)
         await self.run_profile_sync()
         await self.send_digest(now, reader)
         del self.housekeeping_log[:-50]
+
+    async def recover_stale_applying(self, now: datetime) -> None:
+        """A crash/kill between the APPLYING reservation and its outcome leaves a row that nothing
+        schedules, reconciles or counts. Move it to SUBMISSION_UNKNOWN (never replayed; the existing
+        reconcile pass can still confirm it APPLIED from portal history)."""
+        last = self.last_stale_recovery
+        if last is not None and (now - last).total_seconds() < STALE_APPLYING_EVERY_SEC:
+            return
+        self.last_stale_recovery = now
+        try:
+            from backend.app.browser_v2.state import ApplicationState
+
+            stale = await self.store.stale_applying(now - timedelta(seconds=STALE_APPLYING_AFTER_SEC))
+            recovered = 0
+            for record in stale:
+                try:
+                    await self.store.transition(record, ApplicationState.SUBMISSION_UNKNOWN,
+                                                "stale_applying_recovered")
+                    recovered += 1
+                except Exception as exc:  # noqa: BLE001 - a concurrent writer won; next sweep re-checks
+                    logger.warning("stale APPLYING %s not recovered: %s", record.id, type(exc).__name__)
+            if recovered:
+                logger.warning("recovered %d stale APPLYING row(s) as SUBMISSION_UNKNOWN", recovered)
+                self.housekeeping_log.append({"stale_applying_recovered": recovered})
+        except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
+            logger.warning("stale APPLYING recovery failed: %s", type(exc).__name__)
 
     async def expire_hitl(self, now: datetime) -> None:
         """Phase 8: stale HITL requests expire (OTP 30 min .. QUESTION 7 days); never blocks."""
@@ -74,17 +105,23 @@ class MaintenanceMixin(WorkerLoop):
             claimed, previous = await self.digest.claim(now)
             if not claimed:
                 return  # another process/restart already sent today's digest
-            from backend.app.browser_v2.digest import build_digest
+            from backend.app.browser_v2.digest import build_digest_report
 
+            notifier = getattr(self, "notifier", None)
             try:
-                text = await build_digest(self.store, now, ai=getattr(self.service, "ai", None),
-                                          mail_events=getattr(reader, "events", None))
-                await self.notify(text)
+                queued = await notifier.pending_digest() if notifier is not None else []
+                text, meaningful = await build_digest_report(
+                    self.store, now, ai=getattr(self.service, "ai", None),
+                    mail_events=getattr(reader, "events", None), queued=queued)
+                if meaningful or not getattr(self.digest, "skip_empty", False):
+                    await self.notify(text)
+                if notifier is not None and queued:
+                    await notifier.mark_digest_delivered(queued)
             except Exception:
                 await self.digest.release(now, previous)  # retried on the next housekeeping tick
                 raise
             await self.digest.mark_sent(now)
-            self.housekeeping_log.append({"digest": now.isoformat()})
+            self.housekeeping_log.append({"digest": now.isoformat(), "sent": meaningful})
         except Exception as exc:  # noqa: BLE001
             logger.warning("digest failed: %s", type(exc).__name__)
 

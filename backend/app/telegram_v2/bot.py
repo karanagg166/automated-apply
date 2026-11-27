@@ -109,7 +109,8 @@ class TelegramBot(PollingMixin, RoutingMixin, CommandsMixin, OutboundMixin):
                  conflict_backoff: float = CONFLICT_BACKOFF_SEC, min_send_interval: float = 1.0,
                  agent: Any = None, event_bus: Any = None, mail_events: Any = None,
                  legacy_probe: Callable[[], Awaitable[bool | None]] | None = None,
-                 agent_wake: Callable[[], Any] | None = None) -> None:
+                 agent_wake: Callable[[], Any] | None = None, notifier: Any = None,
+                 notify_config: Any = None) -> None:
         self.config = config
         self.store = store
         self.ai = ai
@@ -121,8 +122,14 @@ class TelegramBot(PollingMixin, RoutingMixin, CommandsMixin, OutboundMixin):
         self.resolver = HITLResolutionService(store, cache if cache is not None else (ai.cache if ai else None),
                                               clock=self.clock)
         self.client = client
+        self.owns_client = client is None  # a shared (worker) client is closed by its owner
         if self.client is None and config.configured and config.token:
             self.client = TelegramClient(config.token, transport=transport, min_send_interval=min_send_interval)
+        self.notifier = notifier  # NotificationRouter (/mute, /digest, /health); None in CLI mode
+        from backend.app.telegram_v2.notify_policy import NotifyConfig
+
+        self.notify_config = notify_config or getattr(notifier, "config", None) or NotifyConfig(
+            quiet_start=None, quiet_end=None)
         self.poll_timeout = poll_timeout
         self.dispatch_interval = dispatch_interval
         self.conflict_backoff = conflict_backoff

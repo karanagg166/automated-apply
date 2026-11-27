@@ -252,13 +252,15 @@ async def test_fresh_sweep_cadence_page_one_and_recorded():
     assert await worker.maybe_sweep(ctx) == ["naukri"]
     assert adapter.discover_calls == [{"query": "Python Developer", "limit": FRESH_SWEEP_LIMIT, "age": 1}]
     assert store.rules["naukri"].last_fresh_sweep_at == NOON_IST
-    assert await worker.maybe_sweep(ctx) == []  # not due again yet (20 min +- 20 %)
-    clock.now += timedelta(minutes=15)
+    assert await worker.maybe_sweep(ctx) == []  # not due again yet (peak IST: 10 min +- 20 %)
+    clock.now += timedelta(minutes=7)  # < 8 min lower jitter bound
     worker.session_ok_at["naukri"] = clock.now
     assert await worker.maybe_sweep(ctx) == []
-    clock.now += timedelta(minutes=10)  # 25 min > 24 min upper jitter bound
+    clock.now += timedelta(minutes=6)  # 13 min > 12 min upper jitter bound
     worker.session_ok_at["naukri"] = clock.now
     assert await worker.maybe_sweep(ctx) == ["naukri"] and len(adapter.discover_calls) == 2
+    clock.now = NOON_IST + timedelta(hours=11)  # 23:00 IST: off-peak sweeps back off to ~30 min
+    assert 24 * 60 <= worker.sweep_interval().total_seconds() <= 36 * 60
 
 
 async def test_fresh_sweep_hourly_page_load_budget():

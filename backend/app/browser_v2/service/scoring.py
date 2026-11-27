@@ -6,7 +6,9 @@ watchers, so every discovery path scores a listing the same way.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
+from typing import Any
 
 from backend.app.browser_v2.domain import JobListing
 from backend.app.browser_v2.priority import (
@@ -28,13 +30,22 @@ def title_matches_target(title: str | None, prefs: CandidatePreferences) -> bool
         _role_matches(title or "", role) for role in prefs.target_roles)
 
 
-def score_listing(listing: JobListing, prefs: CandidatePreferences, *, now: datetime, newly_seen: bool = False,
-                  via: str | None = None, passed: bool = True) -> DiscoveryMeta:
+def as_preferences(prefs: CandidatePreferences | Mapping[str, Any] | None) -> CandidatePreferences:
+    """Watchers hand over the raw `candidate_profiles.preferences` mapping; the service passes the
+    parsed dataclass. Accept both so every discovery path shares one scorer."""
+    if isinstance(prefs, CandidatePreferences):
+        return prefs
+    return CandidatePreferences.from_profile({"preferences": dict(prefs or {})})
+
+
+def score_listing(listing: JobListing, prefs: CandidatePreferences | Mapping[str, Any] | None, *, now: datetime,
+                  newly_seen: bool = False, via: str | None = None, passed: bool = True) -> DiscoveryMeta:
     """Tier + best-known posting time for `listing`.
 
     strong match = `passed` (the caller's filter pipeline accepted the card; watchers that do not
     run it keep the default) AND the title matches a target role. `newly_seen` is only meaningful
     for a source that already has a baseline (sweeps/watchers)."""
+    prefs = as_preferences(prefs)
     hours = listing.posted_age_hours
     if hours is None:
         hours = parse_posted_age_hours(listing.posted_text)

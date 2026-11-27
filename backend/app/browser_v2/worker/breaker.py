@@ -95,10 +95,14 @@ class CircuitMixin(WorkerLoop):
             return
         if circuit.open_until is not None and circuit.open_until > self.clock():
             return  # still open (an owner run-once bypassed it): only a half-open trial may close it
-        if circuit.level:
+        recovered = bool(circuit.level)
+        if recovered:
             logger.info("portal %s circuit CLOSED after level %s", platform, circuit.level)
         self.circuits[platform] = Circuit()
         await self.persist_circuit(platform, self.circuits[platform])
+        publish = getattr(self.service, "publish", None)
+        if recovered and publish is not None:  # the notifier edits the open alert card in place
+            await publish("portal.circuit_closed", {"platform": platform})
 
     async def persist_circuit(self, platform: str, circuit: Circuit) -> None:
         try:

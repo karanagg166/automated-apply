@@ -7,7 +7,9 @@ between jobs. Designed to keep running while the screen is locked.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import logging
 import os
 import re
 import subprocess
@@ -20,6 +22,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from backend.app.browser_v2 import profile as brave_profile
+
+logger = logging.getLogger(__name__)
 
 LAUNCH_ARGS = (
     "--disable-backgrounding-occluded-windows",
@@ -128,6 +132,8 @@ class BraveBrowserManager:
         self._worker: Any = None
         self.browser_started_at: float | None = None
         self._job_active = False
+        self._crashed = False  # set by the context "close" event (Brave crash / killed)
+        self.relaunches = 0
         self._lock = asyncio.Lock()
         self.background = background_mode()
 
@@ -163,8 +169,19 @@ class BraveBrowserManager:
             options = self.launch_options()
             user_data_dir = options.pop("user_data_dir")
             owner_app = await asyncio.to_thread(front_bundle_id) if self.background else None
-            self._context = await self._playwright.chromium.launch_persistent_context(
-                user_data_dir, **options)
+            try:
+                self._context = await self._playwright.chromium.launch_persistent_context(
+                    user_data_dir, **options)
+            except BaseException:
+                # A failed launch must not leak the node driver (the next start() would overwrite it).
+                playwright, self._playwright = self._playwright, None
+                with contextlib.suppress(Exception):
+                    await playwright.stop()
+                raise
+            self._crashed = False
+            on = getattr(self._context, "on", None)
+            if callable(on):
+                on("close", self._on_context_closed)
             if owner_app:
                 await self._return_focus(owner_app)
             if self.block_assets:
@@ -187,11 +204,7 @@ class BraveBrowserManager:
         try:
             cookies = [c for c in await self._context.cookies()
                        if is_portal_cookie(c) and float(c.get("expires", -1) or -1) < 0][:MAX_SESSION_COOKIES]
-            path = self._session_file()
-            tmp = path.with_suffix(".tmp")
-            tmp.write_text(json.dumps(cookies))
-            os.chmod(tmp, 0o600)
-            os.replace(tmp, path)
+            await asyncio.to_thread(_write_private_json, self._session_file(), cookies)
             return len(cookies)
         except Exception:  # noqa: BLE001 - persistence is best effort, never breaks a job
             return 0
@@ -229,12 +242,32 @@ class BraveBrowserManager:
             if await asyncio.to_thread(front_bundle_id) in BRAVE_BUNDLE_IDS:
                 await asyncio.to_thread(refocus, owner_app)
 
+    def _on_context_closed(self, *_: Any) -> None:
+        if self._context is not None:
+            self._crashed = True
+            logger.warning("Brave context closed unexpectedly; relaunching before the next job")
+
+    async def _relaunch(self) -> None:
+        self.relaunches += 1
+        with contextlib.suppress(Exception):
+            await self.close()
+        await self.start()
+
     async def page(self) -> Any:
-        """The single reusable worker tab."""
+        """The single reusable worker tab. A crashed/killed Brave is relaunched once here instead of
+        failing every portal (INFRA_ERROR -> breakers) until the 3 h recycle."""
+        if self._crashed:
+            await self._relaunch()
         await self.start()
         if self._worker is None or self._worker.is_closed():
             owner_app = await asyncio.to_thread(front_bundle_id) if self.background else None
-            self._worker = await self._context.new_page()
+            try:
+                self._worker = await self._context.new_page()
+            except Exception as exc:
+                if not _is_target_closed(exc):
+                    raise
+                await self._relaunch()
+                self._worker = await self._context.new_page()
             if owner_app:
                 await self._return_focus(owner_app)
         return self._worker
@@ -246,8 +279,11 @@ class BraveBrowserManager:
         closed = 0
         for page in list(self._context.pages):
             if page is not self._worker and not page.is_closed():
-                await page.close()
-                closed += 1
+                try:  # one failing close must neither leave the other tabs open nor mask the job error
+                    await page.close()
+                    closed += 1
+                except Exception as exc:  # noqa: BLE001
+                    logger.info("could not close a stray tab: %s", type(exc).__name__)
         return closed
 
     @asynccontextmanager
@@ -284,10 +320,27 @@ class BraveBrowserManager:
             context, playwright = self._context, self._playwright
             self._context = self._worker = self._playwright = None
             self.browser_started_at = None
-            if context is not None:
-                self._context = context  # snapshot needs the live context
-                await self.snapshot_session_cookies()
-                self._context = None
-                await context.close()
-            if playwright is not None:
-                await playwright.stop()
+            self._crashed = False
+            try:
+                if context is not None:
+                    self._context = context  # snapshot needs the live context
+                    await self.snapshot_session_cookies()
+                    self._context = None
+                    with contextlib.suppress(Exception):  # a dead browser cannot be closed cleanly
+                        await context.close()
+            finally:
+                if playwright is not None:
+                    with contextlib.suppress(Exception):
+                        await playwright.stop()
+
+
+def _write_private_json(path: Path, value: Any) -> None:
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(value))
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+
+
+def _is_target_closed(exc: BaseException) -> bool:
+    text = f"{type(exc).__name__} {exc}".lower()
+    return "targetclosed" in text or "has been closed" in text or "browser has disconnected" in text

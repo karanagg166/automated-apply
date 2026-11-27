@@ -88,6 +88,7 @@ class WatcherPoller:
     publish: Publish
     clock: Clock
     mcp_call: McpCall
+    rule_gate: Any = None
 
     def budget(self, spec: BudgetSpec) -> StoreFetchBudget:
         return StoreFetchBudget(self.store, spec.source, spec.limit, window=spec.window, clock=self.clock)
@@ -193,6 +194,17 @@ class WatcherPoller:
             if not passes_prefilter(job, roles, now):
                 continue
             listing = to_listing(source.platform, job, now)
+            if self.rule_gate is not None:  # sub-ms deterministic hard rules: no row, no wake, no alert
+                try:
+                    blocked = await maybe_await(self.rule_gate(listing, prefs))
+                except Exception as exc:  # noqa: BLE001 - when unsure, let the worker's full gate decide
+                    logger.info("watcher rule gate failed: %s", type(exc).__name__)
+                    blocked = None
+                if blocked:
+                    outcome.skipped_by_rule += 1
+                    logger.info("watcher %s skipped %s by rule: %s", source.key, listing.external_job_id,
+                                str(blocked)[:160])
+                    continue
             meta: DiscoveryMeta = await maybe_await(self.score_listing(listing, prefs, now=now, newly_seen=True,
                                                                        via=via))
             apply_url = job.apply_url

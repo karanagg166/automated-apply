@@ -12,6 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
 # Never read the owner's real project .env (v1 Settings + shared v2 loader) in tests.
 os.environ["AUTOMATED_APPLY_ENV_REPO_FILES"] = "0"
 os.environ.pop("AUTOMATED_APPLY_ENV_FILE", None)
+# Single-instance locks (worker, Telegram poller) live in a per-run temp dir: tests never contend
+# with (or block) a live worker running from this checkout.
+import tempfile as _tempfile  # noqa: E402
+
+os.environ["AUTOMATED_APPLY_LOCK_DIR"] = _tempfile.mkdtemp(prefix="aa-test-locks-")
 # Never query/refocus real macOS apps from tests (browser background mode).
 os.environ["AUTOMATED_APPLY_BROWSER_BACKGROUND"] = "0"
 

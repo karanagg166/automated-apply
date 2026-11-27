@@ -10,6 +10,7 @@ from backend.app.browser_v2.store.conversation_repo import ConversationRepo
 from backend.app.browser_v2.store.discovery_repo import DiscoveryRepo
 from backend.app.browser_v2.store.drafts_repo import DraftsRepo
 from backend.app.browser_v2.store.hitl_repo import HitlRepo
+from backend.app.browser_v2.store.notify_repo import NotifyRepo
 from backend.app.browser_v2.store.owner_queue_repo import OwnerQueueRepo
 from backend.app.browser_v2.store.profile_repo import ProfileRepo
 from backend.app.browser_v2.store.rules_repo import RulesRepo
@@ -17,5 +18,5 @@ from backend.app.browser_v2.store.watcher_repo import WatcherRepo
 
 
 class PostgresStore(OwnerQueueRepo, DiscoveryRepo, ApplicationsRepo, RulesRepo, HitlRepo, ProfileRepo, DraftsRepo,
-                    WatcherRepo, AuditRepo, ConversationRepo, AnalyticsRepo, PostgresBase):
+                    WatcherRepo, AuditRepo, ConversationRepo, AnalyticsRepo, NotifyRepo, PostgresBase):
     pass

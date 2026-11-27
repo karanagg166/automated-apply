@@ -91,8 +91,8 @@ class MemoryPriorityMixin(MemoryBase):
         p1_cutoff = now - (P0_DECAY_AFTER + P1_DECAY_AFTER)
         changed = 0
         for record in self.records.values():
-            if not _queued(record) or record.created_at is None:
-                continue
+            if not _queued(record) or record.created_at is None or record.priority_reason == "hitl_resumed":
+                continue  # an owner-answered job keeps the top tier until it runs
             if record.priority == 0 and record.created_at < p0_cutoff:
                 record.priority = 1 if record.created_at >= p1_cutoff else 2
                 record.priority_reason, changed = "decayed_from_p0", changed + 1
