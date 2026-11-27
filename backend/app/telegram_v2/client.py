@@ -284,6 +284,10 @@ class TelegramClient:
             payload["text"] = html_to_plain(text)[: _cut(html_to_plain(text), CHUNK_UNITS)] or "…"
             return await self._throttled("editMessageText", payload)
 
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> Any:
+        """'typing…' indicator (Telegram shows it ~5 s). Not throttled: it is not a message."""
+        return await self.call("sendChatAction", {"chat_id": chat_id, "action": action})
+
     async def answer_callback_query(self, callback_id: str, text: str | None = None) -> Any:
         payload: dict[str, Any] = {"callback_query_id": callback_id}
         if text:

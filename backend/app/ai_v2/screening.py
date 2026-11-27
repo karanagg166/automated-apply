@@ -7,7 +7,10 @@ Tier 2  free external LLM router (PII-scrubbed, strict JSON, options-constrained
 Tier 3  None -> caller marks the job WAITING_FOR_USER (HITL)
 
 Sensitive questions (passwords, OTPs, IDs, consent, demographics) skip
-Tiers 1-2. Questions asking for private/unverified personal data skip Tier 2.
+Tiers 1-2. Owner-declared disclosures (EEO, consent, NDA signature; see
+browser_v2.answers.disclosures) are answered in Tier 0 before that gate and are
+never written to the semantic cache. Questions asking for private/unverified
+personal data skip Tier 2.
 
 Degradation contract (Workstream 3): resolve() never raises. A failing tier
 (cache backend error, zero LLM keys, every provider 429/5xx, malformed reply,
@@ -34,6 +37,7 @@ from backend.app.browser_v2.answers import (
     CandidateFacts,
     choose_option,
     choose_yes_no,
+    disclosure_answer,
     resolve_answer,
 )
 
@@ -143,6 +147,15 @@ class ScreeningAnswerer:
         def elapsed() -> float:
             return round((time.perf_counter() - started) * 1000, 2)
 
+        try:
+            handled, disclosed = disclosure_answer(question, options, facts)
+        except Exception:  # a matcher bug must degrade to the human, never crash
+            logger.exception("screening_disclosure_failed")
+            handled, disclosed = True, None
+        if handled:  # owner-declared EEO / consent / NDA fact: Tier 0 or the human, never cache / LLM
+            return ResolvedAnswer(disclosed, 0 if disclosed is not None else 3,
+                                  "profile" if disclosed is not None else "human", elapsed(),
+                                  "owner_disclosure" if disclosed is not None else "disclosure_no_safe_option")
         try:
             deterministic = resolve_answer(question, options, facts)
         except Exception:  # a matcher bug must degrade to the next tier, never crash

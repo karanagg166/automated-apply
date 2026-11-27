@@ -165,6 +165,44 @@ class PortalRuleOverride(ProfileSchema):
     allow_unknown_posting_age: StrictBool | None = None
 
 
+DisclosureText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
+]
+
+
+class ScreeningDisclosures(ProfileSchema):
+    """Owner-declared answers for EEO / consent / NDA screening questions.
+
+    These questions are otherwise always sent to the human. Only explicitly stored
+    values are used to answer them (tier 0, never cached, never sent to an LLM).
+    """
+
+    gender: DisclosureText | None = None
+    ethnicity: DisclosureText | None = None
+    veteran_status: DisclosureText | None = None
+    disability_status: DisclosureText | None = None
+    pronouns: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
+    ] | None = None
+    date_of_birth: date | None = None
+    citizenship: DisclosureText | None = None
+    has_valid_passport: StrictBool | None = None
+    consent_background_check: StrictBool | None = None
+    consent_data_processing: StrictBool | None = None
+    agree_terms: StrictBool | None = None
+    nda_auto_sign: StrictBool | None = None
+    nda_signature_name: DisclosureText | None = None
+    currently_employed: StrictBool | None = None
+
+    @model_validator(mode="after")
+    def plausible_values(self):
+        if self.date_of_birth and not date(1900, 1, 1) <= self.date_of_birth <= date.today():
+            raise ValueError("date_of_birth must be between 1900-01-01 and today")
+        if self.nda_auto_sign and not self.nda_signature_name:
+            raise ValueError("nda_auto_sign requires nda_signature_name")
+        return self
+
+
 class JobSearchPreferences(ProfileSchema):
     current_compensation: CompensationFact | None = None
     expected_compensation: CompensationFact | None = None
@@ -238,6 +276,8 @@ class JobSearchPreferences(ProfileSchema):
     notify_early_bird: StrictBool | None = None
     # Phase 9D: per-portal profile-sync switches, e.g. {"naukri": {"live": true}} (default: dry-run only).
     profile_sync: dict[PortalKey, dict[ShortText, StrictBool]] | None = None
+    # Owner-declared EEO / consent / NDA answers (answers/disclosures.py); never derived.
+    screening_disclosures: ScreeningDisclosures | None = None
 
     @model_validator(mode="after")
     def unique_authorization_countries(self):

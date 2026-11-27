@@ -37,6 +37,7 @@ from backend.app.browser_v2.answers.deterministic import (
     choose_text_option,
     ctc_answer,
 )
+from backend.app.browser_v2.answers.disclosures import disclosure_answer
 from backend.app.browser_v2.answers.education import education_answer, hear_about_answer
 from backend.app.browser_v2.answers.facts import CandidateFacts
 from backend.app.browser_v2.answers.geography import (
@@ -56,6 +57,11 @@ from backend.app.browser_v2.tech_terms import is_known_tech
 
 def resolve_answer(question: str, options: tuple[str, ...], facts: CandidateFacts) -> str | None:
     """Return an exact option/text answer, or None when a human must answer."""
+    # Owner-declared EEO / consent / NDA facts run before the BLOCKED/SENSITIVE gate; a missing
+    # fact leaves the gate untouched (handled=False).
+    handled, disclosed = disclosure_answer(question, options, facts)
+    if handled:
+        return disclosed
     if BLOCKED.search(question) or SENSITIVE.search(question):
         return None
     saved = facts.saved_answers.get(normalize(question))

@@ -57,12 +57,14 @@ from .deterministic import (
     choose_text_option,
     ctc_answer,
 )
+from .disclosures import disclosure_answer
 from .facts import (
     IDENTITY_KEYS,
     CandidateFacts,
     WorkAuthorization,
     _lpa_from_compensation,
     _work_authorizations,
+    disclosures_from,
     identity_fields,
 )
 from .geography import (
@@ -177,6 +179,8 @@ __all__ = [
     "countries_mentioned",
     "country_of",
     "ctc_answer",
+    "disclosure_answer",
+    "disclosures_from",
     "hitl_override",
     "identity_fields",
     "lakhs",

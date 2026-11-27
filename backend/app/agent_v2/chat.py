@@ -1,8 +1,9 @@
 """LLM-first owner chat (Telegram, API, MCP, CLI): confirmations, PII placeholders, memory and
 the deterministic fallback.
 
-Order: "confirm"/"cancel" with a pending risky write -> ReAct agent (open HITL items, last 12
-turns and a safe profile summary in its context) -> on zero providers / all exhausted / invalid
+Order: "confirm"/"cancel" with a pending risky write -> the zero-LLM `SemanticRouter` (greetings and
+read-only status queries; only greetings while a QUESTION/OTP request is open) -> ReAct agent (open
+HITL items, last 12 turns and a safe profile summary in its context) -> on zero providers / all exhausted / invalid
 steps twice: the Phase 6A deterministic path (`intent.parse` + ControlAgent graph) with a short
 note naming the failed providers (at most once per hour per chat unless nothing understood it).
 
@@ -21,6 +22,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from backend.app.agent_v2.react import HITL_TOOL, ReactAgent
+from backend.app.agent_v2.semantic_router import Routed, SemanticRouter
 from backend.app.agent_v2.tools import AuditedToolRunner, ToolResult
 from backend.app.ai_v2.pii import (
     build_safe_llm_profile,
@@ -54,8 +56,10 @@ def _hitl_line(row: Any) -> dict[str, Any]:
 
 class AgentChat:
     def __init__(self, store: Any, router: Any, runner: AuditedToolRunner, *,
-                 fallback: Callable[[str], Awaitable[dict[str, Any]]], clock: Callable[[], datetime]) -> None:
+                 fallback: Callable[[str], Awaitable[dict[str, Any]]], clock: Callable[[], datetime],
+                 fast: SemanticRouter | None = None) -> None:
         self.store = store
+        self.fast = fast
         self.router = router
         self.runner = runner
         self.fallback = fallback
@@ -111,6 +115,10 @@ class AgentChat:
             return self.outcome_dict(await self.runner.cancel(None, chat_key=chat_key, source=source), tool=None,
                                 verdict="cancelled")
         open_rows = await self._open_hitl()
+        if self.fast is not None:  # zero-LLM fast path (works offline too)
+            routed = await self.fast.route(text, hitl_open=any(row.kind in ("QUESTION", "OTP") for row in open_rows))
+            if routed is not None:
+                return await self._routed(routed, text, chat_key)
         if self.router is None or not getattr(self.router, "any_configured", False):
             return await self._fallback(text, chat_key, source, open_rows, "no LLM provider is configured")
         profile = await self._profile()
@@ -148,6 +156,14 @@ class AgentChat:
                 "tools": tools, "source": "llm", "verdict": verdict, "provider": state.get("provider"),
                 "ok": verdict == "ok" and "error" not in outcomes, "mode": "llm", "confirmation": confirmation,
                 "hitl_resolutions": list(state.get("resolutions") or []), "data": {}}
+
+    async def _routed(self, routed: Routed, text: str, chat_key: str) -> dict[str, Any]:
+        if routed.remember:  # read answers are useful agent context; pleasantries are not
+            await self._remember(chat_key, scrub_pii(text), scrub_pii(html_to_text(routed.reply_html)))
+        return {"reply": html_to_text(routed.reply_html), "reply_html": routed.reply_html, "tool": routed.tool,
+                "tools": [routed.tool] if routed.tool else [], "source": "router", "verdict": "ok", "ok": True,
+                "mode": "router", "tier": routed.tier, "route": routed.route, "confirmation": None,
+                "hitl_resolutions": [], "data": {}}
 
     # --- deterministic fallback -------------------------------------------------------------------
     async def _fallback(self, text: str, chat_key: str, source: str, open_rows: list[Any],

@@ -33,15 +33,13 @@
 	</dict>
 	<key>RunAtLoad</key>
 	<true/>
+	<!-- KeepAlive=true (2026-11-27): restart on ANY exit. The worker exits 0 on SIGTERM, and the
+	     old {{SuccessfulExit:false, Crashed:true}} dict left it (and Telegram) dead for 7 hours.
+	     `launchctl bootout` (cutover_v2) still stops it for good. -->
 	<key>KeepAlive</key>
-	<dict>
-		<key>SuccessfulExit</key>
-		<false/>
-		<key>Crashed</key>
-		<true/>
-	</dict>
+	<true/>
 	<key>ThrottleInterval</key>
-	<integer>30</integer>
+	<integer>10</integer>
 	<key>ExitTimeOut</key>
 	<integer>90</integer>
 	<!-- Interactive (live 2026-11-27): "Background" applies macOS CPU/IO/GPU throttling that Brave

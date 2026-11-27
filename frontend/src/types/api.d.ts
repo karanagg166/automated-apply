@@ -5119,6 +5119,8 @@ export interface components {
           [key: string]: boolean;
         };
       } | null;
+      screening_disclosures?:
+        components["schemas"]["ScreeningDisclosures"] | null;
     };
     /** JobSearchPreferences */
     "JobSearchPreferences-Output": {
@@ -5249,6 +5251,8 @@ export interface components {
           [key: string]: boolean;
         };
       } | null;
+      screening_disclosures?:
+        components["schemas"]["ScreeningDisclosures"] | null;
     };
     /** JobSearchPreferencesUpdate */
     JobSearchPreferencesUpdate: {
@@ -5379,6 +5383,8 @@ export interface components {
           [key: string]: boolean;
         };
       } | null;
+      screening_disclosures?:
+        components["schemas"]["ScreeningDisclosures"] | null;
     };
     /**
      * JobStatus
@@ -7465,6 +7471,43 @@ export interface components {
       /** Source */
       source?: string | null;
     };
+    /**
+     * ScreeningDisclosures
+     * @description Owner-declared answers for EEO / consent / NDA screening questions.
+     *
+     *     These questions are otherwise always sent to the human. Only explicitly stored
+     *     values are used to answer them (tier 0, never cached, never sent to an LLM).
+     */
+    ScreeningDisclosures: {
+      /** Gender */
+      gender?: string | null;
+      /** Ethnicity */
+      ethnicity?: string | null;
+      /** Veteran Status */
+      veteran_status?: string | null;
+      /** Disability Status */
+      disability_status?: string | null;
+      /** Pronouns */
+      pronouns?: string | null;
+      /** Date Of Birth */
+      date_of_birth?: string | null;
+      /** Citizenship */
+      citizenship?: string | null;
+      /** Has Valid Passport */
+      has_valid_passport?: boolean | null;
+      /** Consent Background Check */
+      consent_background_check?: boolean | null;
+      /** Consent Data Processing */
+      consent_data_processing?: boolean | null;
+      /** Agree Terms */
+      agree_terms?: boolean | null;
+      /** Nda Auto Sign */
+      nda_auto_sign?: boolean | null;
+      /** Nda Signature Name */
+      nda_signature_name?: string | null;
+      /** Currently Employed */
+      currently_employed?: boolean | null;
+    };
     /** ScreeningProfilePatch */
     ScreeningProfilePatch: {
       /** Target Roles */
@@ -7738,6 +7781,8 @@ export interface components {
           [key: string]: boolean;
         };
       } | null;
+      screening_disclosures?:
+        components["schemas"]["ScreeningDisclosures"] | null;
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -7913,6 +7958,8 @@ export interface components {
           [key: string]: boolean;
         };
       } | null;
+      screening_disclosures?:
+        components["schemas"]["ScreeningDisclosures"] | null;
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
