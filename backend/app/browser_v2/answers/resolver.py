@@ -13,6 +13,7 @@ from backend.app.browser_v2.answers.classifier import (
     ENGLISH_Q,
     EXPECTED_CTC,
     GENERIC_FIELDS,
+    HEAR_ABOUT_Q,
     IMMEDIATE_JOINER,
     JOIN_WITHIN,
     LOCATED_IN,
@@ -36,7 +37,7 @@ from backend.app.browser_v2.answers.deterministic import (
     choose_text_option,
     ctc_answer,
 )
-from backend.app.browser_v2.answers.education import education_answer
+from backend.app.browser_v2.answers.education import education_answer, hear_about_answer
 from backend.app.browser_v2.answers.facts import CandidateFacts
 from backend.app.browser_v2.answers.geography import (
     _same_place,
@@ -63,6 +64,8 @@ def resolve_answer(question: str, options: tuple[str, ...], facts: CandidateFact
     handled_education, education = education_answer(question, options, facts.education)
     if handled_education:
         return education
+    if HEAR_ABOUT_Q.search(question):
+        return hear_about_answer(options, question)
     if facts.notice_period_days is not None:
         within = JOIN_WITHIN.search(question)
         if within:

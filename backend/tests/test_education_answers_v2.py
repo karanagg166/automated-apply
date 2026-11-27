@@ -55,3 +55,15 @@ def test_current_title_phrasings() -> None:
                      "Current designation", "Previous role"):
         assert resolve_answer(question, (), facts) == "Software Engineer", question
     assert resolve_answer("Job title you are applying for", (), facts) is None
+
+
+def test_hear_about_answers() -> None:
+    facts = CandidateFacts.from_profile({"preferences": {}})
+    assert resolve_answer("How did you hear about Twilio?", ("Careers Website", "LinkedIn", "Twitter"), facts) \
+        == "Careers Website"
+    assert resolve_answer("How did you hear about us?", ("Referral", "Online job board", "Other"), facts) \
+        == "Online job board"
+    assert resolve_answer("Where did you hear about this role?", ("Referral", "Other (please specify)"), facts) \
+        == "Other (please specify)"
+    assert resolve_answer("How did you hear about us?", (), facts) == "Company careers page"
+    assert resolve_answer("How did you hear about us?", ("Referral", "Event"), facts) is None
