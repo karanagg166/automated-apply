@@ -170,6 +170,10 @@ class PortalApplyMixin(PortalDiscoveryMixin):
                 link = await self._external_link(page)
                 return self._result(S.FILTERED_OUT, "external_company_site_after_click", dry_run,
                                     clicked_apply=clicked, receipt={"external_url": link} if link else None)
+            if self.config.ineligible_modal_text and not attempt.submit_clicked and re.search(
+                    self.config.ineligible_modal_text, state.get("body") or "", re.IGNORECASE):
+                return self._result(S.FILTERED_OUT, "portal_says_location_not_supported", dry_run,
+                                    clicked_apply=clicked, screenshot=await self.shot(page, job_id, "ineligible"))
             source = confirmation_source(state, start_url)
             if source is not None and clicked:
                 return await self._receipt(page, detail, source, tuple(answers))
