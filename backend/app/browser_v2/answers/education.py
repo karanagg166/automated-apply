@@ -129,3 +129,27 @@ def education_answer(question: str, options: tuple[str, ...], education: Educati
             return True, year
         return True, _unique(options, lambda o: _letters(o) == year)
     return False, None
+
+
+# "How did you hear about us?": the worker finds jobs on the employer's own careers board / ATS or a
+# public job board, so the truthful choice is the careers site, then a job board, then "Other".
+_HEAR_PREFERENCES = (
+    (r"careers? (?:web)?site|company (?:web)?site|company careers|careers page|career site|"
+     r"(?:company|corporate) website"),
+    (r"job board|online job|job site|job posting|greenhouse|lever|internet|online search|web search|"
+     r"google"),
+    r"^\s*other\b",
+)
+_LINK_FIELD = re.compile(r"\b(?:link|url|profile|handle)\b", re.IGNORECASE)
+
+
+def hear_about_answer(options: tuple[str, ...], question: str = "") -> str | None:
+    if _LINK_FIELD.search(question):
+        return None  # "How did you hear about us? (LinkedIn profile link)" is a link field, not a source
+    if not options:
+        return "Company careers page"
+    for pattern in _HEAR_PREFERENCES:
+        hits = [o for o in options if re.search(pattern, o, re.IGNORECASE)]
+        if hits:
+            return hits[0]
+    return None
