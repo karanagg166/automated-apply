@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from backend.app.browser_v2.answers.education import education_from_profile
@@ -71,6 +72,31 @@ def _lpa_from_compensation(value: Any) -> str | None:
     return _years(amount / 100_000) if amount is not None and amount >= 0 else None
 
 
+DISCLOSURE_TEXT_KEYS = ("gender", "ethnicity", "veteran_status", "disability_status", "pronouns", "citizenship",
+                        "nda_signature_name")
+DISCLOSURE_BOOL_KEYS = ("has_valid_passport", "consent_background_check", "consent_data_processing",
+                        "agree_terms", "nda_auto_sign", "currently_employed")
+DISCLOSURE_KEYS = (*DISCLOSURE_TEXT_KEYS, "date_of_birth", *DISCLOSURE_BOOL_KEYS)
+
+
+def disclosures_from(value: Any) -> dict[str, Any]:
+    """preferences.screening_disclosures -> only explicitly stored, well-typed values (never derived)."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, Any] = {key: " ".join(value[key].split()) for key in DISCLOSURE_TEXT_KEYS
+                           if isinstance(value.get(key), str) and value[key].strip()}
+    out.update({key: value[key] for key in DISCLOSURE_BOOL_KEYS if isinstance(value.get(key), bool)})
+    dob = value.get("date_of_birth")
+    if isinstance(dob, str):
+        try:
+            dob = date.fromisoformat(dob.strip())
+        except ValueError:
+            dob = None
+    if isinstance(dob, date):
+        out["date_of_birth"] = dob
+    return out
+
+
 @dataclass
 class CandidateFacts:
     experience_years: float | None = None
@@ -99,6 +125,8 @@ class CandidateFacts:
     work_authorizations: tuple[WorkAuthorization, ...] = ()
     english_proficiency: str | None = None
     education: Any = None  # Phase 9: answers.education.Education from candidate_profiles.education
+    # Owner-declared EEO / consent / NDA answers (preferences.screening_disclosures, answers.disclosures).
+    disclosures: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_profile(cls, profile: dict[str, Any],
@@ -154,6 +182,7 @@ class CandidateFacts:
             work_authorization=_text(prefs.get("work_authorization")),
             work_authorizations=_work_authorizations(prefs.get("work_authorizations")),
             english_proficiency=_text(prefs.get("english_proficiency")),
+            disclosures=disclosures_from(prefs.get("screening_disclosures")),
         )
 
     def has_skill(self, skill: str) -> bool:
