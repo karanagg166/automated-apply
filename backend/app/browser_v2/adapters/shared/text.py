@@ -61,10 +61,37 @@ def multi_role_query(roles: list[str] | tuple[str, ...]) -> str:
 
 
 # --- shared answer resolution ---------------------------------------------------------------
+_ROLE_COUNTRY = re.compile(r"\b(?:the\s+)?country\s+(?:in\s+which|where)\s+(?:this|the)\s+(?:role|position|job)\s+is\s+"
+                           r"(?:located|based)\b", re.IGNORECASE)
+
+
+def role_country(location: str | None) -> str | None:
+    """Country of the job's own location ("Bengaluru, India" / "Pune" -> "India"); None when unclear."""
+    from backend.app.browser_v2.answers.geography import COUNTRIES, place_facts
+
+    if not location or re.search(r"\bremote\b", location, re.IGNORECASE) and "," not in location:
+        return None
+    place = place_facts(location, None, None)
+    if not place.country_code:
+        return None
+    names = [name for _, (name, code) in COUNTRIES.items() if code == place.country_code]
+    return names[0] if names else None
+
+
+def localize_role_country(question: str, detail: JobDetail) -> str:
+    """Phase 9: "authorized to work in the country in which this role is located?" names the role's
+    country so the deterministic work-authorization rules can answer it."""
+    if not _ROLE_COUNTRY.search(question):
+        return question
+    country = role_country(detail.location)
+    return _ROLE_COUNTRY.sub(country, question) if country else question
+
+
 async def resolve_question(question: str, options: tuple[str, ...], facts: CandidateFacts, detail: JobDetail,
                            answerer: ScreeningResolver | None, hitl_answers: dict[str, str] | None
                            ) -> tuple[str | None, str, str]:
     owner = hitl_override(question, options, hitl_answers)
+    question = localize_role_country(question, detail)
     if owner is not None:
         return owner, "human_hitl", "hitl_owner_answer"
     if answerer is None:
