@@ -18,6 +18,7 @@ import httpx
 from backend.app.ai_v2.embeddings import Embedder, FastEmbedder
 from backend.app.ai_v2.intro import IntroComposer
 from backend.app.ai_v2.jd_scoring import JDScorer
+from backend.app.ai_v2.judge import AnswerJudge, judge_mode
 from backend.app.ai_v2.pii import build_safe_llm_profile, profile_secrets
 from backend.app.ai_v2.router import LLMRouter
 from backend.app.ai_v2.screening import ScreeningAnswerer
@@ -83,7 +84,8 @@ class AIRuntime:
         router = LLMRouter(env=env, usage=usage, transport=transport)
         cache = SemanticCache(cache_store, embedder or shared_embedder(), threshold=cache_threshold(router.env))
         return cls(cache=cache, router=router,
-                   answerer=ScreeningAnswerer(cache, router, save_llm_answers=save_llm_answers),
+                   answerer=ScreeningAnswerer(cache, router, save_llm_answers=save_llm_answers,
+                                              judge=AnswerJudge(router, mode=judge_mode(router.env))),
                    jd_scorer=JDScorer(router, cache), intro=IntroComposer(router))
 
     @classmethod

@@ -3,7 +3,8 @@
 Tier 0  verified profile facts (browser_v2.answers)       0 tokens, ~0 ms
 Tier 1  local semantic cache (exact, then cosine >= 0.88   0 tokens, ~5 ms
         + qualifier-mismatch guard)
-Tier 2  free external LLM router (PII-scrubbed, strict JSON, options-constrained)
+Tier 2  free external LLM router (PII-scrubbed, strict JSON, options-constrained),
+        then an LLM judge from another provider audits the answer (ai_v2.judge)
 Tier 3  None -> caller marks the job WAITING_FOR_USER (HITL)
 
 Sensitive questions (passwords, OTPs, IDs, consent, demographics) skip
@@ -25,7 +26,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -40,6 +41,9 @@ from backend.app.browser_v2.answers import (
     disclosure_answer,
     resolve_answer,
 )
+
+if TYPE_CHECKING:
+    from backend.app.ai_v2.judge import AnswerJudge
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +110,8 @@ class ResolvedAnswer:
     confidence: float | None = None
     cached_new: bool = False
     llm_chain: tuple[str, ...] = ()
+    judge: str | None = None  # approved | rejected (None = not judged)
+    trace_id: str | None = None
 
     def public(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, (), "")}
@@ -129,8 +135,9 @@ def fit_to_options(answer: str, options: tuple[str, ...]) -> str | None:
 class ScreeningAnswerer:
     def __init__(self, cache: SemanticCache | None, router: LLMRouter | None, *,
                  accept_confidence: float = ACCEPT_CONFIDENCE, cache_confidence: float = CACHE_CONFIDENCE,
-                 save_llm_answers: bool = True) -> None:
+                 save_llm_answers: bool = True, judge: AnswerJudge | None = None) -> None:
         self.cache = cache
+        self.judge = judge
         self.router = router
         self.accept_confidence = accept_confidence
         self.cache_confidence = cache_confidence
@@ -206,16 +213,31 @@ class ScreeningAnswerer:
         reply = result.value
         human = ResolvedAnswer(None, 3, "human", 0.0, "", provider=result.provider, model=result.model,
                                input_tokens=result.input_tokens, output_tokens=result.output_tokens,
-                               confidence=reply.confidence)
+                               confidence=reply.confidence, trace_id=result.trace_id)
+
+        def punt(reason: str, **extra: Any) -> ResolvedAnswer:
+            self._score(result.trace_id, False, reply.confidence, reason)
+            return replace(human, latency_ms=_ms(started), reason=reason, **extra)
+
         if reply.needs_human or reply.answer is None:
-            return replace(human, latency_ms=_ms(started), reason="llm_needs_human")
+            return punt("llm_needs_human")
         if reply.confidence < self.accept_confidence:
-            return replace(human, latency_ms=_ms(started), reason="llm_low_confidence")
+            return punt("llm_low_confidence")
         fitted = fit_to_options(reply.answer, options)
         if fitted is None:
-            return replace(human, latency_ms=_ms(started), reason="llm_answer_not_an_option")
+            return punt("llm_answer_not_an_option")
+        verdict = None
+        if self.judge is not None:
+            verdict = await self.judge.review(
+                question=question, options=options, answer=fitted, safe_profile=self.safe_profile, job=job,
+                generator=result.provider, trace_id=result.trace_id)
+        rejected = verdict is not None and not verdict.approved
+        label = verdict.label if verdict is not None else None
+        if rejected and self.judge is not None and self.judge.enforce:
+            return punt("llm_judge_rejected", judge=label)
+        self._score(result.trace_id, True, reply.confidence, "llm_accepted")
         cached = False
-        if self.save_llm_answers and self.cache is not None and reply.cacheable \
+        if self.save_llm_answers and self.cache is not None and reply.cacheable and not rejected \
                 and reply.confidence >= self.cache_confidence:
             try:
                 await self.cache.put(KIND, question, fitted, "llm")
@@ -223,7 +245,15 @@ class ScreeningAnswerer:
             except Exception:  # the accepted answer is still usable without caching
                 logger.exception("screening_cache_put_failed")
         return replace(human, answer=fitted, tier=2, source="llm", latency_ms=_ms(started),
-                       reason="llm_accepted", cached_new=cached)
+                       reason="llm_accepted", cached_new=cached, judge=label)
+
+    def _score(self, trace_id: str | None, accepted: bool, confidence: float, reason: str) -> None:
+        """Outcome scores on the generator's trace (no-op when tracing is off)."""
+        tracer = getattr(self.router, "tracer", None)
+        if tracer is None or not trace_id:
+            return
+        tracer.score(trace_id, "answer_accepted", accepted, comment=reason)
+        tracer.score(trace_id, "llm_confidence", confidence, comment=reason)
 
 
 def _ms(started: float) -> float:

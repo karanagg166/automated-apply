@@ -9,6 +9,7 @@ Run from the repository root:
     backend/venv/bin/python -m backend.app.browser_v2.cli mcp
     backend/venv/bin/python -m backend.app.browser_v2.cli ai-status [--load-embedder]
     backend/venv/bin/python -m backend.app.browser_v2.cli ai-test [--provider groq]
+    backend/venv/bin/python -m backend.app.browser_v2.cli langfuse-test
     backend/venv/bin/python -m backend.app.browser_v2.cli seed-cache
     backend/venv/bin/python -m backend.app.browser_v2.cli test-qa --question "..." [--option Yes --option No]
     backend/venv/bin/python -m backend.app.browser_v2.cli worker --dry-run [--no-telegram]
@@ -40,6 +41,7 @@ from backend.app.browser_v2.cli.commands_ai import (
     ai_status_command,
     ai_test_command,
     export_sft_command,
+    langfuse_test_command,
     seed_cache_command,
     test_qa_command,
 )
@@ -101,6 +103,7 @@ __all__ = [
     "enrichment_status_command",
     "export_sft_command",
     "health_check_command",
+    "langfuse_test_command",
     "live_smoke_command",
     "login_setup",
     "mail_status_command",
@@ -177,6 +180,8 @@ def main(argv: list[str] | None = None) -> int:
             return asyncio.run(ai_status_command(args.load_embedder))
         if args.command == "ai-test":
             return asyncio.run(ai_test_command(args.provider))
+        if args.command == "langfuse-test":
+            return asyncio.run(langfuse_test_command())
         if args.command == "seed-cache":
             return asyncio.run(seed_cache_command())
         if args.command == "test-qa":

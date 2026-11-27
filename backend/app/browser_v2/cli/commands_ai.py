@@ -1,4 +1,4 @@
-"""AI commands: ai-status, ai-test, seed-cache, export-sft-dataset, test-qa."""
+"""AI commands: ai-status, ai-test, langfuse-test, seed-cache, export-sft-dataset, test-qa."""
 
 from __future__ import annotations
 
@@ -32,6 +32,9 @@ async def ai_status_command(load_embedder: bool) -> int:
               "key_sources": key_sources(key_names),
               "embedding": embed_info,
               "configured_failover": {task: ai.router.configured_chain(task) for task in ai.router.chains},
+              "observability": {"langfuse_tracing": bool(ai.router.tracer.enabled),
+                                "judge_mode": ai.answerer.judge.mode if ai.answerer.judge else "off",
+                                "judge_active": bool(ai.answerer.judge and ai.answerer.judge.active)},
               **status})
         return 0
     finally:
@@ -52,6 +55,43 @@ async def ai_test_command(only: list[str]) -> int:
     emit({"env_layers": [layer.label + (f" ({layer.path.name})" if layer.path else "") for layer in layers],
           "key_sources": key_sources(names, layers=layers), **report})
     return 0 if report["configured"] == 0 or report["passed"] == report["configured"] else 1
+
+
+async def langfuse_test_command() -> int:
+    """Verify the Langfuse keys and send one synthetic trace + score (zero PII, zero LLM calls)."""
+    import asyncio
+
+    from backend.app.ai_v2.judge import judge_mode
+    from backend.app.ai_v2.observability import (
+        BASE_URL_ENVS,
+        PUBLIC_KEY_ENV,
+        SECRET_KEY_ENV,
+        LangfuseTracer,
+        tracer_from_env,
+    )
+    from backend.app.browser_v2.env_loader import key_sources, load_env
+
+    env = load_env()
+    report: dict[str, Any] = {"key_sources": key_sources([PUBLIC_KEY_ENV, SECRET_KEY_ENV, *BASE_URL_ENVS]),
+                              "judge_mode": judge_mode(env)}
+    tracer = tracer_from_env(env)
+    if not isinstance(tracer, LangfuseTracer):
+        emit({**report, "configured": False,
+              "next_step": f"add {PUBLIC_KEY_ENV} and {SECRET_KEY_ENV} to <repo>/.env (free: cloud.langfuse.com)"})
+        return 1
+    try:
+        authenticated = await asyncio.to_thread(tracer.auth_check)
+    except Exception as exc:  # noqa: BLE001 - report, never traceback with credentials
+        emit({**report, "configured": True, "authenticated": False, "error": type(exc).__name__})
+        return 1
+    call = tracer.start_call("langfuse_test", "connection check", "synthetic trace from langfuse-test")
+    call.attempt("synthetic", "none", 0).ok("ok", 1, 1)
+    call.finish("ok", [{"provider": "synthetic", "outcome": "ok"}], "synthetic")
+    tracer.score(call.trace_id, "connection_check", True, comment="langfuse-test")
+    await asyncio.to_thread(tracer.flush)
+    emit({**report, "configured": True, "authenticated": authenticated, "trace_id": call.trace_id,
+          "trace_url": tracer.trace_url(call.trace_id)})
+    return 0 if authenticated else 1
 
 
 async def seed_cache_command() -> int:

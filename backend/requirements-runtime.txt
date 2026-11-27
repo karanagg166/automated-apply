@@ -37,3 +37,7 @@ langgraph>=1.2,<1.3
 
 # Phase 6A: portal credentials live in the macOS Keychain (never .env or Postgres).
 keyring>=25.7,<26
+
+# LLM observability + evals (Langfuse Cloud free tier; OpenTelemetry export on a background
+# thread). Inactive unless LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY are set (ai_v2/observability.py).
+langfuse>=4.18,<5

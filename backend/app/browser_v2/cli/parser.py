@@ -51,6 +51,7 @@ def build_parser() -> argparse.ArgumentParser:
                         help="load (and on first use download, ~80 MB) the local ONNX embedding model")
     ai_test = commands.add_parser("ai-test", help="live 1-request JSON probe of each configured free LLM provider")
     ai_test.add_argument("--provider", action="append", default=[], help="limit to this provider (repeatable)")
+    commands.add_parser("langfuse-test", help="verify Langfuse keys and send one synthetic trace (no PII)")
     commands.add_parser("seed-cache", help="seed semantic_cache from reviewed application_answer_drafts")
     qa = commands.add_parser("test-qa", help="run the 4-tier screening answer pipeline for one question")
     qa.add_argument("--question", required=True)
