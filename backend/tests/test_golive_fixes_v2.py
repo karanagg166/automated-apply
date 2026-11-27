@@ -120,3 +120,25 @@ def test_identity_labels(label: str, key: str | None) -> None:
     from backend.app.browser_v2.adapters.shared.form_filler import identity_key
 
     assert identity_key({"label": label}) == key
+
+
+def test_role_country_localizes_authorization_question() -> None:
+    from backend.app.browser_v2.adapters.shared.text import (
+        localize_role_country,
+        role_country,
+    )
+    from backend.app.browser_v2.answers import resolve_answer
+
+    assert role_country("Bengaluru, India") == "India" and role_country("Pune") == "India"
+    assert role_country("Remote") is None and role_country("San Francisco, CA") is None
+    question = "Are you legally authorized to work in the country in which this role is located?"
+    india = localize_role_country(question, SimpleNamespace(location="Bengaluru, India"))
+    assert india == "Are you legally authorized to work in India?"
+    assert localize_role_country(question, SimpleNamespace(location=None)) == question
+    from backend.app.browser_v2.answers import CandidateFacts as Facts
+
+    facts = Facts.from_profile({"preferences": {"work_authorizations": [
+        {"country_name": "India", "country_code": "IN", "authorized_to_work": True,
+         "requires_sponsorship_now_or_future": False}]}})
+    assert resolve_answer(india, ("Yes", "No"), facts) == "Yes"
+    assert resolve_answer("Are you authorized to work in the US?", ("Yes", "No"), facts) is None  # owner decides
