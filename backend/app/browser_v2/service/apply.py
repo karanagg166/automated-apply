@@ -143,6 +143,9 @@ class ApplyMixin(HandoffMixin):
                 await self.store.transition(record, S.SUBMISSION_UNKNOWN,
                                             "exception_after_reservation:" + type(exc).__name__)
                 raise
+            after_click = self.after_click_handoff(platform, detail, result)
+            if after_click is not None:
+                return summary | await self.hand_off(record, *after_click, record_filters=True)
             record = await self.store.transition(
                 record, result.state, result.reason, receipt=result.receipt,
                 payload={"answers": list(result.answers), "clicked_apply": result.clicked_apply,

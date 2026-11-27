@@ -44,6 +44,13 @@ class PortalConfig:
     apply_click_may_submit: bool = True
     # True when Apply navigates to a full-page application form (no modal), e.g. Internshala.
     form_page_after_apply: bool = False
+    # True when the Apply click only OPENS a form/modal and can never send an application by itself
+    # (Wellfound note modal, Internshala form page): until a submit control is clicked, an error or a
+    # missing form is a retryable FAILED, never a never-replay SUBMISSION_UNKNOWN fence.
+    apply_opens_form: bool = False
+    # Text of an after-click modal saying the employer takes applications elsewhere (live 2026-11-27
+    # Wellfound: "Applications to this job are managed outside of Wellfound ... Apply on website").
+    external_modal_text: str | None = None
     # Live 2026-11-26: the single primary Apply control when a page repeats equivalent CTAs, and the
     # precise company element when a generic [class*=company] container also holds the title.
     apply_selector: str | None = None

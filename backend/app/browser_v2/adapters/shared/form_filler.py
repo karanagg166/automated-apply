@@ -21,6 +21,18 @@ from backend.app.browser_v2.answers import CandidateFacts, ScreeningResolver
 from backend.app.browser_v2.resume import pick_resume
 
 logger = logging.getLogger(__name__)
+NATIONAL_PHONE_DIGITS = 10
+
+
+def input_value(kind: str | None, key: str | None, value: str) -> str:
+    """<input type=number> accepts digits only: a phone there is its national number (last 10 digits,
+    e.g. "+91-98765-43210" -> "9876543210"); other values keep their digits."""
+    if kind != "number":
+        return value
+    digits = re.sub(r"\D", "", value)
+    return digits[-NATIONAL_PHONE_DIGITS:] if key == "phone" else digits
+
+
 ACTION_TIMEOUT_MS = 8_000  # one form widget never blocks the apply for 30 s
 MAX_COMBOBOX_OPTIONS = 400
 
@@ -133,7 +145,10 @@ class HostedFormFiller:
                     value = " ".join(v for v in (facts.identity.get("first_name"), facts.identity.get("last_name"))
                                      if v)
                 if value:
-                    await self._type(page, item, value)
+                    if not await self._type_identity(page, item, key, value):
+                        outcome.question = self._question(detail, label, (), "text", platform,
+                                                          "identity_field_not_typable")
+                        return outcome
                     outcome.filled.append({"question": label, "answer": key, "source": "profile_identity"})
                     continue
                 if required:
@@ -177,6 +192,16 @@ class HostedFormFiller:
                                      or detail.listing.url, "title": detail.listing.title,
                                      "company": detail.listing.company, "platform": platform,
                                      "resolver_reason": reason})
+
+    async def _type_identity(self, page: Any, item: dict[str, Any], key: str, value: str) -> bool:
+        """Type a stored identity value; a field that refuses it (live 2026-11-27 Internshala:
+        <input type=number> "Mobile number" rejects "+91-...") is a question, never a crash."""
+        try:
+            await self._type(page, item, input_value(item.get("kind"), key, value))
+        except Exception as exc:  # noqa: BLE001 - nothing submitted yet; ask the owner instead
+            logger.warning("identity field %s not typable (%s)", key, type(exc).__name__)
+            return False
+        return True
 
     async def _type(self, page: Any, item: dict[str, Any], value: str) -> None:
         locator = page.locator(f'[data-aa-field="{item["idx"]}"]')

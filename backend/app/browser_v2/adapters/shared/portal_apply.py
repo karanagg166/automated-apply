@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
@@ -23,6 +25,23 @@ from backend.app.browser_v2.adapters.shared.text import MAX_FORM_STEPS, S
 from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.receipts import capture
 from backend.app.browser_v2.state import ApplicationState, guard_apply
+
+logger = logging.getLogger(__name__)
+EXTERNAL_LINK_JS = r"""
+(pattern) => {
+  const re = new RegExp(pattern, "i");
+  const link = [...document.querySelectorAll("a[href]")].find(a => re.test((a.innerText || "").trim()));
+  return link ? link.href : null;
+}
+"""
+EXTERNAL_LINK_TEXT = r"^apply on (?:the )?(?:company(?:'s)? )?(?:website|site)$"
+
+
+@dataclass
+class Attempt:
+    """What a live apply has done so far: a submit control clicked means it may have been sent."""
+
+    submit_clicked: bool = False
 
 
 class PortalApplyMixin(PortalDiscoveryMixin):
@@ -62,11 +81,39 @@ class PortalApplyMixin(PortalDiscoveryMixin):
         data = await page.evaluate(DETAIL_JS, self._detail_args())
         return bool(data.get("applied"))
 
+    def _may_have_sent(self, attempt: Attempt) -> bool:
+        return attempt.submit_clicked or not self.config.apply_opens_form
+
+    async def _external_link(self, page: Any) -> str | None:
+        try:
+            link = await page.evaluate(EXTERNAL_LINK_JS, EXTERNAL_LINK_TEXT)
+        except Exception:  # noqa: BLE001 - the link is a bonus (ATS handoff); its absence is fine
+            return None
+        return link if isinstance(link, str) and link.startswith("http") else None
+
     async def apply_job(self, page: Any, detail: JobDetail, profile: CandidateFacts | Any, *,
                         dry_run: bool = True, existing_state: str | None = None,
                         hitl_answers: dict[str, str] | None = None) -> ApplyResult:
         guard_apply(existing_state)
         facts = profile if isinstance(profile, CandidateFacts) else CandidateFacts.from_profile(profile)
+        attempt = Attempt()
+        try:
+            return await self._apply(page, detail, facts, dry_run=dry_run, hitl_answers=hitl_answers,
+                                     attempt=attempt)
+        except Exception as exc:
+            if self._may_have_sent(attempt):
+                raise  # the service records SUBMISSION_UNKNOWN (never replayed)
+            # Apply only opened the form and nothing was submitted: retryable, never a fence.
+            logger.warning("%s apply error before submit (%s)", self.platform, type(exc).__name__, exc_info=True)
+            try:
+                shot = await self.shot(page, detail.listing.external_job_id, "error-before-submit")
+            except Exception:  # noqa: BLE001
+                shot = None
+            return self._result(S.FAILED, f"apply_error_before_submit:{type(exc).__name__}", dry_run,
+                                screenshot=shot)
+
+    async def _apply(self, page: Any, detail: JobDetail, facts: CandidateFacts, *, dry_run: bool,
+                     hitl_answers: dict[str, str] | None, attempt: Attempt) -> ApplyResult:
         job_id, name = detail.listing.external_job_id, self.config.label
         if detail.challenge:
             kind = {"challenge": "CAPTCHA", "otp": "OTP", "login": "AUTH"}[detail.challenge]
@@ -118,13 +165,19 @@ class PortalApplyMixin(PortalDiscoveryMixin):
             if re.search(self.config.limit_text, state.get("body") or "", re.IGNORECASE):
                 return self._result(S.QUOTA_HIT_PENDING, "portal_daily_limit_after_click", dry_run,
                                     clicked_apply=clicked, answers=tuple(answers))
+            if self.config.external_modal_text and not attempt.submit_clicked and re.search(
+                    self.config.external_modal_text, state.get("body") or "", re.IGNORECASE):
+                link = await self._external_link(page)
+                return self._result(S.FILTERED_OUT, "external_company_site_after_click", dry_run,
+                                    clicked_apply=clicked, receipt={"external_url": link} if link else None)
             source = confirmation_source(state, start_url)
             if source is not None and clicked:
                 return await self._receipt(page, detail, source, tuple(answers))
             if state.get("challenge"):
-                return self._result(S.SUBMISSION_UNKNOWN if clicked else S.WAITING_FOR_USER,
+                sent = clicked and self._may_have_sent(attempt)
+                return self._result(S.SUBMISSION_UNKNOWN if sent else S.WAITING_FOR_USER,
                                     "challenge_after_apply_click", dry_run, clicked_apply=clicked,
-                                    question=None if clicked else HitlQuestion(kind="CAPTCHA", prompt=f"{name} CAPTCHA"),
+                                    question=None if sent else HitlQuestion(kind="CAPTCHA", prompt=f"{name} CAPTCHA"),
                                     screenshot=await self.shot(page, job_id, "challenge"))
             if root is None and not self.config.form_page_after_apply:
                 break  # no modal: never scan/fill arbitrary page inputs (search bars, filters)
@@ -141,6 +194,7 @@ class PortalApplyMixin(PortalDiscoveryMixin):
                     return self._result(S.SCORED, "dry_run_stopped_before_submit", True, planned_action=planned,
                                         answers=tuple(answers), screenshot=await self.shot(page, job_id, "dry-run"))
                 await self._pause()
+                attempt.submit_clicked = True
                 await submit[0].click()
                 source, state = await self._confirmed(page, root, start_url)
                 if source is not None:
@@ -152,6 +206,7 @@ class PortalApplyMixin(PortalDiscoveryMixin):
             following = await visible_buttons(page, root, NEXT_TEXT)
             if len(following) == 1:
                 await self._pause()
+                attempt.submit_clicked = True  # conservative: a last "Continue" may be the submit
                 await following[0].click()
                 await page.wait_for_timeout(self.settle_ms)
                 continue
@@ -164,6 +219,10 @@ class PortalApplyMixin(PortalDiscoveryMixin):
             return self._result(S.FAILED, "dry_run_form_not_found", True, answers=tuple(answers))
         if await self._applied_badge(page, detail):
             return await self._receipt(page, detail, "applied_badge_after_reload", tuple(answers))
+        if not self._may_have_sent(attempt):
+            # Live 2026-11-27 Wellfound: Apply opened no usable form and nothing was submitted.
+            return self._result(S.FAILED, "apply_form_not_submitted", False, clicked_apply=True,
+                                answers=tuple(answers), screenshot=await self.shot(page, job_id, "no-form"))
         return self._result(S.SUBMISSION_UNKNOWN, "confirmation_ambiguous", False, clicked_apply=True,
                             answers=tuple(answers), screenshot=await self.shot(page, job_id, "ambiguous"))
 
