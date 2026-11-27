@@ -25,6 +25,10 @@ class ApplicationRead(BaseModel):
     draft_created_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    # Milestone 2 mail funnel: latest stage from post-apply mail (OA_INVITE | INTERVIEW_INVITE |
+    # RECRUITER_REPLY | REJECTED) and whether a confirmation email verified the submission.
+    funnel_stage: str | None = None
+    email_verified: bool = False
 
 
 class ApplicationPage(BaseModel):

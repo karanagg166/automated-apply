@@ -38,7 +38,11 @@ LABEL_KEYWORDS: dict[str, tuple[str, ...]] = {
     "mobile": ("android", "ios", "kotlin", "swift", "flutter", "react native"),
 }
 ALIASES = {"full_stack": "fullstack", "full-stack": "fullstack", "ml": "ai", "genai": "ai", "fe": "frontend",
-           "be": "backend", "sre": "devops"}
+           "be": "backend", "sre": "devops",
+           # Milestone 2: the owner's variant names (default / backend / fullstack / ai_ml ...).
+           "ai_ml": "ai", "ai-ml": "ai", "aiml": "ai", "ml_ai": "ai", "machine_learning": "ai", "llm": "ai",
+           "back_end": "backend", "back-end": "backend", "front_end": "frontend", "front-end": "frontend",
+           "data_engineering": "data"}
 
 
 @dataclass(frozen=True)
@@ -117,3 +121,12 @@ def pick_resume(resume_files: Mapping[str, Any] | None, *, title: str | None, de
         label, path, _, _ = usable[0]
         return ResumeChoice(label, path, 0, "no_signal_first_variant")
     return ResumeChoice(None, None, 0, "no_resume_configured")
+
+
+def variant_used(answers: Any, *, uploaded_fallback: str | None = None) -> str | None:
+    """`resume_variant_used` for a receipt: the label of the PDF the filler uploaded (answers entries
+    with source "resume_picker" carry it as "variant"), else `uploaded_fallback`."""
+    for answer in answers or ():
+        if isinstance(answer, Mapping) and answer.get("source") == "resume_picker":
+            return str(answer.get("variant") or answer.get("answer") or "") or uploaded_fallback
+    return uploaded_fallback

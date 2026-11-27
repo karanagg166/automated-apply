@@ -27,6 +27,9 @@ class MaintenanceMixin(WorkerLoop):
             try:
                 # With the router, alerts go out via the bus topic below (P1 rollup, deduped) only.
                 direct = None if getattr(self, "notifier", None) is not None else self.notify
+                # Milestone 2: funnel first, so a mail matched to an application is recorded (and alerted)
+                # once; the recruiter watcher below then skips the same message key.
+                await self.reconcile_mail_funnel(reader)
                 replies = await reader.scan_recruiter_replies(self.store, notify=direct)
                 publish = getattr(self.service, "publish", None)
                 for alert in replies.alerts:
@@ -38,11 +41,36 @@ class MaintenanceMixin(WorkerLoop):
             except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
                 logger.warning("mail watcher failed: %s", type(exc).__name__)
         await self.recover_stale_applying(now)
+        await self.drain_outreach()
         await self.expire_hitl(now)
         await self.decay_priorities(now)
         await self.run_profile_sync()
         await self.send_digest(now, reader)
         del self.housekeeping_log[:-50]
+
+    async def reconcile_mail_funnel(self, reader: Any) -> None:
+        """Milestone 2: confirmation / OA / interview / rejection mails -> applications (read-only)."""
+        try:
+            from backend.app.browser_v2.worker.funnel_reconcile import FunnelReconciler
+
+            report = await FunnelReconciler(self.store, reader, publish=getattr(self.service, "publish", None),
+                                            clock=self.clock).run()
+            if report.matched or report.needs_reconciliation:
+                self.housekeeping_log.append({"funnel_matched": report.matched, "funnel_verified": report.verified,
+                                              "funnel_upgraded": report.upgraded,
+                                              "needs_reconciliation": report.needs_reconciliation})
+        except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
+            logger.warning("mail funnel reconcile failed: %s", type(exc).__name__)
+
+    async def drain_outreach(self) -> None:
+        """Milestone 2: opt-in high-score outreach DRAFTS queued by `job.applied` (never sends)."""
+        handoff = getattr(self, "outreach", None)
+        if handoff is None:
+            return
+        try:
+            await handoff.drain()
+        except Exception as exc:  # noqa: BLE001 - never break the 24/7 loop
+            logger.warning("outreach draft handoff failed: %s", type(exc).__name__)
 
     async def recover_stale_applying(self, now: datetime) -> None:
         """A crash/kill between the APPLYING reservation and its outcome leaves a row that nothing

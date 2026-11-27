@@ -250,7 +250,8 @@ class ExecutorMixin(WorkerLoop):
         try:
             # auto_apply_enabled=false: inspect + score only (stops before the Apply click).
             # Wall-clock cap (< the 15-min stale-APPLYING sweep): a hung await must not stall every
-            # portal behind the single tab. Cancellation after a reservation lands in SUBMISSION_UNKNOWN.
+            # portal behind the single tab. Cancellation after a reservation lands in SUBMISSION_UNKNOWN,
+            # except a proven pre-submit hang (submit_marker): retryable FAILED_TIMEOUT, no quota burned.
             outcome = await asyncio.wait_for(
                 self.service.process_job(listing, dry_run=not live_apply, rules=rules, profile=profile,
                                          record_filters=True, now=self.clock()), timeout=JOB_WALL_CLOCK_SEC)

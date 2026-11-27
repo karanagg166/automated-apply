@@ -17,6 +17,7 @@ class MailEventStore:
     def __init__(self, connection: Any = None) -> None:
         self.connection = connection
         self.memory: dict[str, MailEvent] = {}
+        self._funnel_ready: bool | None = None
 
     async def add(self, event: MailEvent) -> bool:
         """True when new (first time this message is seen)."""
@@ -61,6 +62,36 @@ class MailEventStore:
             wanted, limit)
         return [MailEvent(**{**dict(r), "id": str(r["id"]),
                              "application_id": str(r["application_id"]) if r["application_id"] else None})
+                for r in rows]
+
+    async def funnel_kinds_ready(self) -> bool:
+        """True once followup 008 widened mail_events.kind (CONFIRMATION / OA_INVITE / REJECTED)."""
+        if self.connection is None:
+            return True
+        if self._funnel_ready is not None:
+            return self._funnel_ready
+        try:
+            definition = await self.connection.fetchval(
+                """SELECT pg_get_constraintdef(oid) FROM pg_constraint
+                   WHERE conrelid = 'public.mail_events'::regclass AND conname = 'mail_events_kind_check'""")
+        except Exception:  # noqa: BLE001 - unknown -> behave as before 008
+            return False
+        self._funnel_ready = "OA_INVITE" in str(definition or "")
+        return self._funnel_ready
+
+    async def for_application(self, application_id: str, limit: int = 20) -> list[MailEvent]:
+        """Mails linked to one application, newest first (proof receipt)."""
+        if self.connection is None:
+            rows = [e for e in self.memory.values() if e.application_id == application_id]
+            rows.sort(key=lambda e: e.received_at or e.created_at or datetime.now(UTC), reverse=True)
+            return rows[:limit]
+        rows = await self.connection.fetch(
+            """SELECT id, message_key, kind, source, platform, company_name, sender, subject, snippet,
+                      application_id, received_at, alerted_at, created_at
+               FROM public.mail_events WHERE application_id = $1::uuid
+               ORDER BY COALESCE(received_at, created_at) DESC LIMIT $2""",
+            application_id, limit)
+        return [MailEvent(**{**dict(r), "id": str(r["id"]), "application_id": str(r["application_id"])})
                 for r in rows]
 
     @staticmethod

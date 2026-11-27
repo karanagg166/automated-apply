@@ -505,23 +505,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/dashboard/automation/run": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Run */
-    post: operations["run_api_v1_dashboard_automation_run_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/dashboard/automation/history": {
     parameters: {
       query?: never;
@@ -858,7 +841,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/v2/semantic-cache/{entry_id}": {
+  "/api/v1/v2/semantic-cache/stats": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Semantic Cache Stats
+     * @description Entry/hit totals, status counts (active/quarantined/expired), thresholds, decision counters and
+     *     how many factual entries are stale against the current profile hash.
+     */
+    get: operations["semantic_cache_stats_api_v1_v2_semantic_cache_stats_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/purge": {
     parameters: {
       query?: never;
       header?: never;
@@ -867,9 +871,84 @@ export interface paths {
     };
     get?: never;
     put?: never;
+    /**
+     * Purge Semantic Cache
+     * @description Delete every quarantined (or expired) entry, optionally of one kind. Active rows are never purged.
+     */
+    post: operations["purge_semantic_cache_api_v1_v2_semantic_cache_purge_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/explain": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Explain Semantic Cache
+     * @description Dry-run lookup: what the cache WOULD answer for this field (no hit is counted).
+     */
+    post: operations["explain_semantic_cache_api_v1_v2_semantic_cache_explain_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/{entry_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Inspect Semantic Cache Entry */
+    get: operations["inspect_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__get"];
+    put?: never;
     post?: never;
     /** Delete Semantic Cache Entry */
     delete: operations["delete_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/{entry_id}/quarantine": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Quarantine Semantic Cache Entry */
+    post: operations["quarantine_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__quarantine_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/{entry_id}/unquarantine": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Unquarantine Semantic Cache Entry */
+    post: operations["unquarantine_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__unquarantine_post"];
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -1119,6 +1198,227 @@ export interface paths {
     get: operations["mail_replies_api_v1_v2_mail_replies_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/telemetry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Worker Telemetry */
+    get: operations["worker_telemetry_api_v1_v2_worker_telemetry_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/dry-run": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Set Dry Run
+     * @description Dry-run ON is always allowed; OFF (live submissions) needs the typed confirmation 'LIVE'.
+     */
+    post: operations["set_dry_run_api_v1_v2_worker_dry_run_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/telegram/mute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Telegram Mute
+     * @description Same state as Telegram `/mute`: telegram_v2_state.muted_until (the bot's router reads it).
+     */
+    post: operations["telegram_mute_api_v1_v2_telegram_mute_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/rules/explain": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Explain Rules
+     * @description Run a pasted listing through the live rules (no fetching: the URL only picks the portal).
+     */
+    post: operations["explain_rules_api_v1_v2_rules_explain_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/portal-rules/{platform}/breaker/reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset Breaker
+     * @description Close the persisted circuit breaker; the worker reloads it at its next cycle.
+     */
+    post: operations["reset_breaker_api_v1_v2_portal_rules__platform__breaker_reset_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/stamp-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Stamp Profile
+     * @description Stamp owner-verified cache rows with the current profile hash (what `facts stamp-cache` does).
+     */
+    post: operations["stamp_profile_api_v1_v2_semantic_cache_stamp_profile_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/events/stream": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ops Event Stream */
+    get: operations["ops_event_stream_api_v1_v2_events_stream_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/portals/watchers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Watched Boards */
+    get: operations["list_watched_boards_api_v1_v2_portals_watchers_get"];
+    put?: never;
+    /**
+     * Upsert Watched Board
+     * @description Add a Greenhouse / Lever / Ashby / SmartRecruiters board to the watchlist, or pause / resume it.
+     */
+    post: operations["upsert_watched_board_api_v1_v2_portals_watchers_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/portals/watchers/probe": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Probe Board
+     * @description Detect the ATS behind a careers URL (or `platform:slug`), count its open jobs and preview how
+     *     many pass the current rules. Private / non-HTTPS / credentialed URLs are refused (422).
+     */
+    post: operations["probe_board_api_v1_v2_portals_watchers_probe_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/applications/{application_id}/proof": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Application Proof
+     * @description Full proof receipt: posted -> discovered -> queued -> submitted timing, every form answer with
+     *     its tier badge, resume variant, screenshot file name, linked mails and any outreach draft.
+     */
+    get: operations["application_proof_api_v1_v2_applications__application_id__proof_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/applications/{application_id}/reconcile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reconcile Application
+     * @description Owner reconciliation of a SUBMISSION_UNKNOWN row.
+     *
+     *     confirm_applied: the owner saw it in the portal -> APPLIED (`owner_verified_applied`).
+     *     release_not_submitted (confirm="RELEASE"): the owner verified it was NOT delivered -> FAILED
+     *     (`owner_verified_not_submitted`): the daily-quota slot is released and the job may be applied again.
+     */
+    post: operations["reconcile_application_api_v1_v2_applications__application_id__reconcile_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -2649,74 +2949,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/integrations/apple-mail/accounts": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Accounts */
-    get: operations["accounts_api_v1_integrations_apple_mail_accounts_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/integrations/apple-mail/accounts/{account_id}/search": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Search */
-    post: operations["search_api_v1_integrations_apple_mail_accounts__account_id__search_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/integrations/apple-mail/accounts/{account_id}/messages/{message_id}/read": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Read */
-    post: operations["read_api_v1_integrations_apple_mail_accounts__account_id__messages__message_id__read_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/integrations/apple-mail/accounts/{account_id}/drafts": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Draft */
-    post: operations["draft_api_v1_integrations_apple_mail_accounts__account_id__drafts_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/outreach/drafts/preview": {
     parameters: {
       query?: never;
@@ -3255,6 +3487,23 @@ export interface components {
        */
       read_body: boolean;
     };
+    /** ActiveJobRead */
+    ActiveJobRead: {
+      /** Application Id */
+      application_id: string;
+      /** Platform */
+      platform: string;
+      /** Company */
+      company?: string | null;
+      /** Title */
+      title?: string | null;
+      /** Step */
+      step: string;
+      /** Started At */
+      started_at?: string | null;
+      /** Elapsed Sec */
+      elapsed_sec?: number | null;
+    };
     /** ActorInspect */
     ActorInspect: {
       /** Actor Id */
@@ -3535,6 +3784,13 @@ export interface components {
       created_at?: string | null;
       /** Updated At */
       updated_at?: string | null;
+      /** Funnel Stage */
+      funnel_stage?: string | null;
+      /**
+       * Email Verified
+       * @default false
+       */
+      email_verified: boolean;
       receipt: components["schemas"]["ReceiptSummary"];
       /** Timeline */
       timeline?: components["schemas"]["TimelineEvent"][];
@@ -3617,6 +3873,35 @@ export interface components {
       /** Offset */
       offset: number;
     };
+    /** ApplicationProof */
+    ApplicationProof: {
+      application: components["schemas"]["ApplicationRead"];
+      timing: components["schemas"]["ProofTiming"];
+      /** Answers */
+      answers?: components["schemas"]["ProofAnswer"][];
+      /** Resume Variant Used */
+      resume_variant_used?: string | null;
+      /**
+       * Screenshot
+       * @description Screenshot file name only (never a path)
+       */
+      screenshot?: string | null;
+      /** Mail Events */
+      mail_events?: components["schemas"]["ProofMailEvent"][];
+      outreach_draft?: components["schemas"]["ProofDraft"] | null;
+      /**
+       * Email Verified
+       * @default false
+       */
+      email_verified: boolean;
+      /** Confirmed At */
+      confirmed_at?: string | null;
+      /**
+       * Needs Reconciliation
+       * @default false
+       */
+      needs_reconciliation: boolean;
+    };
     /** ApplicationRead */
     ApplicationRead: {
       /** Id */
@@ -3650,6 +3935,13 @@ export interface components {
       created_at?: string | null;
       /** Updated At */
       updated_at?: string | null;
+      /** Funnel Stage */
+      funnel_stage?: string | null;
+      /**
+       * Email Verified
+       * @default false
+       */
+      email_verified: boolean;
     };
     /**
      * ApplicationState
@@ -3747,6 +4039,38 @@ export interface components {
       worker: components["schemas"]["WorkerControlRead"];
       /** Portals */
       portals: components["schemas"]["PortalStatus"][];
+    };
+    /** BraveHealthRead */
+    BraveHealthRead: {
+      /** Healthy */
+      healthy?: boolean | null;
+      /** Detail */
+      detail?: string | null;
+    };
+    /** CacheDecisionStats */
+    CacheDecisionStats: {
+      /** Since */
+      since?: string | null;
+      /**
+       * Lookups
+       * @default 0
+       */
+      lookups: number;
+      /**
+       * Hits
+       * @default 0
+       */
+      hits: number;
+      /** Hit Rate */
+      hit_rate?: number | null;
+      /** Counters */
+      counters?: {
+        [key: string]: number;
+      };
+      /** Rejections */
+      rejections?: {
+        [key: string]: number;
+      };
     };
     /** CandidateConfiguration */
     CandidateConfiguration: {
@@ -4216,25 +4540,6 @@ export interface components {
       /** Max Age Days */
       max_age_days?: number | null;
     };
-    /** Draft */
-    Draft: {
-      /**
-       * Request Id
-       * Format: uuid
-       */
-      request_id: string;
-      /**
-       * Recipient
-       * Format: email
-       */
-      recipient: string;
-      /** Subject */
-      subject: string;
-      /** Body */
-      body: string;
-      /** Owner Reviewed */
-      owner_reviewed: boolean;
-    };
     /** DraftApproval */
     DraftApproval: {
       /** Expected Version */
@@ -4363,6 +4668,13 @@ export interface components {
        * @enum {string}
        */
       review_status: "draft" | "reviewed" | "discarded";
+    };
+    /** DryRunInput */
+    DryRunInput: {
+      /** Dry Run */
+      dry_run: boolean;
+      /** Confirm */
+      confirm?: string | null;
     };
     /** EducationRecord */
     EducationRecord: {
@@ -4659,6 +4971,22 @@ export interface components {
       user_confirmed: boolean;
       project?: components["schemas"]["VerifiedProject"] | null;
     };
+    /** ExplainRequest */
+    ExplainRequest: {
+      /** Question */
+      question: string;
+      /** Options */
+      options?: string[];
+      /** Company */
+      company?: string | null;
+      /** Field Kind */
+      field_kind?: string | null;
+      /**
+       * Kind
+       * @default screening_qa
+       */
+      kind: string;
+    };
     /** FactDifference */
     FactDifference: {
       /** Category */
@@ -4673,6 +5001,18 @@ export interface components {
       removed: string[];
       /** Current Verified */
       current_verified?: string[];
+    };
+    /** FirstMoverRead */
+    FirstMoverRead: {
+      /** P50 Seconds */
+      p50_seconds?: number | null;
+      /** P95 Seconds */
+      p95_seconds?: number | null;
+      /**
+       * Samples
+       * @default 0
+       */
+      samples: number;
     };
     /** GenerateRequest */
     GenerateRequest: {
@@ -5097,6 +5437,8 @@ export interface components {
       smartrecruiters_boards?: {
         [key: string]: string | null;
       };
+      /** Paused Watch Boards */
+      paused_watch_boards?: string[];
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -5229,6 +5571,8 @@ export interface components {
       smartrecruiters_boards?: {
         [key: string]: string | null;
       };
+      /** Paused Watch Boards */
+      paused_watch_boards?: string[];
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -5361,6 +5705,8 @@ export interface components {
       smartrecruiters_boards?: {
         [key: string]: string | null;
       };
+      /** Paused Watch Boards */
+      paused_watch_boards?: string[];
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -5500,13 +5846,6 @@ export interface components {
       mail_app_disabled: boolean;
       /** Resume Attachment Configured */
       resume_attachment_configured: boolean;
-    };
-    /** ManualRun */
-    ManualRun: {
-      /** Idempotency Key */
-      idempotency_key: string;
-      /** Expected Version */
-      expected_version: number;
     };
     /** MissingInputApprove */
     MissingInputApprove: {
@@ -5828,6 +6167,31 @@ export interface components {
       business_email?: string | null;
       /** Email Publication Url */
       email_publication_url?: string | null;
+    };
+    /** OpsKpisRead */
+    OpsKpisRead: {
+      /** Applied Today */
+      applied_today: number;
+      /** Verified Receipts Today */
+      verified_receipts_today: number;
+      /** Pending Hitl */
+      pending_hitl: number;
+      /** Cache Hit Rate */
+      cache_hit_rate?: number | null;
+      /**
+       * Cache Hit Window Days
+       * @default 7
+       */
+      cache_hit_window_days: number;
+      /**
+       * Cache Lookups
+       * @default 0
+       */
+      cache_lookups: number;
+      /** Active Watchers */
+      active_watchers: number;
+      /** Needs Reconciliation */
+      needs_reconciliation: number;
     };
     /** PacketEdit */
     PacketEdit: {
@@ -6513,6 +6877,64 @@ export interface components {
         [key: string]: number;
       };
     };
+    /** PortalTelemetryRead */
+    PortalTelemetryRead: {
+      /** Platform */
+      platform: string;
+      /** Enabled */
+      enabled: boolean;
+      /** Auto Apply Enabled */
+      auto_apply_enabled: boolean;
+      /** Paused Until */
+      paused_until?: string | null;
+      /** Auth Status */
+      auth_status: string;
+      /** Auth Checked At */
+      auth_checked_at?: string | null;
+      /**
+       * Breaker State
+       * @enum {string}
+       */
+      breaker_state: "closed" | "open" | "half_open";
+      /** Breaker Open Until */
+      breaker_open_until?: string | null;
+      /** Breaker Reason */
+      breaker_reason?: string | null;
+      /**
+       * Breaker Level
+       * @default 0
+       */
+      breaker_level: number;
+      /** Applied Today */
+      applied_today: number;
+      /** Attempts Today */
+      attempts_today: number;
+      /** Daily Cap */
+      daily_cap: number;
+      /** Applied This Hour */
+      applied_this_hour: number;
+      /** Hourly Cap */
+      hourly_cap: number;
+      /**
+       * Portal Limit Hit Today
+       * @default false
+       */
+      portal_limit_hit_today: boolean;
+      /**
+       * Within Active Hours
+       * @default true
+       */
+      within_active_hours: boolean;
+      /** Last Sweep At */
+      last_sweep_at?: string | null;
+      /**
+       * Health
+       * @enum {string}
+       */
+      health: "green" | "amber" | "red";
+      /** Health Reason */
+      health_reason?: string | null;
+    };
     /**
      * PrepareBrowser
      * @description Owner-pasted official application URL for draft packet intake (no navigation).
@@ -6541,6 +6963,50 @@ export interface components {
       /** Name */
       name: string;
       filters: components["schemas"]["StartupFilters"];
+    };
+    /** ProbeInput */
+    ProbeInput: {
+      /**
+       * Target
+       * @description Careers / ATS board URL (https) or 'platform:slug' (e.g. greenhouse:stripe)
+       */
+      target: string;
+    };
+    /** ProbeResult */
+    ProbeResult: {
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: "greenhouse" | "lever" | "ashby" | "smartrecruiters";
+      /** Slug */
+      slug: string;
+      /** Board Url */
+      board_url: string;
+      /** Job Count */
+      job_count: number;
+      /** Matched Count */
+      matched_count: number;
+      /** Sample */
+      sample?: components["schemas"]["ProbeSample"][];
+      /**
+       * Already Watched
+       * @default false
+       */
+      already_watched: boolean;
+    };
+    /** ProbeSample */
+    ProbeSample: {
+      /** Title */
+      title: string;
+      /** Location */
+      location?: string | null;
+      /** Url */
+      url?: string | null;
+      /** Passes */
+      passes: boolean;
+      /** Reasons */
+      reasons?: string[];
     };
     /** ProfessionalExperience */
     ProfessionalExperience: {
@@ -6648,6 +7114,61 @@ export interface components {
        * @default
        */
       context_file: string;
+    };
+    /** ProofAnswer */
+    ProofAnswer: {
+      /** Question */
+      question: string;
+      /** Answer */
+      answer: string;
+      /** Source */
+      source?: string | null;
+      /**
+       * Tier Label
+       * @description Tier 1 Fact | Tier 2 Exact | Tier 3 Semantic 0.96 | Tier 4 LLM | HITL Human | Resume | Composer | Skipped | Unknown
+       */
+      tier_label: string;
+      /** Similarity */
+      similarity?: number | null;
+      /** Cache Entry Id */
+      cache_entry_id?: string | null;
+    };
+    /** ProofDraft */
+    ProofDraft: {
+      /** Id */
+      id: string;
+      /** Status */
+      status: string;
+      /** Recipient Email */
+      recipient_email?: string | null;
+      /** Created At */
+      created_at?: string | null;
+    };
+    /** ProofMailEvent */
+    ProofMailEvent: {
+      /** Kind */
+      kind: string;
+      /** Subject */
+      subject?: string | null;
+      /** Sender */
+      sender?: string | null;
+      /** Received At */
+      received_at?: string | null;
+    };
+    /** ProofTiming */
+    ProofTiming: {
+      /** Posted At */
+      posted_at?: string | null;
+      /** Discovered At */
+      discovered_at?: string | null;
+      /** Queued At */
+      queued_at?: string | null;
+      /** Started At */
+      started_at?: string | null;
+      /** Submitted At */
+      submitted_at?: string | null;
+      /** First Mover Lag Seconds */
+      first_mover_lag_seconds?: number | null;
     };
     /** Provenance */
     Provenance: {
@@ -6803,6 +7324,24 @@ export interface components {
        * @constant
        */
       outreach_mode: "manual";
+    };
+    /** PurgeRequest */
+    PurgeRequest: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "quarantined" | "expired";
+      /** Kind */
+      kind?: string | null;
+    };
+    /** QuarantineRequest */
+    QuarantineRequest: {
+      /**
+       * Reason
+       * @default owner_quarantine
+       */
+      reason: string;
     };
     /** QuestionInput */
     QuestionInput: {
@@ -7000,6 +7539,20 @@ export interface components {
       answers?: components["schemas"]["ScreeningAnswer"][];
       /** Answers Source */
       answers_source?: ("receipt" | "event") | null;
+    };
+    /** ReconcileInput */
+    ReconcileInput: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "confirm_applied" | "release_not_submitted";
+      /**
+       * Confirm
+       * @description release_not_submitted requires "RELEASE" (the job becomes apply-eligible again)
+       * @default
+       */
+      confirm: string;
     };
     /** ResolveRequest */
     ResolveRequest: {
@@ -7410,6 +7963,69 @@ export interface components {
       /** Owner Reviewed */
       owner_reviewed: boolean;
     };
+    /** RuleCheckRead */
+    RuleCheckRead: {
+      /** Name */
+      name: string;
+      /** Passed */
+      passed: boolean;
+      /** Detail */
+      detail?: string | null;
+    };
+    /** RuleScoreRead */
+    RuleScoreRead: {
+      /** Total */
+      total?: number | null;
+      /** Breakdown */
+      breakdown?: {
+        [key: string]: number;
+      };
+      /** Priority */
+      priority?: number | null;
+      /** Priority Reason */
+      priority_reason?: string | null;
+    };
+    /** RulesExplainInput */
+    RulesExplainInput: {
+      /** Platform */
+      platform?: string | null;
+      /** Url */
+      url?: string | null;
+      /** Title */
+      title?: string | null;
+      /** Company */
+      company?: string | null;
+      /** Description */
+      description?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Posted Age Days */
+      posted_age_days?: number | null;
+      /** Applicants */
+      applicants?: number | null;
+      /** Experience Text */
+      experience_text?: string | null;
+      /** Salary Text */
+      salary_text?: string | null;
+      /** Work Mode */
+      work_mode?: string | null;
+    };
+    /** RulesExplainRead */
+    RulesExplainRead: {
+      /** Platform */
+      platform: string;
+      /** Decision */
+      decision: string;
+      /** Passed */
+      passed: boolean;
+      /** Reasons */
+      reasons: string[];
+      /** Checks */
+      checks: components["schemas"]["RuleCheckRead"][];
+      score: components["schemas"]["RuleScoreRead"];
+      /** Rules Revision */
+      rules_revision?: number | null;
+    };
     /** RunRequest */
     RunRequest: {
       /** Source */
@@ -7759,6 +8375,8 @@ export interface components {
       smartrecruiters_boards?: {
         [key: string]: string | null;
       };
+      /** Paused Watch Boards */
+      paused_watch_boards?: string[];
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -7936,6 +8554,8 @@ export interface components {
       smartrecruiters_boards?: {
         [key: string]: string | null;
       };
+      /** Paused Watch Boards */
+      paused_watch_boards?: string[];
       /** Portal Rule Overrides */
       portal_rule_overrides?: {
         [key: string]: components["schemas"]["PortalRuleOverride"];
@@ -8018,6 +8638,73 @@ export interface components {
       /** Answer Text */
       answer_text: string;
     };
+    /** SemanticCacheEntryDetail */
+    SemanticCacheEntryDetail: {
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** Question Text */
+      question_text: string;
+      /** Answer Text */
+      answer_text: string;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "user" | "profile" | "llm";
+      /** Hits */
+      hits: number;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+      /** Normalized Question */
+      normalized_question: string;
+      /** Status */
+      status: string;
+      /** Trust */
+      trust: string;
+      /** Quarantine Reason */
+      quarantine_reason?: string | null;
+      /**
+       * Human Override Count
+       * @default 0
+       */
+      human_override_count: number;
+      /**
+       * Form Validation Error Count
+       * @default 0
+       */
+      form_validation_error_count: number;
+      /** Last Hit At */
+      last_hit_at?: unknown;
+      /** Field Type */
+      field_type?: string | null;
+      /** Intent Bucket */
+      intent_bucket?: string | null;
+      /** Entities */
+      entities?: {
+        [key: string]: unknown;
+      };
+      /**
+       * Scope
+       * @default global
+       */
+      scope: string;
+      /** Company Slug */
+      company_slug?: string | null;
+      /** Profile Version Hash */
+      profile_version_hash?: string | null;
+      /** Invalidation Scope */
+      invalidation_scope?: string | null;
+      /** Expires At */
+      expires_at?: unknown;
+      /** Verified By */
+      verified_by?: string | null;
+      /** Cache Key */
+      cache_key?: string | null;
+    };
     /** SemanticCacheEntryRead */
     SemanticCacheEntryRead: {
       /** Id */
@@ -8040,6 +8727,66 @@ export interface components {
       /** Updated At */
       updated_at?: string | null;
     };
+    /** SemanticCacheExplainCandidate */
+    SemanticCacheExplainCandidate: {
+      /** Id */
+      id: string;
+      /** Question */
+      question: string;
+      /** Answer */
+      answer?: string | null;
+      /** Match */
+      match: string;
+      /** Similarity */
+      similarity: number;
+      /** Status */
+      status: string;
+      /** Decision */
+      decision: string;
+    };
+    /** SemanticCacheExplainHit */
+    SemanticCacheExplainHit: {
+      /** Id */
+      id: string;
+      /** Match */
+      match: string;
+      /** Similarity */
+      similarity: number;
+      /** Answer */
+      answer?: string | null;
+    };
+    /** SemanticCacheExplainRead */
+    SemanticCacheExplainRead: {
+      /**
+       * Decision
+       * @default miss
+       */
+      decision: string;
+      /** Reason */
+      reason?: string | null;
+      /** Polarity */
+      polarity?: string[];
+      /**
+       * Negation
+       * @default false
+       */
+      negation: boolean;
+      /** Candidates */
+      candidates?: components["schemas"]["SemanticCacheExplainCandidate"][];
+      /** Intent Bucket */
+      intent_bucket?: string | null;
+      /** Field Type */
+      field_type?: string | null;
+      /** Cache Policy */
+      cache_policy?: string | null;
+      /** Invalidation Scope */
+      invalidation_scope?: string | null;
+      /** Entities */
+      entities?: {
+        [key: string]: unknown;
+      };
+      hit?: components["schemas"]["SemanticCacheExplainHit"] | null;
+    };
     /** SemanticCachePage */
     SemanticCachePage: {
       /** Items */
@@ -8050,6 +8797,11 @@ export interface components {
       limit: number;
       /** Offset */
       offset: number;
+    };
+    /** SemanticCachePurgeRead */
+    SemanticCachePurgeRead: {
+      /** Deleted */
+      deleted: number;
     };
     /** SemanticCacheStats */
     SemanticCacheStats: {
@@ -8067,6 +8819,45 @@ export interface components {
       embedding_dimensions: number;
       /** Embedding Ready */
       embedding_ready: boolean;
+    };
+    /** SemanticCacheStatsRead */
+    SemanticCacheStatsRead: {
+      /**
+       * Total Entries
+       * @default 0
+       */
+      total_entries: number;
+      /**
+       * Total Hits
+       * @default 0
+       */
+      total_hits: number;
+      /** Threshold */
+      threshold?: number | null;
+      /** Thresholds */
+      thresholds?: {
+        [key: string]: unknown;
+      };
+      /** Embedding Model */
+      embedding_model?: string | null;
+      /** Embedding Dimensions */
+      embedding_dimensions?: number | null;
+      /**
+       * Embedding Ready
+       * @default false
+       */
+      embedding_ready: boolean;
+      /** Backend */
+      backend?: string | null;
+      /** Status Counts */
+      status_counts?: {
+        [key: string]: number;
+      };
+      /** Stale Entries */
+      stale_entries?: number | null;
+      /** Profile Hash */
+      profile_hash?: string | null;
+      decisions?: components["schemas"]["CacheDecisionStats"];
     };
     /** ShortlistInput */
     ShortlistInput: {
@@ -8158,6 +8949,26 @@ export interface components {
        * @default 24
        */
       interval_hours: number;
+    };
+    /** StampProfileInput */
+    StampProfileInput: {
+      /**
+       * Scope
+       * @default unstamped
+       * @enum {string}
+       */
+      scope: "unstamped" | "owner_verified";
+    };
+    /** StampProfileRead */
+    StampProfileRead: {
+      /** Stamped */
+      stamped: number;
+      /** Profile Hash */
+      profile_hash: string;
+      /** Stale Remaining */
+      stale_remaining: number;
+      /** Scope */
+      scope: string;
     };
     /** StartupAttributes */
     StartupAttributes: {
@@ -8534,6 +9345,36 @@ export interface components {
        */
       metadata_note: string;
     };
+    /** TelegramMuteInput */
+    TelegramMuteInput: {
+      /** Minutes */
+      minutes?: number | null;
+    };
+    /** TelegramMuteRead */
+    TelegramMuteRead: {
+      /** Muted Until */
+      muted_until?: string | null;
+    };
+    /** TelegramOpsRead */
+    TelegramOpsRead: {
+      /** Configured */
+      configured: boolean;
+      /** Muted Until */
+      muted_until?: string | null;
+      /**
+       * Quiet Hours Active
+       * @default false
+       */
+      quiet_hours_active: boolean;
+      /** Quiet Hours */
+      quiet_hours?: string | null;
+      /** Push Budget Remaining */
+      push_budget_remaining?: number | null;
+      /** Push Budget Per Hour */
+      push_budget_per_hour?: number | null;
+      /** Polling State */
+      polling_state?: string | null;
+    };
     /** TelegramStatusRead */
     TelegramStatusRead: {
       /** Configured */
@@ -8650,6 +9491,44 @@ export interface components {
       /** Expected Version */
       expected_version: number;
     };
+    /** WatcherRow */
+    WatcherRow: {
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: "greenhouse" | "lever" | "ashby" | "smartrecruiters";
+      /** Slug */
+      slug: string;
+      /** Active */
+      active: boolean;
+      /** Board Url */
+      board_url: string;
+      /** Last Polled At */
+      last_polled_at?: string | null;
+      /** Last Status */
+      last_status?: number | null;
+      /**
+       * Jobs Found
+       * @description Postings known on the last poll (seen ids)
+       */
+      jobs_found?: number | null;
+    };
+    /** WatcherUpsert */
+    WatcherUpsert: {
+      /**
+       * Platform
+       * @enum {string}
+       */
+      platform: "greenhouse" | "lever" | "ashby" | "smartrecruiters";
+      /** Slug */
+      slug: string;
+      /**
+       * Active
+       * @default true
+       */
+      active: boolean;
+    };
     /** WorkerControlRead */
     WorkerControlRead: {
       /**
@@ -8688,6 +9567,27 @@ export interface components {
        * @description false = live applications
        */
       dry_run?: boolean | null;
+    };
+    /** WorkerTelemetryRead */
+    WorkerTelemetryRead: {
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "RUNNING" | "PAUSED" | "DRY_RUN" | "OFFLINE";
+      worker: components["schemas"]["WorkerControlRead"];
+      active_job?: components["schemas"]["ActiveJobRead"] | null;
+      brave: components["schemas"]["BraveHealthRead"];
+      /** Portals */
+      portals: components["schemas"]["PortalTelemetryRead"][];
+      first_mover: components["schemas"]["FirstMoverRead"];
+      telegram: components["schemas"]["TelegramOpsRead"];
+      kpis: components["schemas"]["OpsKpisRead"];
     };
     /** DraftInput */
     backend__app__integrations__gmail__drafts__DraftInput: {
@@ -9972,39 +10872,6 @@ export interface operations {
       };
     };
   };
-  run_api_v1_dashboard_automation_run_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["ManualRun"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      202: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
   history_api_v1_dashboard_automation_history_get: {
     parameters: {
       query?: {
@@ -10557,6 +11424,7 @@ export interface operations {
         q?: string | null;
         limit?: number;
         offset?: number;
+        status?: ("active" | "quarantined" | "expired") | null;
       };
       header?: never;
       path?: never;
@@ -10606,12 +11474,136 @@ export interface operations {
           "application/json": components["schemas"]["SemanticCacheEntryRead"];
         };
       };
-      /** @description Invalid question/answer */
+      /** @description Invalid or non-cacheable question/answer */
       422: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  semantic_cache_stats_api_v1_v2_semantic_cache_stats_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheStatsRead"];
+        };
+      };
+    };
+  };
+  purge_semantic_cache_api_v1_v2_semantic_cache_purge_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PurgeRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCachePurgeRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  explain_semantic_cache_api_v1_v2_semantic_cache_explain_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExplainRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheExplainRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  inspect_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        entry_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheEntryDetail"];
+        };
+      };
+      /** @description Entry not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
       };
     };
   };
@@ -10632,6 +11624,86 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Entry not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  quarantine_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__quarantine_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        entry_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QuarantineRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheEntryDetail"];
+        };
+      };
+      /** @description Entry not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  unquarantine_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__unquarantine_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        entry_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheEntryDetail"];
+        };
       };
       /** @description Entry not found */
       404: {
@@ -11072,6 +12144,396 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MailReplyPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  worker_telemetry_api_v1_v2_worker_telemetry_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerTelemetryRead"];
+        };
+      };
+    };
+  };
+  set_dry_run_api_v1_v2_worker_dry_run_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DryRunInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Turning dry-run off needs confirm='LIVE' */
+      428: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  telegram_mute_api_v1_v2_telegram_mute_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TelegramMuteInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TelegramMuteRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  explain_rules_api_v1_v2_rules_explain_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RulesExplainInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RulesExplainRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reset_breaker_api_v1_v2_portal_rules__platform__breaker_reset_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        platform: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PortalRulesRead"];
+        };
+      };
+      /** @description Unknown portal */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  stamp_profile_api_v1_v2_semantic_cache_stamp_profile_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["StampProfileInput"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StampProfileRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+      /** @description Semantic cache unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  ops_event_stream_api_v1_v2_events_stream_get: {
+    parameters: {
+      query?: {
+        /** @description Resume point when the client cannot set the Last-Event-ID header (manual reconnect) */
+        last_event_id?: number | null;
+      };
+      header?: {
+        "Last-Event-ID"?: string | null;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description SSE frames: `id`, `event` (type) and JSON `data` {type, at, payload}; `: ping` heartbeats every 15 s; the stream ends after ~75 s (reconnect with Last-Event-ID). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_watched_boards_api_v1_v2_portals_watchers_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WatcherRow"][];
+        };
+      };
+    };
+  };
+  upsert_watched_board_api_v1_v2_portals_watchers_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WatcherUpsert"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WatcherRow"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  probe_board_api_v1_v2_portals_watchers_probe_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProbeInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProbeResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_proof_api_v1_v2_applications__application_id__proof_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplicationProof"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reconcile_application_api_v1_v2_applications__application_id__reconcile_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReconcileInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplicationRead"];
         };
       };
       /** @description Validation Error */
@@ -14188,124 +15650,6 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["Generation"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  accounts_api_v1_integrations_apple_mail_accounts_get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-    };
-  };
-  search_api_v1_integrations_apple_mail_accounts__account_id__search_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        account_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  read_api_v1_integrations_apple_mail_accounts__account_id__messages__message_id__read_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        account_id: string;
-        message_id: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  draft_api_v1_integrations_apple_mail_accounts__account_id__drafts_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        account_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["Draft"];
       };
     };
     responses: {

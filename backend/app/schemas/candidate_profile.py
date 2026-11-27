@@ -156,6 +156,7 @@ class ResumeFileSpec(ProfileSchema):
 
 LocalPath = Annotated[str, Field(min_length=1, max_length=500)]
 BoardToken = Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{1,100}$")]
+WatchBoardKey = Annotated[str, Field(pattern=r"^(?:greenhouse|lever|ashby|smartrecruiters):[A-Za-z0-9_-]{1,100}$")]
 PortalKey = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,39}$")]
 
 
@@ -264,6 +265,8 @@ class JobSearchPreferences(ProfileSchema):
     lever_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     ashby_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
     smartrecruiters_boards: dict[BoardToken, ShortText | None] = Field(default_factory=dict, max_length=25)
+    # Milestone 2: watched boards the owner paused from the dashboard watchlist ("<platform>:<token>").
+    paused_watch_boards: list[WatchBoardKey] = Field(default_factory=list, max_length=100)
     # Phase 8: per-portal rule overrides edited from /autopilot (portal rules PATCH).
     portal_rule_overrides: dict[PortalKey, PortalRuleOverride] = Field(default_factory=dict, max_length=20)
     # Phase 9B: hard experience ceiling for the filter, profile headline, internship facts and

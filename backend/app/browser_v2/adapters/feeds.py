@@ -187,6 +187,8 @@ class FeedAdapter:
     platform = "feed"
     attribution: str | None = None
     feed_ttl_sec: float = FEED_TTL_SEC
+    tracks_submit = True  # every submit goes through HostedAtsApplier (marks before the click)
+    supported_ats: frozenset[str] = SUPPORTED_ATS
 
     def __init__(self, *, answerer: ScreeningResolver | None = None, http_client: httpx.AsyncClient | None = None,
                  receipts_root: Path | None = None, settle_ms: int = 1500, confirm_timeout_s: float = 15.0,
@@ -196,6 +198,7 @@ class FeedAdapter:
         self.jobs: OrderedDict[str, FeedJob] = OrderedDict()
         self.applier = HostedAtsApplier(HostedFormFiller(answerer=answerer), settle_ms=settle_ms,
                                         confirm_timeout_s=confirm_timeout_s, receipts_root=receipts_root)
+        self.applier.supported = self.supported_ats
         self._feed_cache: dict[str, tuple[float, Any]] = {}
         self.portal_wall: tuple[str, float] | None = None  # ("login"|"challenge", monotonic time)
 
@@ -317,10 +320,10 @@ class FeedAdapter:
                              description=job.description, salary_text=job.salary_text, location=job.location,
                              work_mode=job.work_mode, apply_url=job.apply_url, ats=None)
         self.portal_wall = None
-        ats = classify_ats(apply_url)
-        mode = "direct" if ats in SUPPORTED_ATS else ("external" if apply_url else "none")
+        ats = self.classify(apply_url)
+        mode = "direct" if ats in self.supported_ats else ("external" if apply_url else "none")
         challenge = None
-        if ats in SUPPORTED_ATS and apply_url:
+        if ats in self.supported_ats and apply_url:
             await self.applier.open_form(page, apply_url, ats)
             state = await form_state(page, None)
             challenge = "challenge" if state.get("challenge") else None
@@ -329,6 +332,9 @@ class FeedAdapter:
                          already_applied=False, apply_mode=mode, challenge=challenge, description=job.description,
                          salary_text=job.salary_text, location=job.location, work_mode=job.work_mode,
                          apply_url=apply_url, ats=ats)
+
+    def classify(self, url: str | None) -> str | None:
+        return classify_ats(url)
 
     async def extract_form(self, page: Any) -> dict[str, Any]:
         return await extract_form(page)
@@ -353,7 +359,7 @@ class FeedAdapter:
         if detail.apply_mode == "external":
             host = urlsplit(detail.apply_url or "").hostname or "unknown"
             return ApplyResult(S.FILTERED_OUT, f"external_unsupported_ats:{host}", dry_run)
-        if detail.apply_mode != "direct" or detail.ats not in SUPPORTED_ATS:
+        if detail.apply_mode != "direct" or detail.ats not in self.supported_ats:
             return ApplyResult(S.FILTERED_OUT if detail.apply_mode == "none" else S.FAILED,
                                f"apply_control_{detail.apply_mode}", dry_run)
         on_form = bool(detail.apply_url) and str(getattr(page, "url", "")).rstrip("/") == ats_form_url(

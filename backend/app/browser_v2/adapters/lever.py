@@ -16,6 +16,7 @@ from backend.app.browser_v2.adapters.common import html_to_text
 from backend.app.browser_v2.adapters.feed_clients.lever import LeverClient
 from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
 from backend.app.browser_v2.adapters.greenhouse import MAX_BOARDS, board_map
+from backend.app.browser_v2.adapters.watchlist import active_boards
 
 
 def board_from_url(url: str | None) -> str | None:
@@ -49,6 +50,7 @@ class LeverAdapter(FeedAdapter):
         except Exception:  # noqa: BLE001, S110
             pass
         boards |= board_map(prefs.get("lever_boards"))
+        boards = active_boards("lever", boards, prefs)  # Milestone 2: owner-paused boards are skipped
         self.boards = dict(list(boards.items())[:MAX_BOARDS])
 
     async def fetch_board(self, board: str, company: str | None) -> list[FeedJob]:

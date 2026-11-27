@@ -21,10 +21,13 @@ from backend.app.browser_v2.adapters.naukri.questionnaire import (
 )
 from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.state import ApplicationState, guard_apply
+from backend.app.browser_v2.submit_marker import mark_submit_attempted
 
 
 class NaukriApplyMixin(NaukriQuestionnaireMixin, NaukriPageStateMixin, NaukriDiscoveryMixin):
     """apply_job (dry-run stops before the Apply click)."""
+
+    tracks_submit = True  # mark_submit_attempted() runs right before the Apply click
 
     async def apply_job(self, page: Any, detail: JobDetail, profile: CandidateFacts | Any, *,
                         dry_run: bool = True, existing_state: str | None = None,
@@ -80,6 +83,7 @@ class NaukriApplyMixin(NaukriQuestionnaireMixin, NaukriPageStateMixin, NaukriDis
 
         await self._pause()
         pages_before = len(page.context.pages)
+        mark_submit_attempted("naukri_apply")  # Naukri's Apply may submit at once (no questionnaire)
         await button.click()
         state = await self._wait_after_click(page, pages_before)
         if len(page.context.pages) > pages_before or urlsplit(state.get("url", "")).hostname not in {
@@ -116,10 +120,12 @@ class NaukriApplyMixin(NaukriQuestionnaireMixin, NaukriPageStateMixin, NaukriDis
                     question=HitlQuestion(kind="ERROR", prompt=f"Naukri asked a question with an unsupported "
                                                                f"control: {question[:300]}",
                                           context={"job_id": job_id, "url": detail.listing.url}))
-            answer, answer_source, resolver_reason = None, "human", "file_upload"
+            answer, answer_source, resolver_reason, entry_id = None, "human", "file_upload", None
             if input_kind != "file":
-                answer, answer_source, resolver_reason = await self._resolve(question, options, facts, detail,
-                                                                             hitl_answers)
+                resolved = await self._resolve_field(question, options, facts, detail, hitl_answers,
+                                                     field_kind=input_kind)
+                answer, answer_source, resolver_reason = resolved.answer, resolved.source, resolved.reason
+                entry_id = resolved.cache_entry_id
             if answer is not None and input_kind == "multi" and not self.multi_answers(answer, multi):
                 answer, resolver_reason = None, "multi_select_answer_not_in_options"
             if answer is None and state.get("skippable") and OPTIONAL_QUESTION.search(question):
@@ -145,9 +151,14 @@ class NaukriApplyMixin(NaukriQuestionnaireMixin, NaukriPageStateMixin, NaukriDis
                                                    "resolver_reason": resolver_reason}))
             await self._pause()
             await self._answer(page, state, answer)
-            answers.append({"question": question, "answer": answer, "source": answer_source})
+            entry = {"question": question, "answer": answer, "source": answer_source}
+            if entry_id:  # lets a rejection quarantine the cached answer (semantic cache v2)
+                entry["cache_entry_id"] = entry_id
+            answers.append(entry)
             state = await self._wait_after_answer(page, question)
             if state.get("drawer") and state.get("question") == question and not self._confirmation(state):
+                # Naukri re-asked the same question: it refused the value we filled.
+                await self._quarantine_rejected(entry_id)
                 return self._result(ApplicationState.SUBMISSION_UNKNOWN, "questionnaire_stalled", False,
                                     clicked_apply=True, answers=tuple(answers),
                                     screenshot=await self._screenshot(page, job_id, "stalled"))
@@ -163,6 +174,7 @@ class NaukriApplyMixin(NaukriQuestionnaireMixin, NaukriPageStateMixin, NaukriDis
             return self._result(ApplicationState.SUBMISSION_UNKNOWN, "confirmation_ambiguous", False,
                                 clicked_apply=True, answers=tuple(answers), screenshot=shot)
         receipt = {"source": source, "url": detail.listing.url, "screenshot": shot,
-                   "verified_at": datetime.now(UTC).isoformat(), "answers": answers}
+                   "verified_at": datetime.now(UTC).isoformat(), "answers": answers,
+                   "resume_variant_used": "portal_profile"}  # Naukri sends the profile's own resume
         return self._result(ApplicationState.APPLIED, "confirmed", False, clicked_apply=True,
                             receipt=receipt, screenshot=shot, answers=tuple(answers))

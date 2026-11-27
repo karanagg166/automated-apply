@@ -24,7 +24,9 @@ from backend.app.browser_v2.adapters.shared.dom_scripts import DETAIL_JS, DIALOG
 from backend.app.browser_v2.adapters.shared.text import MAX_FORM_STEPS, S
 from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.receipts import capture
+from backend.app.browser_v2.resume import variant_used
 from backend.app.browser_v2.state import ApplicationState, guard_apply
+from backend.app.browser_v2.submit_marker import mark_submit_attempted
 
 logger = logging.getLogger(__name__)
 EXTERNAL_LINK_JS = r"""
@@ -46,6 +48,8 @@ class Attempt:
 
 class PortalApplyMixin(PortalDiscoveryMixin):
     """apply_job: Apply click, modal/form steps, submit and receipt verification."""
+
+    tracks_submit = True  # every click that may submit calls mark_submit_attempted() first
 
     # --- apply ----------------------------------------------------------------------------
     async def shot(self, page: Any, job_id: str, label: str) -> str | None:
@@ -151,6 +155,8 @@ class PortalApplyMixin(PortalDiscoveryMixin):
         await self._pause()
         pages_before = len(page.context.pages)
         start_url = str(page.url)
+        if not dry_run and not self.config.apply_opens_form:
+            mark_submit_attempted("apply_click")  # a one-click Apply may itself submit
         await buttons[0].click()
         await page.wait_for_timeout(self.settle_ms)
         clicked = not dry_run or self.config.apply_click_may_submit
@@ -194,11 +200,19 @@ class PortalApplyMixin(PortalDiscoveryMixin):
                                     screenshot=await self.shot(page, job_id, "question"))
             submit = await visible_buttons(page, root, SUBMIT_TEXT)
             if len(submit) == 1:
+                readback = await self.filler.verify(page, fill, root=root, detail=detail, platform=self.platform,
+                                                    dry_run=dry_run)
+                if readback is not None:  # a required value reverted / resume missing: never submit
+                    return self._result(S.WAITING_FOR_USER, str(readback.context.get("resolver_reason")), dry_run,
+                                        clicked_apply=clicked, answers=tuple(answers), question=readback,
+                                        screenshot=await self.shot(page, job_id, "readback"))
                 if dry_run:
                     return self._result(S.SCORED, "dry_run_stopped_before_submit", True, planned_action=planned,
                                         answers=tuple(answers), screenshot=await self.shot(page, job_id, "dry-run"))
                 await self._pause()
+                await self.filler.pacing.before_submit()
                 attempt.submit_clicked = True
+                mark_submit_attempted("form_submit")
                 await submit[0].click()
                 source, state = await self._confirmed(page, root, start_url)
                 if source is not None:
@@ -211,6 +225,8 @@ class PortalApplyMixin(PortalDiscoveryMixin):
             if len(following) == 1:
                 await self._pause()
                 attempt.submit_clicked = True  # conservative: a last "Continue" may be the submit
+                if not dry_run:
+                    mark_submit_attempted("form_continue")
                 await following[0].click()
                 await page.wait_for_timeout(self.settle_ms)
                 continue
@@ -234,6 +250,8 @@ class PortalApplyMixin(PortalDiscoveryMixin):
                        ) -> ApplyResult:
         shot = await self.shot(page, detail.listing.external_job_id, "receipt")
         receipt = {"source": source, "url": detail.listing.url, "screenshot": shot,
-                   "verified_at": datetime.now(UTC).isoformat(), "answers": list(answers)}
+                   "verified_at": datetime.now(UTC).isoformat(), "answers": list(answers),
+                   # the uploaded PDF variant, else the resume already on the portal profile
+                   "resume_variant_used": variant_used(answers, uploaded_fallback="portal_profile")}
         return self._result(S.APPLIED, "confirmed", False, clicked_apply=True, receipt=receipt, screenshot=shot,
                             answers=answers)

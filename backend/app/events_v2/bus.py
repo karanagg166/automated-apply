@@ -35,7 +35,9 @@ TOPICS = ("job.applied", "job.quota_hit", "hitl.opened", "hitl.resolved", "mail.
           # Phase 9B: early-bird priority lane, worker wake-ups, circuit breaker, profile sync.
           "job.priority_discovered", "worker.wake", "portal.circuit_open", "profile.updated", "profile.sync",
           # followup 007: zero-spam notification router (recovery edits, routed quota/errors).
-          "portal.circuit_closed", "quota.summary", "system.error")
+          "portal.circuit_closed", "quota.summary", "system.error",
+          # Milestone 2: live ops stream, mail funnel reconciliation, outreach draft handoff.
+          "job.applying_step", "job.failed", "mail.reconciled", "mail.funnel_signal", "job.outreach_draft")
 NOTIFY_CHANNEL = "automated_apply_events"
 STREAM = "automated-apply:events"
 QUEUE = "automated-apply.events"

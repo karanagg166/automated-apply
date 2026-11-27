@@ -21,6 +21,9 @@ PHASE9_MIGRATION = ROOT / "supabase/fresh_public/followups/005_python_v2_phase9.
 FOLLOWUP_MIGRATIONS = {
     "006": ROOT / "supabase/fresh_public/followups/006_semantic_cache_v2.sql",
     "007": ROOT / "supabase/fresh_public/followups/007_telegram_notifications.sql",
+    # Milestone 2: widens mail_events.kind (CONFIRMATION / OA_INVITE / REJECTED) + an index. No new
+    # tables: the overlay below picks the changed constraint/index up from the installed catalog.
+    "008": ROOT / "supabase/fresh_public/followups/008_milestone2_funnel.sql",
 }
 PHASE9_TABLES = frozenset({
     "watcher_state", "agent_audit_log", "agent_conversation_turns", "profile_sync_runs",

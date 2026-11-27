@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, readable, ApiError } from "@/lib/api";
@@ -67,7 +67,6 @@ export function Automation() {
   const client = useQueryClient();
   const [draft, setDraft] = useState<Configuration | null>(null);
   const [filter, setFilter] = useState("");
-  const runKey = useRef("");
   const status = useQuery({
     queryKey: ["automation"],
     queryFn: () => api<Status>("dashboard/automation"),
@@ -118,13 +117,9 @@ export function Automation() {
     mutationFn: () => post<Plan>("dashboard/automation/preview"),
   });
   const run = useMutation({
-    mutationFn: () => {
-      runKey.current ||= crypto.randomUUID();
-      return post<{ status: string }>("dashboard/automation/run", {
-        expected_version: status.data?.version,
-        idempotency_key: runKey.current,
-      });
-    },
+    // Milestone 2: the v1 queue row this used to create had no consumer; ask the v2 worker for one
+    // bounded cycle instead (same control as Autopilot "Run once").
+    mutationFn: () => post<{ desired_state: string }>("v2/worker/run-once"),
     onSuccess: refresh,
   });
   const pause = useMutation({
@@ -304,14 +299,9 @@ export function Automation() {
         )}
         {run.isSuccess && (
           <Notice>
-            Run request recorded. Queued work is awaiting the worker; this is
-            not provider success.{" "}
-            <Button
-              onClick={() => {
-                runKey.current = "";
-                run.reset();
-              }}
-            >
+            Run-once requested from the v2 worker. Results appear in Autopilot;
+            this is not provider success.{" "}
+            <Button onClick={() => run.reset()}>
               Prepare another run request
             </Button>
           </Notice>

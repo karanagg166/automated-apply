@@ -165,14 +165,15 @@ async def test_ten_portals_one_cycle_dedup_quota_hitl_relogin_chat_and_never_rep
     store.applied_at.append(("internshala", NOON_IST - timedelta(hours=2)))  # today's single slot used
 
     fake = FakeTelegram()
-    bot = TelegramBot(telegram_config(), store, ai=ai, transport=httpx.MockTransport(fake), min_send_interval=0)
+    bot = TelegramBot(telegram_config(), store, ai=ai, transport=httpx.MockTransport(fake), min_send_interval=0,
+                      clock=clock)  # frozen: the chat pause must not depend on the wall clock
     cycle = asyncio.create_task(worker.cycle(await store.get_worker_control()))
     await gated.in_flight.wait()
     assert st(store, "greenhouse", "greenhouse-1") is S.APPLYING  # reserved before the click, now in flight
     await bot.handle_update({"update_id": 1, **msg("pause internshala for 3 hours")})
     await bot.drain_agent()
     paused = (await store.get_rules("internshala")).paused_until
-    assert paused is not None and paused > datetime.now(UTC) + timedelta(hours=2)
+    assert paused is not None and paused > clock() + timedelta(hours=2)
     assert not cycle.done() and st(store, "greenhouse", "greenhouse-1") is S.APPLYING  # untouched by the chat
     gated.release.set()
     report = await cycle
@@ -218,9 +219,9 @@ async def test_ten_portals_one_cycle_dedup_quota_hitl_relogin_chat_and_never_rep
     assert worker.store is service.store is bot.store is quota.store is store
 
     # Next IST day (pause expired, quota reset): internshala retries, wellfound applies with the HITL answer.
-    # The chat "pause internshala for 3 hours" uses the real clock; day 2 must start after it expires even when
-    # the suite runs on 2026-11-27 itself (it failed between 00:30 and 03:30 UTC that day).
-    clock.now = max(datetime(2026, 11, 27, 3, 30, tzinfo=UTC), paused + timedelta(minutes=1))
+    # The bot shares the frozen clock, so the 3h chat pause ends well before day 2 regardless of wall time.
+    clock.now = datetime(2026, 11, 27, 3, 30, tzinfo=UTC)
+    assert paused < clock.now
     for adapter in adapters.values():
         adapter.jobs = []
     day2 = await worker.cycle(await store.get_worker_control())

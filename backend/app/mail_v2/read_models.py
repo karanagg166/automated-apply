@@ -73,7 +73,7 @@ class MailMessage:
 @dataclass
 class MailEvent:
     message_key: str
-    kind: str  # RECRUITER_REPLY | INTERVIEW | JOB_ALERT
+    kind: str  # RECRUITER_REPLY | INTERVIEW | JOB_ALERT (+ CONFIRMATION | OA_INVITE | REJECTED after 008)
     source: str
     sender: str | None
     subject: str | None

@@ -127,6 +127,33 @@ class SemanticCache:
             return query, None
         return query, await self._find(query, semantic=True, threshold=None, record=False)
 
+    async def explain_candidates(self, query: QueryProfile, limit: int = 5) -> list[dict[str, Any]]:
+        """Milestone 2 playground trace: every exact/nearest candidate with the guard decision it got
+        (None = would be served). Read-only: no hit, no telemetry."""
+        if not query.canonical or query.policy == "never_cache":
+            return []
+        base = self.threshold
+        rows: list[tuple[CacheEntry, float, str]] = []
+        seen: set[str] = set()
+        for key in self._exact_keys(query):
+            entry = await self.store.exact(query.kind, key)
+            if entry is not None and entry.id not in seen:
+                seen.add(entry.id)
+                rows.append((entry, 1.0, "exact"))
+        embedding = await self._embed(query.canonical)
+        if embedding is not None:
+            for candidate, similarity in await self.store.nearest(query.kind, embedding, 0.5, limit):
+                if candidate.id not in seen:
+                    seen.add(candidate.id)
+                    rows.append((candidate, similarity, "semantic"))
+        out: list[dict[str, Any]] = []
+        for entry, similarity, match in rows[:limit]:
+            decision, _ = evaluate(query, entry, similarity, thresholds=self.thresholds, base_threshold=base)
+            out.append({"id": entry.id, "question": entry.question_text, "answer": entry.answer_text,
+                        "match": match, "similarity": round(similarity, 4), "status": entry.status,
+                        "decision": decision or "served"})
+        return out
+
     async def _exact_only(self, kind: str, question: str) -> CacheHit | None:
         entry = await self.store.exact(kind, normalize_question(question))
         if entry is None or entry.status != "active":

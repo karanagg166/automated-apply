@@ -32,7 +32,7 @@ class ApplicationsRepo(PostgresBase):
 
     async def transition(self, record, target, reason, *, receipt=None, payload=None,
                          count_attempt=False, retry_after=None):
-        check_transition(record.state, target)
+        check_transition(record.state, target, reason)
         async with self.connection.transaction():
             row = await self.connection.fetchrow(
                 f"""UPDATE public.applications
@@ -89,7 +89,11 @@ class ApplicationsRepo(PostgresBase):
             """SELECT count(DISTINCT e.application_id) FROM public.application_state_events e
                JOIN public.applications a ON a.id = e.application_id
                WHERE a.platform=$1 AND e.to_state='SUBMISSION_UNKNOWN' AND a.state <> 'APPLIED'
-                 AND e.created_at >= $2""",
+                 AND e.created_at >= $2
+                 AND NOT EXISTS (SELECT 1 FROM public.application_state_events r
+                                 WHERE r.application_id = e.application_id
+                                   AND r.event_type = 'owner_verified_not_submitted'
+                                   AND r.created_at >= e.created_at)""",
             platform, since)
 
     async def stale_applying(self, older_than: datetime, limit: int = 20) -> list[ApplicationRecord]:

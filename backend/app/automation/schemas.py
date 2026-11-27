@@ -36,9 +36,3 @@ class ScheduleUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_version: int = Field(ge=1)
     configuration: ScheduleConfiguration
-
-
-class ManualRun(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    idempotency_key: str = Field(pattern=r"^[A-Za-z0-9_-]{1,80}$")
-    expected_version: int = Field(ge=1)

@@ -72,7 +72,6 @@ def test_notification_opt_out(changes):
         ("GET", "/history"),
         ("GET", "/matches"),
         ("POST", "/preview"),
-        ("POST", "/run"),
     ],
 )
 async def test_api_requires_owner(async_client, method, path, phase2_auth):
@@ -93,7 +92,7 @@ async def test_default_disabled_preview_and_gate(async_client, phase2_auth):
         headers=phase2_auth,
         json={"expected_version": 1, "idempotency_key": "fixture"},
     )
-    assert run.status_code == 409
+    assert run.status_code == 404  # Milestone 2: the dead v1 run queue was removed (use v2/worker/run-once)
     enabled = await async_client.put(
         base,
         headers=phase2_auth,

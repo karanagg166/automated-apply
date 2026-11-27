@@ -49,6 +49,15 @@ TRANSITIONS: dict[ApplicationState, frozenset[ApplicationState]] = {
     S.SUBMISSION_UNKNOWN: frozenset({S.APPLIED}),
 }
 RECONCILE_REASON = "verified_in_portal_history"
+# Milestone 2: a confirmation email from the employer/ATS proves delivery (SUBMISSION_UNKNOWN -> APPLIED).
+EMAIL_RECONCILE_REASON = "verified_by_confirmation_email"
+# Owner-only release: the owner checked the portal and the application was NOT delivered. This is the
+# single exception to never-replay (SUBMISSION_UNKNOWN -> FAILED, which is apply-eligible again) and it
+# is accepted ONLY with this exact reason; automation never passes it (the proof router is its only caller).
+OWNER_RELEASE_REASON = "owner_verified_not_submitted"
+OWNER_TRANSITIONS: dict[str, tuple[ApplicationState, ApplicationState]] = {
+    OWNER_RELEASE_REASON: (S.SUBMISSION_UNKNOWN, S.FAILED),
+}
 
 
 class ReplayRefused(RuntimeError):
@@ -70,12 +79,15 @@ def guard_apply(current: ApplicationState | str | None) -> None:
         raise ReplayRefused(f"not_apply_eligible:{state.value}")
 
 
-def check_transition(current: ApplicationState | str | None, target: ApplicationState | str) -> None:
+def check_transition(current: ApplicationState | str | None, target: ApplicationState | str,
+                     reason: str | None = None) -> None:
     target_state = ApplicationState(target)
     if current is None:
         return
     state = ApplicationState(current)
     if state == target_state:
+        return
+    if reason is not None and OWNER_TRANSITIONS.get(reason) == (state, target_state):
         return
     if target_state not in TRANSITIONS[state]:
         raise InvalidTransition(f"{state.value}->{target_state.value}")

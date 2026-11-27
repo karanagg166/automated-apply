@@ -24,7 +24,11 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 TOPICS = ("job.priority_discovered", "job.applied", "job.quota_hit", "quota.summary", "portal.circuit_open",
-          "portal.circuit_closed", "portal.auth_required", "mail.recruiter_reply", "system.error")
+          "portal.circuit_closed", "portal.auth_required", "mail.recruiter_reply", "system.error",
+          # Milestone 2: post-apply mail funnel (OA / interview / reply = P1, rejection = P2) + drafts.
+          "mail.funnel_signal", "mail.reconciled", "job.outreach_draft")
+FUNNEL_LABELS = {"OA_INVITE": "🧪 Online assessment", "INTERVIEW_INVITE": "🗓️ Interview invite",
+                 "RECRUITER_REPLY": "📬 Recruiter reply", "REJECTED": "✖️ Rejected"}
 _KEY_PART = re.compile(r"[^a-z0-9_.-]+")
 _AUTHISH = re.compile(r"auth|login|session|captcha|otp|challenge|wall", re.IGNORECASE)
 
@@ -188,6 +192,24 @@ def classify(topic: str, payload: Mapping[str, Any], config: NotifyConfig, now: 
         alert = str(payload.get("alert") or "recruiter reply")[:300]
         return Notification(topic, Priority.P1, f"📬 {_e(alert, 300)}", f"📬 {alert}",
                             dedup_key("mail", hashlib.sha256(alert.encode()).hexdigest()[:20]), timedelta(days=3))
+    if topic == "mail.funnel_signal":
+        kind = str(payload.get("kind") or "RECRUITER_REPLY")
+        who, subject = _who(payload), str(payload.get("subject") or "")[:160]
+        label = FUNNEL_LABELS.get(kind, "📬 Mail")
+        key = dedup_key("funnel", kind.lower(), hashlib.sha256(str(payload.get("message_key") or subject).encode())
+                        .hexdigest()[:16])
+        line = f"{label}: {platform} {who}" + (f" — {subject}" if subject else "")
+        if kind == "REJECTED":  # never pushed: logged to the digest only
+            return Notification(topic, Priority.P2, "", line, key, timedelta(days=30))
+        text = f"{label} · {_e(platform, 30)} {_e(who)}" + (f"\n{_e(subject, 160)}" if subject else "")
+        return Notification(topic, Priority.P1, text, line, key, timedelta(days=30))
+    if topic == "mail.reconciled":
+        upgraded = " (SUBMISSION_UNKNOWN → APPLIED)" if payload.get("upgraded") else ""
+        return Notification(topic, Priority.P2, "", f"📨 receipt verified by email: {platform} {_who(payload)}{upgraded}",
+                            dedup_key("verified", platform, payload.get("external_job_id")), timedelta(days=30))
+    if topic == "job.outreach_draft":
+        return Notification(topic, Priority.P2, "", f"✉️ outreach draft ready (not sent): {platform} {_who(payload)}",
+                            dedup_key("outreach", platform, payload.get("external_job_id")), timedelta(days=30))
     if topic == "system.error":
         fingerprint = str(payload.get("fingerprint") or payload.get("error") or "error")[:80]
         detail = str(payload.get("detail") or fingerprint)[:200]

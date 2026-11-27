@@ -103,6 +103,12 @@ async function proxy(
         upstream.headers.get("content-type") || "application/json",
       "X-Content-Type-Options": "nosniff",
     });
+    // v2/events/stream (SSE): the body is piped through unbuffered; no-transform stops response
+    // compression from holding frames back. The backend ends each stream before the proxy timeout.
+    if (out.get("Content-Type")?.startsWith("text/event-stream")) {
+      out.set("Cache-Control", "private, no-store, no-transform");
+      out.set("X-Accel-Buffering", "no");
+    }
     for (const name of ["etag", "content-disposition"]) {
       const v = upstream.headers.get(name);
       if (v) out.set(name, v);

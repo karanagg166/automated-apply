@@ -1,4 +1,4 @@
-"""External hosted-ATS (Greenhouse / Lever) classification and handoff targets."""
+"""External hosted-ATS (Greenhouse / Lever, plus Ashby forms) classification and handoff targets."""
 
 from __future__ import annotations
 
@@ -10,6 +10,9 @@ from urllib.parse import parse_qs, urlsplit
 GREENHOUSE_HOSTS = frozenset({"boards.greenhouse.io", "job-boards.greenhouse.io", "job-boards.eu.greenhouse.io",
                               "boards.eu.greenhouse.io"})
 LEVER_HOSTS = frozenset({"jobs.lever.co", "jobs.eu.lever.co"})
+ASHBY_HOSTS = frozenset({"jobs.ashbyhq.com"})  # Milestone 2: applied only by the Ashby adapter itself
+ASHBY_PATH = re.compile(r"^/[A-Za-z0-9._%-]{1,100}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                        r"(?:/application)?/?$")
 SUPPORTED_ATS = frozenset({"greenhouse", "lever"})
 GREENHOUSE_PATH = re.compile(r"^/(?:embed/job_app|[A-Za-z0-9_-]{1,100}/jobs/\d{1,20})")
 LEVER_PATH = re.compile(r"^/[A-Za-z0-9_.-]{1,100}/[0-9a-f-]{8,64}(?:/apply)?/?$")
@@ -40,6 +43,17 @@ def ats_of_host(url: str | None) -> str | None:
         return "greenhouse"
     if host in LEVER_HOSTS:
         return "lever"
+    if host in ASHBY_HOSTS:
+        return "ashby"
+    return None
+
+
+def classify_ashby(url: str | None) -> str | None:
+    """"ashby" for a hosted jobs.ashbyhq.com posting/application URL (https only), else None.
+    Kept out of `classify_ats` on purpose: other portals never hand off to Ashby automatically."""
+    parts = urlsplit(url or "")
+    if parts.scheme == "https" and (parts.hostname or "").lower() in ASHBY_HOSTS and ASHBY_PATH.match(parts.path):
+        return "ashby"
     return None
 
 
@@ -113,8 +127,9 @@ def ats_handoff_target(url: str | None) -> AtsHandoff | None:
 
 def ats_form_url(url: str, ats: str) -> str:
     """Lever postings take their form at /apply; Greenhouse embeds it on the posting page."""
-    if ats == "lever":
+    if ats in ("lever", "ashby"):
+        suffix = "/apply" if ats == "lever" else "/application"
         parts = urlsplit(url)
         path = parts.path.rstrip("/")
-        return f"https://{parts.hostname}{path if path.endswith('/apply') else path + '/apply'}"
+        return f"https://{parts.hostname}{path if path.endswith(suffix) else path + suffix}"
     return url
