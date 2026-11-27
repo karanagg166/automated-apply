@@ -25,6 +25,7 @@ from typing import Any, Generic, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from backend.app.ai_v2.observability import tracer_from_env
 from backend.app.ai_v2.pii import scrub_pii
 from backend.app.ai_v2.providers import (
     CUSTOM_CLOUD_NAME,
@@ -76,6 +77,12 @@ class LLMResult(Generic[T]):
     input_tokens: int
     output_tokens: int
     attempts: list[dict[str, Any]] = field(default_factory=list)
+    trace_id: str | None = None  # Langfuse trace of this call (None when tracing is off)
+
+
+def provider_family(name: str) -> str:
+    """`groq_2` (second key slot) and `groq` are the same provider family."""
+    return re.sub(r"_\d+$", "", name)
 
 
 def sanitize_prompt(text: str, limit: int) -> str:
@@ -103,7 +110,7 @@ class LLMRouter:
                  chains: Mapping[str, tuple[str, ...]] | None = None,
                  transport: httpx.AsyncBaseTransport | None = None,
                  clock: Callable[[], datetime] | None = None,
-                 timeout_sec: float = DEFAULT_TIMEOUT_SEC) -> None:
+                 timeout_sec: float = DEFAULT_TIMEOUT_SEC, tracer: Any | None = None) -> None:
         self.env = dict(env if env is not None else load_env())
         self.registry = dict(registry or PROVIDER_REGISTRY)
         self.chains = dict(chains or TASK_CHAINS)
@@ -117,6 +124,7 @@ class LLMRouter:
         self.clock = clock or (lambda: datetime.now(UTC))
         self.timeout_sec = timeout_sec
         self.failures: dict[str, int] = {}
+        self.tracer = tracer if tracer is not None else tracer_from_env(self.env)
         self._secrets: tuple[str, ...] = ()
         self.providers: dict[str, ProviderConfig] = {
             name: resolve_provider(spec, self.env) for name, spec in self.registry.items()}
@@ -140,6 +148,7 @@ class LLMRouter:
     def register_secrets(self, secrets: Iterable[str]) -> None:
         """Owner identifiers (phone, email, name, links) scrubbed from every prompt."""
         self._secrets = tuple(s for s in secrets if isinstance(s, str) and s.strip())
+        self.tracer.register_secrets(self._secrets)
 
     def chain(self, task: str) -> tuple[str, ...]:
         if task not in self.chains:
@@ -200,16 +209,35 @@ class LLMRouter:
     # --- generation -----------------------------------------------------------------
     async def generate_json(self, task: str, system_prompt: str, user_prompt: str,
                             response_model: type[T], *, extra_secrets: Iterable[str] = (),
-                            max_output_tokens: int = 400) -> LLMResult[T]:
+                            max_output_tokens: int = 400, exclude: Iterable[str] = ()) -> LLMResult[T]:
+        """`exclude` skips whole provider families (the answer judge must not grade its own answer)."""
         secrets = (*self._secrets, *extra_secrets)
         system = scrub_pii(sanitize_prompt(system_prompt, MAX_SYSTEM_PROMPT_CHARS), secrets)
         user = scrub_pii(sanitize_prompt(user_prompt, MAX_USER_PROMPT_CHARS), secrets)
         planned = estimate_tokens(system + user) + max_output_tokens
         attempts: list[dict[str, Any]] = []
+        excluded = {provider_family(name) for name in exclude}
+        trace = self.tracer.start_call(task, system, user)
+        try:
+            return await self._walk_chain(task, system, user, response_model, max_output_tokens, planned,
+                                          attempts, excluded, trace)
+        except AllLLMProvidersExhaustedError:
+            trace.finish("exhausted", attempts)
+            raise
+        except BaseException as exc:  # cancellation / unexpected error: still close the trace
+            trace.finish("error:" + type(exc).__name__, attempts)
+            raise
+
+    async def _walk_chain(self, task: str, system: str, user: str, response_model: type[T],
+                          max_output_tokens: int, planned: int, attempts: list[dict[str, Any]],
+                          excluded: set[str], trace: Any) -> LLMResult[T]:
         async with httpx.AsyncClient(transport=self.transport, timeout=self.timeout_sec,
                                      follow_redirects=False) as client:
             for name in self.chain(task):
                 config = self.providers[name]
+                if provider_family(name) in excluded:
+                    attempts.append({"provider": name, "outcome": "excluded"})
+                    continue
                 if not config.configured:
                     attempts.append({"provider": name, "outcome": "unconfigured"})
                     continue
@@ -223,20 +251,39 @@ class LLMRouter:
                     attempts.append({"provider": name, "outcome": cap})
                     continue
                 result = await self._attempt(client, config, system, user, response_model, max_output_tokens,
-                                             attempts)
+                                             attempts, trace.attempt(name, config.model, max_output_tokens))
                 if result is not None:
                     value, latency, tokens_in, tokens_out = result
                     logger.info("llm_router task=%s provider=%s model=%s latency_ms=%.0f in=%d out=%d chain=%s",
                                 task, name, config.model, latency, tokens_in, tokens_out,
                                 ",".join(f"{a['provider']}:{a['outcome']}" for a in attempts))
-                    return LLMResult(value, name, config.model, latency, tokens_in, tokens_out, attempts)
+                    trace.finish("ok", attempts, name)
+                    return LLMResult(value, name, config.model, latency, tokens_in, tokens_out, attempts,
+                                     trace.trace_id)
         logger.warning("llm_router task=%s exhausted chain=%s", task,
                        ",".join(f"{a['provider']}:{a['outcome']}" for a in attempts))
         raise AllLLMProvidersExhaustedError(task, attempts)
 
     async def _attempt(self, client: httpx.AsyncClient, config: ProviderConfig, system: str, user: str,
-                       response_model: type[T], max_output_tokens: int, attempts: list[dict[str, Any]]
-                       ) -> tuple[T, float, int, int] | None:
+                       response_model: type[T], max_output_tokens: int, attempts: list[dict[str, Any]],
+                       span: Any) -> tuple[T, float, int, int] | None:
+        """One provider call. `span` is this attempt's trace generation (closed on every path)."""
+        try:
+            result = await self._dispatch(client, config, system, user, response_model, max_output_tokens,
+                                          attempts)
+        except BaseException as exc:
+            span.fail("error:" + type(exc).__name__)
+            raise
+        if result is None:
+            span.fail(str(attempts[-1].get("outcome", "failed")) if attempts else "failed")
+            return None
+        value, latency, tokens_in, tokens_out, text = result
+        span.ok(text, tokens_in, tokens_out)
+        return value, latency, tokens_in, tokens_out
+
+    async def _dispatch(self, client: httpx.AsyncClient, config: ProviderConfig, system: str, user: str,
+                        response_model: type[T], max_output_tokens: int, attempts: list[dict[str, Any]]
+                        ) -> tuple[T, float, int, int, str] | None:
         name, model = config.name, config.model
         request = build_request(config, system, user, max_output_tokens=max_output_tokens)
         started = time.perf_counter()
@@ -271,7 +318,7 @@ class LLMRouter:
         if self.failures.pop(name, 0):
             await self.usage.set_circuit(name, model, self.clock(), None, None)
         attempts.append({"provider": name, "outcome": "ok", "latency_ms": round(latency)})
-        return value, latency, tokens_in, tokens_out
+        return value, latency, tokens_in, tokens_out, wire.text
 
     async def _open(self, config: ProviderConfig, seconds: float, error: str,
                     attempts: list[dict[str, Any]]) -> None:

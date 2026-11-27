@@ -182,6 +182,9 @@ TASK_CHAINS: dict[str, tuple[str, ...]] = {
     "agent_intent": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
     # Phase 9C: the LLM-first Telegram/API agent's JSON ReAct planner (same order as agent_intent).
     "agent_react": ("groq", "cerebras", "gemini", "mistral", "openrouter", "cloudflare", "github_models", "cohere"),
+    # LLM-as-judge for screening answers (ai_v2.judge). Starts with Gemini because the generator
+    # chain starts with Groq; the router also excludes the generator's own provider family.
+    "answer_judge": ("gemini", "cerebras", "mistral", "groq", "openrouter", "cloudflare", "github_models", "cohere"),
 }
 
 LOCAL_GENERATIVE_MARKERS = re.compile(
