@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from backend.app.browser_v2.manager import BraveBrowserManager
+from backend.app.browser_v2.redact import describe_exception
 from backend.app.browser_v2.service.core import BrowserService
 from backend.app.browser_v2.service.helpers import env_profile_overrides
 from backend.app.browser_v2.service.registry import default_adapters
@@ -23,8 +24,8 @@ async def open_store(*, require_db: bool, env_file: str | None = None) -> tuple[
         return await PostgresStore.connect(load_settings(env_file)), "postgres"
     except Exception as exc:
         if require_db:
-            raise RuntimeError(f"database_required_for_live_apply:{type(exc).__name__}:{exc}") from exc
-        return MemoryStore(), f"memory ({type(exc).__name__}: {exc})"
+            raise RuntimeError(f"database_required_for_live_apply:{describe_exception(exc)}") from None
+        return MemoryStore(), f"memory ({describe_exception(exc)})"
 
 
 async def build_ai(store: Store, env_file: str | None = None) -> AIRuntime | None:

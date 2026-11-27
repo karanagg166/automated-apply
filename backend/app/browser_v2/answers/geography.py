@@ -77,10 +77,18 @@ def country_of(text: str | None, *, allow_codes: bool = False) -> tuple[str, str
     return None
 
 
+# "work in the US", "U.S. person", "US citizen": the bare lowercase "us" stays ambiguous ("tell us"),
+# but an upper-case US / U.S. token or "the us" names the United States.
+_US_TOKEN = re.compile(r"(?<![A-Za-z])U\.?S\.?(?:A\.?)?(?![A-Za-z])")
+
+
 def countries_mentioned(question: str) -> set[str]:
-    """ISO codes of countries named in a question (whole words; never bare 'us'/'in')."""
+    """ISO codes of countries named in a question (whole words; never a bare lower-case 'us'/'in')."""
     text = f" {_letters(question)} "
-    return {code for alias, (_, code) in COUNTRIES.items() if f" {alias} " in text}
+    found = {code for alias, (_, code) in COUNTRIES.items() if f" {alias} " in text}
+    if _US_TOKEN.search(question or "") or " the us " in text:
+        found.add("US")
+    return found
 
 
 @dataclass(frozen=True)

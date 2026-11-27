@@ -16,7 +16,8 @@ HITL_CHANNELS = ("telegram", "dashboard", "mcp", "worker")
 ANSWER_KINDS = ("QUESTION", "OTP", "CAPTCHA")
 REF_PATTERN = re.compile(r"^[0-9a-f]{4,32}$")
 TELEGRAM_STATE_FIELDS = ("last_update_id", "polling_state", "last_poll_at", "last_error",
-                         "conflict_detected_at", "last_digest_on")
+                         "conflict_detected_at", "last_digest_on",
+                         "muted_until", "last_digest_slot")  # followup 007
 POLLING_STATES = ("unconfigured", "starting", "polling", "conflict", "error", "stopped")
 DRAFT_STATUSES = ("PENDING", "CREATED", "FAILED")
 DRAFT_CHANNELS = ("imap", "mail_app")
@@ -185,6 +186,7 @@ class HitlRecord:
     role_title: str | None = None
     job_url: str | None = None
     application_state: str | None = None
+    telegram_card_closed_at: datetime | None = None  # followup 007: card edited after resolution
 
     @property
     def ref(self) -> str:
@@ -241,6 +243,8 @@ class TelegramState:
     conflict_detected_at: datetime | None = None
     updated_at: datetime | None = None
     last_digest_on: date | None = None  # Phase 6A: nightly digest sent for this local date
+    muted_until: datetime | None = None  # followup 007: /mute (non-P0 pushes go to the digest)
+    last_digest_slot: str | None = None  # followup 007: 'YYYY-MM-DDTHH' of the last claimed digest slot
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> TelegramState:

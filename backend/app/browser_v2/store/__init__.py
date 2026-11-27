@@ -29,6 +29,7 @@ from backend.app.browser_v2.store.base import _json as _json
 from backend.app.browser_v2.store.base import _record as _record
 from backend.app.browser_v2.store.base import _uuid as _uuid
 from backend.app.browser_v2.store.memory_store import MemoryStore
+from backend.app.browser_v2.store.notify_records import DigestItem, LedgerEntry
 from backend.app.browser_v2.store.phase9_records import (
     SEEN_IDS_CAP,
     DiscoveryMeta,
@@ -71,6 +72,8 @@ from backend.app.browser_v2.store.records import _telegram_changes as _telegram_
 from backend.app.browser_v2.store.records import hitl_ref as hitl_ref
 
 __all__ = [
+    "DigestItem",
+    "LedgerEntry",
     "FENCED_STATES",
     "SEEN_IDS_CAP",
     "ApplicationQuery",

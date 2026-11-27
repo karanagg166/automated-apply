@@ -6,6 +6,7 @@ from datetime import timedelta
 from typing import Any
 
 from backend.app.browser_v2.quota import QuotaReport, fallback_daily_cap, quota_summary
+from backend.app.browser_v2.redact import describe_exception
 from backend.app.browser_v2.rules import CandidatePreferences, PortalRules
 from backend.app.browser_v2.service import day_start, quota_counts
 from backend.app.browser_v2.state import InvalidTransition
@@ -40,14 +41,19 @@ class QuotaFlowMixin(WorkerLoop):
             await self.notify_quota(rules, result)
 
     async def notify_quota(self, rules: PortalRules, result: QuotaReport) -> None:
-        if self.notify is None or not result.queued:
+        notifier = getattr(self, "notifier", None)
+        if (self.notify is None and notifier is None) or not result.queued:
             return
         key = (rules.platform, day_start(rules, self.clock()).isoformat())
         if key in self.notified:
             return  # throttled: one summary per portal per day
         self.notified.add(key)
+        text = quota_summary(rules, result.drafted, result.queued, result.retry_after)
         try:
-            await self.notify(quota_summary(rules, result.drafted, result.queued, result.retry_after))
+            if notifier is not None:  # routine (P2): digest only, deduped per portal per day (ledger)
+                await notifier.notify_text(text, platform=rules.platform)
+            elif self.notify is not None:
+                await self.notify(text)
         except Exception as exc:  # noqa: BLE001 - notifications are best-effort
             logger.warning("quota notification failed: %s", type(exc).__name__)
 
@@ -91,7 +97,7 @@ class QuotaFlowMixin(WorkerLoop):
             except Exception as exc:  # noqa: BLE001 - isolate one job
                 portal.errors += 1
                 portal.outcomes.append({"external_job_id": listing.external_job_id,
-                                        "error": f"{type(exc).__name__}: {exc}"})
+                                        "error": describe_exception(exc, 300)})
                 continue
             if outcome.get("state") == S.QUOTA_HIT_PENDING.value:
                 portal.quota_pending += 1

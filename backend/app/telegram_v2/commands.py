@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from backend.app.browser_v2.store import HitlRecord, WorkerState, agent_chat_key
-from backend.app.telegram_v2.base import MAX_PENDING_LISTED, TelegramBotBase
+from backend.app.telegram_v2.base import MAX_PENDING_LISTED
+from backend.app.telegram_v2.commands_ops import OpsCommandsMixin
 from backend.app.telegram_v2.formatting import (
     HELP_TEXT,
     render_disambiguation,
@@ -13,14 +14,17 @@ from backend.app.telegram_v2.formatting import (
 from backend.app.telegram_v2.outbound import _html, _outcome
 
 
-class CommandsMixin(TelegramBotBase):
+class CommandsMixin(OpsCommandsMixin):
     # --- commands -------------------------------------------------------------------
-    async def handle_command(self, text: str) -> str:
+    async def handle_command(self, text: str) -> str | tuple[str, dict]:
         head, _, argument = text.partition(" ")
         command, _, _mention = head.partition("@")
         command, argument = command.lower(), argument.strip()
         if command in {"/help", "/start"}:
             return HELP_TEXT
+        ops = await self.handle_ops_command(command, argument)
+        if ops is not None:
+            return ops
         if command == "/status":
             return await self.status_text()
         if command == "/forget":
@@ -42,6 +46,7 @@ class CommandsMixin(TelegramBotBase):
         if command == "/resume":
             if not argument:
                 return "Usage: <code>/resume &lt;portal&gt;</code>"
+            await self.unpause_portal(argument.split()[0].lower())
             outcome = await self.resolver.resume_portal(argument.split()[0], via="telegram")
             await self._close_messages(outcome)
             return ("🔓 " if outcome.ok else "") + _html(outcome.message)
@@ -113,6 +118,8 @@ class CommandsMixin(TelegramBotBase):
         if self.ai is not None:
             providers = [p["provider"] for p in await self.ai.router.status() if p["status"] != "unconfigured"]
         telegram = (await self.store.get_telegram_state()).polling_state
-        return render_status(worker=await self.store.get_worker_control(), portals=portals,
+        text = render_status(worker=await self.store.get_worker_control(), portals=portals,
                              open_hitl=await self.store.count_open_hitl(), providers=providers,
                              telegram_state=telegram, now=now)
+        latency = await self.latency_line(now)
+        return text + ("\n" + latency if latency else "")

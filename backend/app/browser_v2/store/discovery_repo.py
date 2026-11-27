@@ -124,6 +124,7 @@ class DiscoveryRepo(PostgresBase):
                    priority = CASE WHEN priority = 0 AND created_at >= $2 THEN 1 ELSE 2 END,
                    priority_reason = CASE WHEN priority = 0 THEN 'decayed_from_p0' ELSE 'decayed_from_p1' END
                WHERE state IN ('DISCOVERED','SCORED')
+                 AND priority_reason IS DISTINCT FROM 'hitl_resumed'
                  AND ((priority = 0 AND created_at < $1) OR (priority = 1 AND created_at < $2))""",
             p0_cutoff, p1_cutoff)
         return int(str(result).rsplit(" ", 1)[-1] or 0)

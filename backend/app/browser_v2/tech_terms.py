@@ -8,10 +8,19 @@ TECH_ALIASES = {
     "golang": "go", "js": "javascript", "ts": "typescript", "reactjs": "react", "react js": "react",
     "nodejs": "node", "node js": "node", "k8s": "kubernetes", "postgresql": "postgres",
     "vuejs": "vue", "vue js": "vue", "nextjs": "next", "next js": "next", "dotnet": "net",
-    "amazon web services": "aws", "google cloud": "gcp", "mongo": "mongodb", "springboot": "spring",
-    "spring boot": "spring", "py": "python", "tf": "tensorflow", "ml": "machine learning",
+    "amazon web services": "aws", "google cloud": "gcp", "mongo": "mongodb", "springboot": "spring boot",
+    "py": "python", "tf": "tensorflow", "ml": "machine learning",
     "ai": "artificial intelligence", "nlp": "natural language processing",
+    # Multi-word / hyphenated spellings of distinct technologies (React Native is not React).
+    "react native": "react native", "reactnative": "react native",
+    "nuxtjs": "nuxt", "nuxt js": "nuxt", "nestjs": "nestjs", "nest js": "nestjs",
+    "c plus plus": "c++", "cpp": "c++", "c sharp": "c#", "csharp": "c#", "objective c": "objective-c",
+    "ml ops": "mlops", "llmops": "mlops", "gen ai": "generative ai", "genai": "generative ai",
+    "ruby on rails": "rails", "asp net": "asp.net", "dot net": "net", "power bi": "power bi",
+    "postgre": "postgres", "gke": "gcp", "eks": "aws",
 }
+# Longest alias first: "react js" / "node js" must be rewritten before the bare "js" alias.
+_ALIASES_BY_LENGTH = dict(sorted(TECH_ALIASES.items(), key=lambda item: (-len(item[0]), item[0])))
 TECH_TERMS = frozenset({
     "python", "java", "javascript", "typescript", "go", "rust", "c++", "c#", "net", "php", "ruby",
     "rails", "swift", "kotlin", "scala", "perl", "dart", "elixir", "haskell", "matlab", "react",
@@ -25,23 +34,34 @@ TECH_TERMS = frozenset({
     "natural language processing", "computer vision", "llm", "langchain", "power bi", "tableau",
     "excel", "salesforce", "sap", "figma", "devops", "microservices", "blockchain", "solidity",
     "unity", "embedded", "c", "r",
+    # Phase 4 (2026-11-28): distinct multi-word technologies the entity guard must not collapse.
+    "react native", "spring boot", "nuxt", "mlops", "generative ai", "objective-c", "asp.net",
+    "next", "vue", "svelte", "remix", "electron", "ionic", "xamarin", "unreal", "pyspark", "jax",
+    "scikit learn", "opencv", "hugging face", "openai", "bigquery", "redshift", "sqlite", "oracle",
+    "neo4j", "supabase", "firebase", "vercel", "nginx", "bash", "powershell", "go",
 })
 # Short/ambiguous terms only count when used as a technology ("in Go", "with R").
 CONTEXT_ONLY = frozenset({"go", "c", "r", "net", "rest", "next", "express", "unity", "excel", "swift"})
-CONTEXT_PREFIX = re.compile(r"\b(?:in|with|using|on|of|and|or|know|knows)\s*$")
+CONTEXT_PREFIX = re.compile(r"\b(?:in|with|using|on|of|and|or|know|knows|your)\s*$")
+# ... or when followed by a technology noun ("Rate your C programming", "Go developer").
+CONTEXT_SUFFIX = re.compile(r"^\s*(?:programming|language|lang|skills?|developer|development|experience|"
+                            r"proficiency|code|coding)\b")
 
 
 def phrase_terms(text: str, vocabulary: frozenset[str], aliases: dict[str, str],
                   context_only: frozenset[str] = frozenset()) -> frozenset[str]:
     found: set[str] = set()
     padded = f" {text} "
-    for alias, canonical in aliases.items():
+    ordered = _ALIASES_BY_LENGTH if aliases is TECH_ALIASES else dict(
+        sorted(aliases.items(), key=lambda item: (-len(item[0]), item[0])))
+    for alias, canonical in ordered.items():
         if f" {alias} " in padded:
             found.add(canonical)
             padded = padded.replace(f" {alias} ", f" {canonical} ")
     for term in vocabulary:
         for match in re.finditer(rf"(?<![a-z0-9+#]){re.escape(term)}(?![a-z0-9+#])", padded):
-            if term in context_only and not CONTEXT_PREFIX.search(padded[:match.start()]):
+            if term in context_only and not CONTEXT_PREFIX.search(padded[:match.start()]) \
+                    and not CONTEXT_SUFFIX.search(padded[match.end():]):
                 continue
             found.add(term)
     # Multi-word terms subsume their parts ("delhi ncr" vs "delhi", "navi mumbai" vs "mumbai").
@@ -49,6 +69,8 @@ def phrase_terms(text: str, vocabulary: frozenset[str], aliases: dict[str, str],
 
 
 def _normalize(text: str) -> str:
+    # "objective-c" / "asp.net" keep their separators only inside the vocabulary; questions are
+    # punctuation-free, so those terms are matched via their aliases ("objective c", "asp net").
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+#]+", " ", (text or "").lower())).strip()
 
 

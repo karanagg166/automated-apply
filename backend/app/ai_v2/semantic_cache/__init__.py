@@ -9,16 +9,37 @@ work mode, employment type) or the hit is rejected.
 Backends: `PostgresCacheStore` (public.semantic_cache, extensions.vector(384) +
 HNSW cosine) and `MemoryCacheStore` (pure-Python cosine, same contract).
 
-Package layout: `models` (limits, DTOs, store Protocol), `qualifiers` (entity-mismatch
-guard), `stores` (memory + Postgres backends), `cache` (SemanticCache facade + seeding).
+Phase 4 (2026-11-28, poison-proof): intent buckets, field types, company scope, polarity and
+country guards, per-field-type thresholds, profile-version invalidation, quarantine, verified-only
+promotion and decision telemetry.
+
+Package layout: `models` (limits, DTOs, store Protocol), `policy` (intent / field type / scope /
+thresholds), `keys` (canonical text, cache key, profile hash), `qualifiers` (entity + polarity
+extraction), `guards` (candidate acceptance), `telemetry` (decision counters), `stores` +
+`stores_pg` (memory + Postgres backends), `cache` (SemanticCache facade + seeding).
 """
 
 from __future__ import annotations
 
 from backend.app.ai_v2.semantic_cache.cache import (
+    EXACT_ONLY_KINDS,
+    CacheHit,
     SemanticCache,
     logger,
     seed_semantic_cache,
+    write_refusal,
+)
+from backend.app.ai_v2.semantic_cache.guards import (
+    QueryProfile,
+    build_query,
+    evaluate,
+    fit_answer,
+)
+from backend.app.ai_v2.semantic_cache.keys import (
+    canonical_question,
+    company_slug,
+    profile_hash_from_profile,
+    profile_version_hash,
 )
 from backend.app.ai_v2.semantic_cache.models import (
     DEFAULT_THRESHOLD,
@@ -28,11 +49,20 @@ from backend.app.ai_v2.semantic_cache.models import (
     SOURCE_RANK,
     SOURCES,
     CacheEntry,
-    CacheHit,
     CacheStore,
+    EntryMeta,
     InvalidCacheEntry,
+    Prefilter,
     PutResult,
+    QuestionContext,
     normalize_question,
+)
+from backend.app.ai_v2.semantic_cache.policy import (
+    INTENTS,
+    CacheThresholds,
+    cache_policy,
+    classify_intent,
+    infer_field_type,
 )
 from backend.app.ai_v2.semantic_cache.qualifiers import (
     _CITIES,
@@ -59,8 +89,34 @@ from backend.app.ai_v2.semantic_cache.stores import (
     _now,
     vector_literal,
 )
+from backend.app.ai_v2.semantic_cache.telemetry import (
+    TELEMETRY,
+    CacheTelemetry,
+    cache_decision_stats,
+)
 
 __all__ = [
+    "EXACT_ONLY_KINDS",
+    "INTENTS",
+    "TELEMETRY",
+    "CacheTelemetry",
+    "CacheThresholds",
+    "EntryMeta",
+    "Prefilter",
+    "QueryProfile",
+    "QuestionContext",
+    "build_query",
+    "cache_decision_stats",
+    "cache_policy",
+    "canonical_question",
+    "classify_intent",
+    "company_slug",
+    "evaluate",
+    "fit_answer",
+    "infer_field_type",
+    "profile_hash_from_profile",
+    "profile_version_hash",
+    "write_refusal",
     "DEFAULT_THRESHOLD",
     "KIND_PATTERN",
     "MAX_ANSWER_CHARS",

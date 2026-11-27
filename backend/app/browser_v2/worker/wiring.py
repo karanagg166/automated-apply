@@ -1,4 +1,4 @@
-"""Phase 9 worker-process services: fast-poll watchers, early-bird Telegram notifier and the
+"""Phase 9 worker-process services: fast-poll watchers, the Telegram NotificationRouter and the
 portal profile-sync scheduler.
 
 All of them run inside the worker process and share its single serialized Supabase
@@ -22,6 +22,7 @@ class Phase9Services:
     tasks: list[asyncio.Task[Any]] = field(default_factory=list)
     closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
     profile_sync: Any = None
+    notifier: Any = None
 
     async def aclose(self, stop: asyncio.Event, timeout: float = 10.0) -> None:
         stop.set()
@@ -61,19 +62,30 @@ def _start_watchers(service: Any, worker: Any, stop: asyncio.Event, out: Phase9S
     out.closers.append(hub.aclose)
 
 
-def _start_notifier(service: Any, env: dict[str, str], out: Phase9Services) -> None:
-    from backend.app.telegram_v2.client import TelegramClient
+def _start_notifier(service: Any, worker: Any, env: dict[str, str], out: Phase9Services, client: Any) -> None:
+    """The zero-spam NotificationRouter: every non-HITL Telegram notification goes through it."""
     from backend.app.telegram_v2.config import TelegramConfig
-    from backend.app.telegram_v2.notifications import EarlyBirdNotifier, register
+    from backend.app.telegram_v2.notify_policy import NotifyConfig
+    from backend.app.telegram_v2.notify_router import NotificationRouter
 
-    bus = getattr(service, "event_bus", None)
     config = TelegramConfig.from_env(env)
-    if bus is None or not config.configured or not config.token or config.owner_chat_id is None:
+    if client is None or not config.configured or config.owner_chat_id is None:
         return
-    client = TelegramClient(config.token)
-    notifier = EarlyBirdNotifier(client, config.owner_chat_id, store=service.store)
-    register(bus, notifier)
-    out.closers.append(client.aclose)
+    store = service.store
+
+    async def prefs() -> dict[str, Any]:
+        profile, _ = await store.load_profile()
+        value = (profile or {}).get("preferences") if isinstance(profile, dict) else None
+        return value if isinstance(value, dict) else {}
+
+    router = NotificationRouter(client, config.owner_chat_id, store, NotifyConfig.from_env(env),
+                                prefs_provider=prefs)
+    bus = getattr(service, "event_bus", None)
+    if bus is not None:
+        router.register(bus)
+    worker.notifier = router
+    out.notifier = router
+    out.closers.append(router.close)
 
 
 def _start_profile_sync(service: Any, worker: Any, out: Phase9Services) -> None:
@@ -96,13 +108,13 @@ def _start_profile_sync(service: Any, worker: Any, out: Phase9Services) -> None:
 
 
 async def start_phase9_services(service: Any, worker: Any, env: dict[str, str], stop: asyncio.Event, *,
-                                watchers: bool = True, telegram: bool = True) -> Phase9Services:
+                                watchers: bool = True, telegram: bool = True, client: Any = None) -> Phase9Services:
     out = Phase9Services()
     steps: list[tuple[str, Callable[[], None]]] = [
         ("profile_sync", lambda: _start_profile_sync(service, worker, out)),
     ]
     if telegram:
-        steps.append(("early_bird_notifier", lambda: _start_notifier(service, env, out)))
+        steps.append(("notification_router", lambda: _start_notifier(service, worker, env, out, client)))
     if watchers:
         steps.append(("watchers", lambda: _start_watchers(service, worker, stop, out)))
     for name, start in steps:

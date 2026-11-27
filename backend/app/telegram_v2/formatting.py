@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from html import escape
 from typing import Any
 
+from backend.app.browser_v2.redact import redact_secrets
 from backend.app.browser_v2.store import HitlRecord
 
 MAX_BUTTON_OPTIONS = 6
@@ -136,7 +137,7 @@ def render_status(*, worker: Any, portals: list[dict[str, Any]], open_hitl: int,
              f"Heartbeat {_age(worker.heartbeat_at, now)}"
              + (f" · on {_e(worker.current_platform, 40)}" if worker.current_platform else "")]
     if worker.last_error:
-        lines.append(f"Last error: {_e(worker.last_error, 140)}")
+        lines.append(f"Last error: {_e(redact_secrets(worker.last_error), 140)}")
     lines.append("")
     for portal in portals:
         if not portal["enabled"]:

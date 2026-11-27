@@ -77,7 +77,9 @@ LAYERS: dict[str, int] = {
     "backend.app.browser_v2.digest": SERVICE,
     "backend.app.browser_v2.profile_sync": SERVICE,
     "backend.app.browser_v2.watchers": SERVICE,
-    "backend.app.telegram_v2.notifications": SERVICE,
+    "backend.app.telegram_v2.notify_router": SERVICE,
+    "backend.app.telegram_v2.notify_policy": DOMAIN,
+    "backend.app.browser_v2.redact": DOMAIN,
     "backend.app.telegram_v2.agent_bridge": SERVICE,
     # Phase 9D: pure value objects + diff are domain; the per-portal profile adapters are outbound adapters.
     "backend.app.browser_v2.profile_sync.models": DOMAIN,

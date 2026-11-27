@@ -50,14 +50,14 @@ def test_phase9_overlay_is_all_or_none_and_requires_core() -> None:
     with pytest.raises(RuntimeError, match="phase9_schema_partial_install"):
         v2_schema.installed_tables(dict.fromkeys(v2_schema.PHASE9_TABLES, "true"))
     full = {**core, **dict.fromkeys(v2_schema.PHASE9_TABLES, "true")}
-    assert v2_schema.installed_tables(full) == v2_schema.ALL_TABLES
+    assert v2_schema.installed_tables(full) == v2_schema.TABLES | v2_schema.PHASE9_TABLES
     assert v2_schema.phase9_installed(full) and not v2_schema.phase9_installed(core)
     actual = {"tables": {"jobs": "true", **full},
               "columns": {"agent_audit_log.tool_name": "text", "applications.priority": "smallint"},
               "indexes": {"ix_agent_audit_log_created":
                           "CREATE INDEX ix_agent_audit_log_created ON public.agent_audit_log USING btree (created_at DESC)"}}
     merged = v2_schema.expected_overlay({"tables": {"jobs": "true"}, "columns": {}, "indexes": {}}, actual)
-    assert set(merged["tables"]) == {"jobs", *v2_schema.ALL_TABLES}
+    assert set(merged["tables"]) == {"jobs", *v2_schema.TABLES, *v2_schema.PHASE9_TABLES}
     assert set(merged["columns"]) == {"agent_audit_log.tool_name", "applications.priority"}
     assert "ix_agent_audit_log_created" in merged["indexes"]
 
@@ -140,3 +140,14 @@ def test_phase9_applies_twice_after_004_as_non_superuser(tmp_path) -> None:
         server.terminate()
         server.wait(timeout=10)
         shutil.rmtree(data, ignore_errors=True)
+
+
+def test_followup_007_overlay_is_all_or_none_and_requires_phase9() -> None:
+    core = dict.fromkeys(v2_schema.TABLES, "true")
+    phase9 = {**core, **dict.fromkeys(v2_schema.PHASE9_TABLES, "true")}
+    with pytest.raises(RuntimeError, match="followup007_schema_partial_install"):
+        v2_schema.installed_tables({**phase9, "telegram_digest_queue": "true"})
+    with pytest.raises(RuntimeError, match="followup007_schema_partial_install"):
+        v2_schema.installed_tables({**core, **dict.fromkeys(v2_schema.NOTIFY_TABLES, "true")})
+    full = {**phase9, **dict.fromkeys(v2_schema.NOTIFY_TABLES, "true")}
+    assert v2_schema.installed_tables(full) == v2_schema.ALL_TABLES

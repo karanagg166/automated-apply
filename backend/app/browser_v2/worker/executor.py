@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncGenerator
+from dataclasses import replace
 from typing import Any
 
 from backend.app.browser_v2.adapters.base import JobListing
@@ -10,6 +12,7 @@ from backend.app.browser_v2.adapters.feeds import PortalWallActive
 from backend.app.browser_v2.manager import RECYCLE_AFTER_SEC
 from backend.app.browser_v2.outcomes import OutcomeCode
 from backend.app.browser_v2.quota import QUOTA_LIMIT_REASONS
+from backend.app.browser_v2.redact import describe_exception
 from backend.app.browser_v2.rules import CandidatePreferences, PortalRules
 from backend.app.browser_v2.service import plain, quota_counts
 from backend.app.browser_v2.state import APPLY_ELIGIBLE, InvalidTransition
@@ -21,6 +24,7 @@ from backend.app.browser_v2.worker.reports import (
     COOLDOWN,
     DEFAULT_QUERY,
     DISCOVERY_LIMIT,
+    JOB_WALL_CLOCK_SEC,
     MAX_CONSECUTIVE_JOB_ERRORS,
     MAX_INSPECTIONS_PER_PORTAL,
     Interrupted,
@@ -98,6 +102,13 @@ class ExecutorMixin(WorkerLoop):
         for work in candidates:
             yield work
 
+    def note_portal_limit(self, platform: str) -> None:
+        """Patch the cycle snapshot too: the lane/quota gates read `ctx.rules`, which otherwise keep
+        re-opening a job page on a portal that already showed its native daily limit this cycle."""
+        ctx = self.ctx
+        if ctx is not None and platform in ctx.rules:
+            ctx.rules[platform] = replace(ctx.rules[platform], portal_limit_hit_at=self.clock())
+
     async def drive(self, turn: Turn) -> None:
         """Run a turn's jobs until done, stopped, interrupted or parked on a cooldown."""
         rules, portal = turn.rules, turn.portal
@@ -118,7 +129,10 @@ class ExecutorMixin(WorkerLoop):
                     stop = await self.handle_listing(item.listing, rules, turn.prefs, turn.profile, portal,
                                                      dry_run=turn.dry_run, run_once=turn.run_once, via=item.via)
                 finally:
-                    if item.consume_id is not None and stop != COOLDOWN:
+                    # Consume owner answers only once the job really ran: a pause (Interrupted), quota
+                    # stop or cooldown before process_job used to discard them.
+                    if item.consume_id is not None and stop != COOLDOWN \
+                            and (platform, item.listing.external_job_id) in self.attempted:
                         await self.store.mark_hitl_consumed(item.consume_id)
                 if stop == COOLDOWN:
                     turn.pushback, parked = item, True
@@ -235,8 +249,11 @@ class ExecutorMixin(WorkerLoop):
         self.attempted.add(key)
         try:
             # auto_apply_enabled=false: inspect + score only (stops before the Apply click).
-            outcome = await self.service.process_job(listing, dry_run=not live_apply, rules=rules,
-                                                     profile=profile, record_filters=True, now=self.clock())
+            # Wall-clock cap (< the 15-min stale-APPLYING sweep): a hung await must not stall every
+            # portal behind the single tab. Cancellation after a reservation lands in SUBMISSION_UNKNOWN.
+            outcome = await asyncio.wait_for(
+                self.service.process_job(listing, dry_run=not live_apply, rules=rules, profile=profile,
+                                         record_filters=True, now=self.clock()), timeout=JOB_WALL_CLOCK_SEC)
         except PortalWallActive:
             # A feed portal hit its login/challenge wall this cycle: stop it, jobs stay in the backlog.
             portal.outcomes.append({"external_job_id": listing.external_job_id, "stopped": "portal_wall"})
@@ -246,7 +263,7 @@ class ExecutorMixin(WorkerLoop):
             portal.errors += 1
             portal.consecutive_errors += 1
             portal.outcomes.append({"external_job_id": listing.external_job_id,
-                                    "error": f"{type(exc).__name__}: {str(exc)[:300]}"})
+                                    "error": describe_exception(exc, 300)})
             logger.warning("job %s failed: %s", listing.external_job_id, type(exc).__name__)
             await self.observe(platform, OutcomeCode.INFRA_ERROR, f"job_error:{type(exc).__name__}")
             if portal.consecutive_errors >= MAX_CONSECUTIVE_JOB_ERRORS:
@@ -265,6 +282,7 @@ class ExecutorMixin(WorkerLoop):
             portal.filtered += 1
             return None
         if outcome.get("portal_limit") or reason.startswith("portal_daily_limit"):
+            self.note_portal_limit(platform)
             portal.quota_pending += 1 + await self.mark_quota_pending(platform, "portal_daily_limit")
             return "portal_daily_limit"
         if state == S.QUOTA_HIT_PENDING.value:

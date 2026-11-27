@@ -116,8 +116,10 @@ async def check_telegram(env_file: str | None = None) -> dict[str, Any]:
     details: dict[str, Any] = {}
     try:
         details["bot_username"] = (await client.get_me()).get("username")
-        await client.get_updates(None, timeout=0, limit=1)  # confirms nothing (no offset)
-        details["conflict"] = False
+        # getWebhookInfo, never getUpdates: a probe must not interrupt the worker's long poll (409).
+        webhook = await client.get_webhook_info()
+        details["webhook_set"] = bool(isinstance(webhook, dict) and webhook.get("url"))
+        details["conflict"] = details["webhook_set"]
         return _result("telegram", True, details, started=started)
     except TelegramConflict:
         details |= {"conflict": True, "hint": "another poller (likely com.automated-apply.rust) holds the token"}

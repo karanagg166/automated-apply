@@ -45,10 +45,14 @@ async def quota_counts(store: Store, rules: PortalRules, now: datetime | None = 
     start = day_start(rules, now)
     today = await store.applied_since(rules.platform, start)
     hour = await store.applied_since(rules.platform, now - timedelta(hours=1))
+    # Caps also count ambiguous submits (SUBMISSION_UNKNOWN): each may really have been sent.
+    attempts_today = today + await store.ambiguous_submits_since(rules.platform, start)
+    attempts_hour = hour + await store.ambiguous_submits_since(rules.platform, now - timedelta(hours=1))
     portal_limit_today = bool(rules.portal_limit_hit_at and rules.portal_limit_hit_at >= start)
     return {"applied_today": today, "applied_this_hour": hour,
-            "daily_limit_hit": today >= rules.max_applies_per_day,
-            "hourly_limit_hit": hour >= rules.max_applies_per_hour,
+            "attempts_today": attempts_today, "attempts_this_hour": attempts_hour,
+            "daily_limit_hit": attempts_today >= rules.max_applies_per_day,
+            "hourly_limit_hit": attempts_hour >= rules.max_applies_per_hour,
             "portal_limit_hit_today": portal_limit_today}
 
 

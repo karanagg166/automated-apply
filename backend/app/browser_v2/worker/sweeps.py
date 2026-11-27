@@ -13,6 +13,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 
 from backend.app.browser_v2.outcomes import OutcomeCode
+from backend.app.browser_v2.priority import cadence_factor
 from backend.app.browser_v2.rules import PortalRules
 from backend.app.browser_v2.state import APPLY_ELIGIBLE
 from backend.app.browser_v2.worker.context import CycleContext
@@ -34,7 +35,9 @@ SWEEP_SESSION_TRUST_SEC = 30 * 60  # sweeps never pay for an extra session-check
 
 class SweepMixin(SchedulerMixin):
     def sweep_interval(self) -> timedelta:
-        return timedelta(seconds=FRESH_SWEEP_EVERY_SEC * self.rng.uniform(1 - FRESH_SWEEP_JITTER,
+        # Adaptive: every ~10 min in IST hiring hours (within the 6 loads/h budget), ~30 min overnight.
+        base = FRESH_SWEEP_EVERY_SEC * cadence_factor(self.clock(), peak=0.5, off_peak=1.5)
+        return timedelta(seconds=base * self.rng.uniform(1 - FRESH_SWEEP_JITTER,
                                                                            1 + FRESH_SWEEP_JITTER))
 
     def note_discovery(self, platform: str) -> None:

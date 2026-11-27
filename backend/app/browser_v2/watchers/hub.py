@@ -22,6 +22,7 @@ import httpx
 from backend.app.browser_v2.adapters.feed_clients.http import ConditionalHttp
 from backend.app.browser_v2.adapters.feeds import USER_AGENT
 from backend.app.browser_v2.adapters.we_work_remotely import feeds as wwr_feeds
+from backend.app.browser_v2.priority import cadence_factor
 from backend.app.browser_v2.watchers.hiringcafe import fastmcp_call
 from backend.app.browser_v2.watchers.models import (
     FAMILIES,
@@ -70,7 +71,7 @@ class WatcherHub(WatcherPoller):
                  score_listing: ScoreListing, wake: Wake, publish: Publish, clock: Clock | None = None,
                  sleeper: Sleeper | None = None, rules_provider: RulesProvider | None = None,
                  mcp_call: McpCall | None = None, rng: random.Random | None = None,
-                 families: tuple[str, ...] = FAMILIES) -> None:
+                 families: tuple[str, ...] = FAMILIES, rule_gate: Any = None) -> None:
         self.store = store
         self.http_client = http_client
         self.prefs_provider = prefs_provider
@@ -81,6 +82,7 @@ class WatcherHub(WatcherPoller):
         self.sleeper = sleeper or asyncio.sleep
         self.rules_provider = rules_provider or self._store_rules
         self.mcp_call = mcp_call or fastmcp_call
+        self.rule_gate = rule_gate  # hard rules + cross-portal dedup at ingestion (before any scoring)
         self.rng = rng or random.Random()
         self.families = tuple(f for f in families if f in FAMILY_INTERVALS)
         self.http = ConditionalHttp(http_client, min_interval=PER_HOST_MIN_INTERVAL_SEC, sleep=self.sleeper)
@@ -156,7 +158,9 @@ class WatcherHub(WatcherPoller):
                 continue
             outcome = await self.poll_once(sources[key])
             after = self.clock()
-            due[key] = after + timedelta(seconds=self.jittered(interval))
+            # Adaptive cadence: fast feeds (< 1 h) poll at full speed in IST hiring hours, x2 overnight.
+            factor = cadence_factor(after) if interval < 3600 else 1.0
+            due[key] = after + timedelta(seconds=self.jittered(interval * factor))
             if outcome.next_poll_at is not None and outcome.next_poll_at > due[key]:
                 due[key] = outcome.next_poll_at
 
@@ -201,6 +205,7 @@ def build_watcher_hub(store: Any, *, service: Any = None, worker: Any = None, bu
     Any constructor argument can be overridden by keyword (tests, CLI)."""
     score = overrides.pop("score_listing", None) or getattr(service, "score_listing", None) \
         or fallback_score_listing
+    overrides.setdefault("rule_gate", getattr(service, "watcher_gate", None))
 
     def no_wake(reason: str) -> None:
         return None

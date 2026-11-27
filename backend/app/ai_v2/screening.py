@@ -1,11 +1,16 @@
 """4-tier screening answer pipeline (deterministic first, LLM last).
 
 Tier 0  verified profile facts (browser_v2.answers)       0 tokens, ~0 ms
-Tier 1  local semantic cache (exact, then cosine >= 0.88   0 tokens, ~5 ms
-        + qualifier-mismatch guard)
+Tier 1  local semantic cache: exact canonical key (0 embeddings), then a hard-prefiltered
+        vector search where every candidate must pass the intent / field-type / entity /
+        polarity / company / profile-version / per-field threshold / option-set guards
 Tier 2  free external LLM router (PII-scrubbed, strict JSON, options-constrained),
-        then an LLM judge from another provider audits the answer (ai_v2.judge)
+        then an LLM judge from another provider audits the answer (ai_v2.judge); only an
+        approved verdict with score >= 0.92 is promoted into the cache (llm_verified)
 Tier 3  None -> caller marks the job WAITING_FOR_USER (HITL)
+
+Work-authorization / sponsorship questions are localized with the job's country first; when no
+country is known they go straight to the human (never the cache, never the LLM).
 
 Sensitive questions (passwords, OTPs, IDs, consent, demographics) skip
 Tiers 1-2. Owner-declared disclosures (EEO, consent, NDA signature; see
@@ -32,7 +37,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.app.ai_v2.observability import trace_context
 from backend.app.ai_v2.router import AllLLMProvidersExhaustedError, LLMRouter
-from backend.app.ai_v2.semantic_cache import SemanticCache
+from backend.app.ai_v2.semantic_cache import (
+    InvalidCacheEntry,
+    QuestionContext,
+    SemanticCache,
+    classify_intent,
+    fit_answer,
+    profile_version_hash,
+)
+from backend.app.ai_v2.semantic_cache.policy import GEO_INTENTS
 from backend.app.browser_v2.answers import (
     BLOCKED,
     SENSITIVE,
@@ -42,6 +55,8 @@ from backend.app.browser_v2.answers import (
     disclosure_answer,
     resolve_answer,
 )
+from backend.app.browser_v2.answers.geography import countries_mentioned
+from backend.app.browser_v2.answers.localize import localize_question
 
 if TYPE_CHECKING:
     from backend.app.ai_v2.judge import AnswerJudge
@@ -51,6 +66,7 @@ logger = logging.getLogger(__name__)
 KIND = "screening_qa"
 ACCEPT_CONFIDENCE = 0.80
 CACHE_CONFIDENCE = 0.85
+LLM_VERIFIED_MIN_SCORE = 0.92  # judge score needed before an LLM answer is reused from the cache
 # Facts an LLM can never know or verify: these always go to the human.
 PRIVATE_REQUEST = re.compile(
     r"\b(?:date of birth|dob|birth ?date|age\b|father|mother|spouse|marital|home address|street|"
@@ -113,6 +129,7 @@ class ResolvedAnswer:
     llm_chain: tuple[str, ...] = ()
     judge: str | None = None  # approved | rejected (None = not judged)
     trace_id: str | None = None
+    cache_entry_id: str | None = None  # the semantic_cache row that produced the answer (Tier 1)
 
     def public(self) -> dict[str, Any]:
         return {k: v for k, v in self.__dict__.items() if v not in (None, (), "")}
@@ -130,7 +147,13 @@ def fit_to_options(answer: str, options: tuple[str, ...]) -> str | None:
         return choose_yes_no(options, True)
     if lowered in {"no", "n", "false"}:
         return choose_yes_no(options, False)
-    return None
+    return fit_answer(answer, options)
+
+
+def question_context(options: tuple[str, ...], facts: CandidateFacts, context: dict[str, Any]) -> QuestionContext:
+    return QuestionContext(field_kind=context.get("field_kind"), options=tuple(options),
+                           company=context.get("company"), role_country=context.get("role_country"),
+                           profile_hash=profile_version_hash(facts), platform=context.get("platform"))
 
 
 class ScreeningAnswerer:
@@ -144,6 +167,8 @@ class ScreeningAnswerer:
         self.cache_confidence = cache_confidence
         self.save_llm_answers = save_llm_answers
         self.safe_profile: dict[str, Any] = {}
+        if cache is not None and router is not None and isinstance(getattr(router, "env", None), dict):
+            cache.configure(router.env)  # per-field-type thresholds (SEMANTIC_CACHE_THRESHOLD_FACTUAL, ...)
 
     def bind_profile(self, safe_profile: dict[str, Any]) -> None:
         self.safe_profile = dict(safe_profile)
@@ -151,9 +176,16 @@ class ScreeningAnswerer:
     async def resolve(self, question: str, options: tuple[str, ...], facts: CandidateFacts,
                       context: dict[str, Any] | None = None) -> ResolvedAnswer:
         started = time.perf_counter()
+        context = dict(context or {})
+        question = localize_question(question, context.get("role_country"))
 
         def elapsed() -> float:
             return round((time.perf_counter() - started) * 1000, 2)
+
+        def to_human(reason: str) -> ResolvedAnswer:
+            if self.cache is not None:
+                self.cache.telemetry.record("miss_to_hitl", reason=reason)
+            return ResolvedAnswer(None, 3, "human", elapsed(), reason)
 
         try:
             handled, disclosed = disclosure_answer(question, options, facts)
@@ -173,34 +205,45 @@ class ScreeningAnswerer:
             return ResolvedAnswer(deterministic, 0, "profile", elapsed(), "profile_fact")
         if not question.strip() or BLOCKED.search(question) or SENSITIVE.search(question):
             return ResolvedAnswer(None, 3, "human", elapsed(), "sensitive_or_blocked_question")
+        if classify_intent(question) in GEO_INTENTS and not countries_mentioned(question):
+            # "Authorized to work?" with no known job country: the answer differs per country, so
+            # neither a cached answer (given for another country) nor the LLM may guess it.
+            if self.cache is not None:
+                self.cache.telemetry.record("skipped_geo_unknown")
+            return ResolvedAnswer(None, 3, "human", elapsed(), "work_auth_country_unknown")
+        qctx = question_context(options, facts, context)
         if self.cache is not None:
+            self.cache.profile_hash = qctx.profile_hash
             try:
-                hit = await self.cache.lookup(KIND, question)
+                hit = await self.cache.lookup(KIND, question, context=qctx)
             except Exception:  # cache outage: fall through (LLM or HITL)
                 logger.exception("screening_cache_lookup_failed")
                 hit = None
             if hit is not None:
-                fitted = fit_to_options(hit.entry.answer_text, options)
+                fitted = hit.answer if hit.answer is not None else fit_to_options(hit.entry.answer_text, options)
                 if fitted is not None:
                     return ResolvedAnswer(fitted, 1, "semantic_cache", elapsed(), f"cache_{hit.entry.source}",
-                                          cache_match=hit.match, similarity=round(hit.similarity, 4))
+                                          cache_match=hit.match, similarity=round(hit.similarity, 4),
+                                          cache_entry_id=hit.entry.id)
         if PRIVATE_REQUEST.search(question):
-            return ResolvedAnswer(None, 3, "human", elapsed(), "private_or_unverifiable_data")
+            return to_human("private_or_unverifiable_data")
         try:
             configured = self.router is not None and bool(self.router.any_configured)
         except Exception:
             logger.exception("screening_router_status_failed")
             configured = False
         if not configured:
-            return ResolvedAnswer(None, 3, "human", elapsed(), "llm_unconfigured")
+            return to_human("llm_unconfigured")
+        if self.cache is not None:
+            self.cache.telemetry.record("miss_to_llm")
         try:
-            return await self._llm(question, options, context or {}, started)
+            return await self._llm(question, options, context, started, qctx)
         except Exception as exc:  # noqa: BLE001 - any LLM/usage-store failure -> HITL, never a crash
             logger.warning("screening_llm_failed: %s", type(exc).__name__)
             return ResolvedAnswer(None, 3, "human", _ms(started), f"llm_error:{type(exc).__name__}")
 
     async def _llm(self, question: str, options: tuple[str, ...], context: dict[str, Any],
-                   started: float) -> ResolvedAnswer:
+                   started: float, qctx: QuestionContext | None = None) -> ResolvedAnswer:
         assert self.router is not None
         job = {k: context.get(k) for k in ("title", "company") if context.get(k)}
         user_prompt = json.dumps({"candidate_profile": self.safe_profile, "job": job, "question": question,
@@ -241,13 +284,22 @@ class ScreeningAnswerer:
             return punt("llm_judge_rejected", judge=label)
         self._score(result.trace_id, True, reply.confidence, "llm_accepted")
         cached = False
-        if self.save_llm_answers and self.cache is not None and reply.cacheable and not rejected \
+        # Phase 4: only a judge-APPROVED answer with score >= 0.92 is reused later (llm_verified);
+        # an unjudged answer (judge off / shadow without tracing / no other provider) is used once.
+        verified = verdict is not None and verdict.approved and verdict.score >= LLM_VERIFIED_MIN_SCORE
+        if self.save_llm_answers and self.cache is not None and reply.cacheable and verified \
                 and reply.confidence >= self.cache_confidence:
+            assert verdict is not None
             try:
-                await self.cache.put(KIND, question, fitted, "llm")
+                await self.cache.put(KIND, question, fitted, "llm", context=qctx or QuestionContext(options=options),
+                                     verified_by=f"judge:{verdict.provider}:{verdict.score:.2f}")
                 cached = True
+            except InvalidCacheEntry as exc:  # never_cache / company unknown / geo unknown
+                logger.info("screening_cache_put_refused: %s", exc)
             except Exception:  # the accepted answer is still usable without caching
                 logger.exception("screening_cache_put_failed")
+        elif self.cache is not None and reply.cacheable and verdict is None:
+            self.cache.telemetry.record("refused_unverified_llm", reason="not_judged")
         return replace(human, answer=fitted, tier=2, source="llm", latency_ms=_ms(started),
                        reason="llm_accepted", cached_new=cached, judge=label)
 

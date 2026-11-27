@@ -89,6 +89,7 @@ class PollOutcome:
     new: int = 0
     upserted: int = 0
     p0: int = 0
+    skipped_by_rule: int = 0
     woke: bool = False
     next_poll_at: datetime | None = None
     error: str | None = None

@@ -37,7 +37,8 @@ class MemoryHitlMixin(MemoryBase):
             resolved_at=row.get("resolved_at"), resolved_via=row.get("resolved_via"),
             consumed_at=row.get("consumed_at"), company_name=app.company_name if app else None,
             role_title=app.role_title if app else None, job_url=app.job_url if app else None,
-            application_state=app.state.value if app else None)
+            application_state=app.state.value if app else None,
+            telegram_card_closed_at=row.get("telegram_card_closed_at"))
 
     async def get_hitl(self, hitl_id):
         row = next((h for h in self.hitl if h.get("id") == hitl_id), None)

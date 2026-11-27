@@ -141,7 +141,8 @@ async def test_pipeline_a_filters_tiered_answers_apply_receipt_and_cross_portal_
     report = await worker.cycle()
     portal = {p.platform: p for p in report.portals}["naukri"]
     assert state(store, "naukri", "naukri-1") is S.APPLIED and portal.applied == 1
-    assert store.records[("naukri", "naukri-1")].receipt == {"source": "fake"}
+    receipt = store.records[("naukri", "naukri-1")].receipt
+    assert receipt["source"] == "fake" and set(receipt) == {"source", "timing"}  # + first-mover timing
     assert [t for _, _, t in naukri.tiers] == [0, 1, 2]  # profile fact, cache, free LLM
     assert len(llm.bodies) == 1 and "98765" not in llm.bodies[0]
     assert state(store, "naukri", "naukri-2") is S.FILTERED_OUT

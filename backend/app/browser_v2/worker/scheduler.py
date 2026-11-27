@@ -162,7 +162,7 @@ class SchedulerMixin(WorkerLoop):
             stop = await self.handle_listing(self.backlog_listing(record), rules, ctx.prefs, ctx.profile, portal,
                                              dry_run=ctx.dry_run, run_once=run_once, via="priority")
         finally:
-            if answers and stop != COOLDOWN:
+            if answers and stop != COOLDOWN and (platform, record.external_job_id) in self.attempted:
                 await self.store.mark_hitl_consumed(record.id)
         logger.info("priority lane %s %s P%s -> %s", platform, record.external_job_id, record.priority,
                     stop or "done")

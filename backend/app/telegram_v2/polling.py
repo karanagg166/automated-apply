@@ -19,10 +19,43 @@ class PollingMixin(TelegramBotBase):
                 await self._set_state("unconfigured", last_error=self.config.problem)
             logger.info("telegram_v2 unconfigured (%s); worker continues without Telegram", self.config.problem)
             return
+        from backend.app.browser_v2.worker.instance_lock import (
+            WorkerAlreadyRunning,
+            instance_lock,
+        )
+
+        try:  # one getUpdates poller per host: fail fast instead of a 409 loop with ourselves
+            with instance_lock("telegram-poller"):
+                await self._run_locked(stop_event)
+        except WorkerAlreadyRunning:
+            logger.error("telegram_v2: another poller on this host holds the lock; not polling (run only one "
+                         "worker / `cli telegram`)")
+            with contextlib.suppress(Exception):
+                await self._set_state("conflict", last_error="another local poller holds telegram-poller.lock")
+            if self.owns_client:
+                await self.client.aclose()
+
+    async def _prepare_polling(self) -> None:
+        """Long polling: drop a stale webhook (409 otherwise) and publish the command menu."""
+        assert self.client is not None
+        try:
+            webhook = await self.client.get_webhook_info()
+            if isinstance(webhook, dict) and webhook.get("url"):
+                await self.client.delete_webhook()
+                logger.warning("telegram_v2 deleted a stale webhook (long-polling mode)")
+        except Exception as exc:  # noqa: BLE001 - diagnosis on 409 still covers it
+            logger.info("telegram_v2 webhook check failed: %s", type(exc).__name__)
+        register = getattr(self, "register_commands", None)
+        if register is not None:
+            await register()
+
+    async def _run_locked(self, stop_event: asyncio.Event) -> None:
+        assert self.client is not None
         try:  # a DB hiccup here must not kill Telegram for the worker's lifetime
             await self._set_state("starting", last_error=None)
         except Exception as exc:  # noqa: BLE001
             logger.warning("telegram_v2 state write failed at start: %s", type(exc).__name__)
+        await self._prepare_polling()
         tasks = [asyncio.create_task(self._poll_loop(stop_event), name="telegram-poll"),
                  asyncio.create_task(self._dispatch_loop(stop_event), name="telegram-dispatch")]
         stopper = asyncio.create_task(stop_event.wait())
@@ -34,7 +67,8 @@ class PollingMixin(TelegramBotBase):
             await asyncio.gather(*tasks, stopper, *self._agent_tasks, return_exceptions=True)
             with contextlib.suppress(Exception):
                 await self._set_state("stopped")
-            await self.client.aclose()
+            if self.owns_client:
+                await self.client.aclose()
 
     async def _wait(self, stop_event: asyncio.Event, seconds: float) -> None:
         with contextlib.suppress(TimeoutError):

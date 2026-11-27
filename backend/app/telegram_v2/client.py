@@ -21,6 +21,8 @@ from typing import Any
 
 import httpx
 
+logger = logging.getLogger(__name__)
+
 API_BASE = "https://api.telegram.org"
 TOKEN_IN_TEXT = re.compile(r"bot\d{3,}:[A-Za-z0-9_-]+")
 REDACTED = "bot<REDACTED>"
@@ -28,6 +30,9 @@ ALLOWED_UPDATES = ["message", "callback_query"]
 MAX_MESSAGE_CHARS = 4096
 CHUNK_UNITS = 4000  # safety margin under Telegram's 4096 UTF-16 code units
 _TAG = re.compile(r"</?[a-zA-Z][^<>]*>")
+MAX_RATE_LIMIT_RETRIES = 3  # 429: wait retry_after + 0.5 s, then resend (never drop the message)
+AUTH_CIRCUIT_SEC = 15 * 60  # 401/403/404: stop sending for 15 min instead of hammering the API
+GLOBAL_MIN_INTERVAL = 1 / 25  # Telegram: <= ~30 msg/s across chats; stay at 25
 PARSE_ERROR = re.compile(r"can't parse entities|can't find end|unsupported start tag|unexpected end tag|"
                          r"entity|parse", re.IGNORECASE)
 
@@ -172,6 +177,12 @@ class TelegramClient:
         self._sleep = sleeper
         self._send_lock = asyncio.Lock()
         self._last_send: float | None = None
+        self._chat_last: dict[Any, float] = {}
+        self._paused_until = 0.0  # 429 flood-wait: every outbound send waits
+        self._circuit_until = 0.0  # 401/403/404 circuit
+        self._circuit_code: str | None = None
+        self.rate_limited = 0  # counters for /health
+        self.dropped_by_circuit = 0
 
     def __repr__(self) -> str:
         return "TelegramClient(token=<REDACTED>)"
@@ -207,16 +218,51 @@ class TelegramClient:
             raise TelegramError(f"api_error:{status}", status=status)
         return body.get("result")
 
+    @property
+    def circuit_open(self) -> bool:
+        return self._clock() < self._circuit_until
+
+    def _spacing_wait(self, chat: Any) -> float:
+        now = self._clock()
+        waits = [self._paused_until - now]
+        if self._last_send is not None:
+            waits.append(min(GLOBAL_MIN_INTERVAL, self.min_send_interval) - (now - self._last_send))
+        last_chat = self._chat_last.get(chat)
+        if last_chat is not None:
+            waits.append(self.min_send_interval - (now - last_chat))
+        return max(0.0, *waits)
+
     async def _throttled(self, method: str, payload: dict[str, Any]) -> Any:
+        """Serialized sends: <= 1 msg/s per chat, <= 25/s overall, 429 retry_after honoured for the
+        whole outbound path (re-sent, never dropped), 401/403/404 trip a 15-min circuit."""
+        chat = payload.get("chat_id")
         async with self._send_lock:
-            if self._last_send is not None:
-                wait = self.min_send_interval - (self._clock() - self._last_send)
+            for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+                if self.circuit_open:
+                    self.dropped_by_circuit += 1
+                    raise TelegramUnauthorized(self._circuit_code or "unauthorized:circuit_open")
+                wait = self._spacing_wait(chat)
                 if wait > 0:
                     await self._sleep(wait)
-            try:
-                return await self.call(method, payload)
-            finally:
-                self._last_send = self._clock()
+                try:
+                    return await self.call(method, payload)
+                except TelegramRateLimited as exc:
+                    self.rate_limited += 1
+                    self._paused_until = self._clock() + exc.retry_after + 0.5
+                    if attempt >= MAX_RATE_LIMIT_RETRIES:
+                        raise
+                    logger.warning("telegram 429 on %s: pausing outbound %.1fs", method, exc.retry_after + 0.5)
+                except TelegramUnauthorized as exc:
+                    self._circuit_until = self._clock() + AUTH_CIRCUIT_SEC
+                    self._circuit_code = exc.code
+                    logger.error("telegram %s on %s: outbound circuit OPEN for %ss (check the bot token / "
+                                 "that the owner has not blocked the bot)", exc.code, method, AUTH_CIRCUIT_SEC)
+                    raise
+                finally:
+                    self._last_send = self._clock()
+                    if chat is not None:
+                        self._chat_last[chat] = self._last_send
+            raise AssertionError("unreachable")  # pragma: no cover
 
     # --- Bot API methods ----------------------------------------------------------------
     async def get_me(self) -> dict[str, Any]:
@@ -234,7 +280,8 @@ class TelegramClient:
         return [u for u in result or [] if isinstance(u, dict) and isinstance(u.get("update_id"), int)]
 
     async def send_message(self, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None = None,
-                           reply_to: int | None = None, parse_mode: str | None = "HTML") -> dict[str, Any]:
+                           reply_to: int | None = None, parse_mode: str | None = "HTML",
+                           silent: bool = False) -> dict[str, Any]:
         """Send `text` (chunked); the keyboard rides on the last chunk, the reply on the first.
 
         Returns the last chunk's Message (the one carrying the buttons).
@@ -244,12 +291,15 @@ class TelegramClient:
         for index, chunk in enumerate(chunks):
             last = index == len(chunks) - 1
             result = await self._send_one(chat_id, chunk, reply_markup=reply_markup if last else None,
-                                          reply_to=reply_to if index == 0 else None, parse_mode=parse_mode)
+                                          reply_to=reply_to if index == 0 else None, parse_mode=parse_mode,
+                                          silent=silent)
         return result
 
     async def _send_one(self, chat_id: int, text: str, *, reply_markup: dict[str, Any] | None,
-                        reply_to: int | None, parse_mode: str | None) -> dict[str, Any]:
+                        reply_to: int | None, parse_mode: str | None, silent: bool = False) -> dict[str, Any]:
         payload: dict[str, Any] = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+        if silent:
+            payload["disable_notification"] = True
         if parse_mode:
             payload["parse_mode"] = parse_mode
         if reply_markup is not None:
@@ -287,6 +337,14 @@ class TelegramClient:
     async def send_chat_action(self, chat_id: int, action: str = "typing") -> Any:
         """'typing…' indicator (Telegram shows it ~5 s). Not throttled: it is not a message."""
         return await self.call("sendChatAction", {"chat_id": chat_id, "action": action})
+
+    async def delete_webhook(self) -> Any:
+        """Long-polling mode: a stale webhook makes every getUpdates 409 (pending updates are kept)."""
+        return await self.call("deleteWebhook", {"drop_pending_updates": False})
+
+    async def set_my_commands(self, commands: list[tuple[str, str]]) -> Any:
+        return await self.call("setMyCommands", {"commands": [
+            {"command": name, "description": description[:256]} for name, description in commands]})
 
     async def answer_callback_query(self, callback_id: str, text: str | None = None) -> Any:
         payload: dict[str, Any] = {"callback_query_id": callback_id}

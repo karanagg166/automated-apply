@@ -81,19 +81,20 @@ async def test_tier1_cache_hit_costs_zero_llm_calls_and_fits_options():
     assert llm.bodies == []
 
 
-async def test_tier2_llm_answer_is_accepted_cached_and_then_served_from_cache():
+async def test_tier2_unjudged_llm_answer_is_used_but_never_cached():
+    """Phase 4 (poison-proof cache): an LLM answer is reused only after an approving judge verdict
+    (score >= 0.92, see test_ai_v2_observability); without a verdict it is used once and not cached."""
     ai, llm = runtime()
     question = "Are you comfortable working in a fast-paced startup environment?"
     first = await ai.answerer.resolve(question, ("Yes", "No"), FACTS)
-    assert (first.tier, first.source, first.answer, first.cached_new) == (2, "llm", "Yes", True)
+    assert (first.tier, first.source, first.answer, first.cached_new) == (2, "llm", "Yes", False)
     assert first.provider == "groq" and first.input_tokens == 120 and first.output_tokens == 20
     body = json.loads(llm.bodies[0])["messages"][1]["content"]
     assert '"options": ["Yes", "No"]' in body and "skill_years" in body
     assert "98765" not in body and "Candidate Person" not in body and "gmail" not in body
     second = await ai.answerer.resolve(question, ("Yes", "No"), FACTS)
-    assert second.tier == 1 and len(llm.bodies) == 1  # 0 tokens the second time
-    rows, _ = await ai.cache.store.list_entries("screening_qa", None, 10, 0)
-    assert rows[0].source == "llm"
+    assert second.tier == 2 and len(llm.bodies) == 2  # not cached: asked again
+    assert (await ai.cache.stats())["total_entries"] == 0
 
 
 @pytest.mark.parametrize("reply,reason", [

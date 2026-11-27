@@ -5,6 +5,7 @@ from __future__ import annotations
 import html
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from backend.app.browser_v2.adapters.base import JobDetail
@@ -13,6 +14,12 @@ from backend.app.browser_v2.answers import (
     ScreeningResolver,
     hitl_override,
     resolve_answer,
+)
+from backend.app.browser_v2.answers.localize import (
+    ROLE_COUNTRY,
+    job_country,
+    localize_question,
+    role_country,  # noqa: F401 - re-exported (tests and adapters import it from here)
 )
 from backend.app.browser_v2.state import ApplicationState
 
@@ -61,45 +68,53 @@ def multi_role_query(roles: list[str] | tuple[str, ...]) -> str:
 
 
 # --- shared answer resolution ---------------------------------------------------------------
-_ROLE_COUNTRY = re.compile(r"\b(?:the\s+)?country\s+(?:in\s+which|where)\s+(?:this|the)\s+(?:role|position|job)\s+is\s+"
-                           r"(?:located|based)\b", re.IGNORECASE)
+_ROLE_COUNTRY = ROLE_COUNTRY  # kept for callers/tests that import it from here
 
 
-def role_country(location: str | None) -> str | None:
-    """Country of the job's own location ("Bengaluru, India" / "Pune" -> "India"); None when unclear."""
-    from backend.app.browser_v2.answers.geography import COUNTRIES, place_facts
-
-    if not location or re.search(r"\bremote\b", location, re.IGNORECASE) and "," not in location:
-        return None
-    place = place_facts(location, None, None)
-    if not place.country_code:
-        return None
-    names = [name for _, (name, code) in COUNTRIES.items() if code == place.country_code]
-    return names[0] if names else None
+def localize_role_country(question: str, detail: JobDetail, platform: str | None = None) -> str:
+    """Phase 9 + Phase 4: "authorized to work in the country in which this role is located?" names the
+    role's country, and a bare work-authorization / sponsorship question gets "(job country: X)", so
+    the deterministic rules and the semantic cache never confuse an India job with a US job."""
+    return localize_question(question, job_country(detail.location, platform))
 
 
-def localize_role_country(question: str, detail: JobDetail) -> str:
-    """Phase 9: "authorized to work in the country in which this role is located?" names the role's
-    country so the deterministic work-authorization rules can answer it."""
-    if not _ROLE_COUNTRY.search(question):
-        return question
-    country = role_country(detail.location)
-    return _ROLE_COUNTRY.sub(country, question) if country else question
+@dataclass(frozen=True)
+class ResolvedField:
+    answer: str | None
+    source: str
+    reason: str
+    prompt: str  # the localized question (what a HITL card must show and what the cache learns)
+    cache_entry_id: str | None = None
+    role_country: str | None = None
+
+
+async def resolve_question_detail(question: str, options: tuple[str, ...], facts: CandidateFacts,
+                                  detail: JobDetail, answerer: ScreeningResolver | None,
+                                  hitl_answers: dict[str, str] | None, *, field_kind: str | None = None,
+                                  platform: str | None = None) -> ResolvedField:
+    owner = hitl_override(question, options, hitl_answers)
+    country = job_country(detail.location, platform)
+    localized = localize_question(question, country)
+    if owner is None and localized != question:
+        owner = hitl_override(localized, options, hitl_answers)  # the HITL card showed the localized text
+    if owner is not None:
+        return ResolvedField(owner, "human_hitl", "hitl_owner_answer", localized, role_country=country)
+    if answerer is None:
+        answer = resolve_answer(localized, options, facts)
+        return ResolvedField(answer, "profile" if answer is not None else "human", "deterministic_only", localized,
+                             role_country=country)
+    resolved = await answerer.resolve(localized, options, facts, {
+        "title": detail.listing.title, "company": detail.listing.company, "field_kind": field_kind,
+        "role_country": country, "platform": platform})
+    return ResolvedField(resolved.answer, resolved.source, resolved.reason, localized,
+                         getattr(resolved, "cache_entry_id", None), country)
 
 
 async def resolve_question(question: str, options: tuple[str, ...], facts: CandidateFacts, detail: JobDetail,
                            answerer: ScreeningResolver | None, hitl_answers: dict[str, str] | None
                            ) -> tuple[str | None, str, str]:
-    owner = hitl_override(question, options, hitl_answers)
-    question = localize_role_country(question, detail)
-    if owner is not None:
-        return owner, "human_hitl", "hitl_owner_answer"
-    if answerer is None:
-        answer = resolve_answer(question, options, facts)
-        return answer, "profile" if answer is not None else "human", "deterministic_only"
-    resolved = await answerer.resolve(question, options, facts, {
-        "title": detail.listing.title, "company": detail.listing.company})
-    return resolved.answer, resolved.source, resolved.reason
+    result = await resolve_question_detail(question, options, facts, detail, answerer, hitl_answers)
+    return result.answer, result.source, result.reason
 
 
 NoteComposer = Callable[[JobDetail, CandidateFacts], Awaitable[str | None]]

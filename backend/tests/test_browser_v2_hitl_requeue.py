@@ -67,7 +67,9 @@ async def test_resolved_hitl_job_runs_first_with_owner_answer():
     assert portal.requeued == 1 and next(j for j, _ in adapter.applied) == "naukri-1"
     assert adapter.answers_seen[0] == ("naukri-1", {"Notice period (days)?": "30"})
     assert store.records[("naukri", "naukri-1")].state is S.APPLIED
-    assert store.records[("naukri", "naukri-1")].receipt == {"answer": "30"}
+    receipt = store.records[("naukri", "naukri-1")].receipt
+    assert receipt["answer"] == "30"
+    assert receipt["timing"]["first_mover_lag_seconds"] is not None and receipt["timing"]["started_at"]
     assert all(row["consumed_at"] is not None for row in store.hitl if row["status"] == "ANSWERED")
     assert await store.requeued_applications("naukri") == []  # consumed: not prioritized again
 
