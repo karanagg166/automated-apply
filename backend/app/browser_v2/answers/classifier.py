@@ -15,7 +15,9 @@ SENSITIVE = re.compile(
     r"password|passcode|verification code|one.time (?:code|password)|social security|"
     r"government (?:id|identifier)|aadhaar|aadhar|pan (?:card|number)|passport|bank account|"
     r"credit card|\bcvv\b|\botp\b|sexual orientation|gender identity|ethnicity|disabilit|"
-    r"veteran|religio|consent|legal declaration|terms and conditions", re.IGNORECASE)
+    r"veteran|religio|consent|legal declaration|terms and conditions|"
+    # An NDA signature is never produced by the cache or an LLM (answers.disclosures only).
+    r"\bnda\b|non-?\s?disclosure", re.IGNORECASE)
 TOTAL_EXPERIENCE = re.compile(
     r"\b(?:total|overall)\s+(?:years of\s+)?(?:work\s+|professional\s+)?experience\b|"
     r"\byears of (?:professional |work |total )?experience\b(?!\s+(?:in|with|using|on)\b)|"

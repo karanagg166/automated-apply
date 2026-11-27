@@ -106,6 +106,10 @@ def profile_secrets(profile: Mapping[str, Any]) -> list[str]:
         value = prefs.get(key) if isinstance(prefs, Mapping) else None
         if isinstance(value, str) and len(value.strip()) >= 3:
             secrets.append(value.strip())
+    disclosures = prefs.get("screening_disclosures") if isinstance(prefs, Mapping) else None
+    signature = disclosures.get("nda_signature_name") if isinstance(disclosures, Mapping) else None
+    if isinstance(signature, str) and len(signature.strip()) >= 3:
+        secrets.append(signature.strip())
     return secrets
 
 

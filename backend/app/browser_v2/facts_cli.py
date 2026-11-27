@@ -25,6 +25,7 @@ from collections.abc import Callable
 from typing import Any
 
 from backend.app.browser_v2.answers import CandidateFacts
+from backend.app.browser_v2.answers.facts import DISCLOSURE_KEYS
 
 # canonical fact -> where it comes from (for the report).
 CANONICAL_FACTS: dict[str, str] = {
@@ -49,6 +50,8 @@ CANONICAL_FACTS: dict[str, str] = {
     "english_proficiency": "preferences.english_proficiency",
     "skill_years": "preferences.skill_years",
     "resume_files": "preferences.resume_files",
+    # Owner-declared EEO / consent / NDA answers (answers/disclosures.py), e.g. disclosures.gender.
+    **{f"disclosures.{key}": f"preferences.screening_disclosures.{key}" for key in DISCLOSURE_KEYS},
 }
 
 
@@ -148,6 +151,7 @@ def _canonical_values(facts: CandidateFacts) -> dict[str, Any]:
         "english_proficiency": facts.english_proficiency,
         "skill_years": facts.skill_years or None,
         "resume_files": facts.resume_files or None,
+        **{f"disclosures.{key}": facts.disclosures.get(key) for key in DISCLOSURE_KEYS},
     }
 
 
