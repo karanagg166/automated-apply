@@ -17,8 +17,11 @@ Contract:
 
 from __future__ import annotations
 
+import contextlib
+import json
 import logging
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextvars import ContextVar
 from typing import Any
 
 from backend.app.ai_v2.pii import scrub_pii
@@ -34,6 +37,64 @@ DEFAULT_BASE_URL = "https://cloud.langfuse.com"
 MAX_FIELD_CHARS = 6_000
 _FALSE = {"0", "false", "no", "off"}
 _TRACERS: dict[tuple[str, str], LangfuseTracer] = {}
+
+
+_CONTEXT: ContextVar[dict[str, Any] | None] = ContextVar("llm_trace_context", default=None)
+ATTEMPT_NAME = "generate"  # stable, verb-first, never a model or provider (those are attributes)
+
+
+@contextlib.contextmanager
+def trace_context(**attrs: Any) -> Iterator[None]:
+    """Attach request context (metadata, tags, session_id, user_id) to LLM traces started inside.
+
+    Example: `with trace_context(metadata={"portal": "naukri"}, tags=["feature:screening"])`.
+    Metadata values are stringified and capped at 200 chars (Langfuse propagation limit)."""
+    merged = dict(_CONTEXT.get() or {})
+    for key, value in attrs.items():
+        if key in ("metadata",) and isinstance(value, Mapping):
+            merged["metadata"] = {**(merged.get("metadata") or {}), **value}
+        elif key == "tags":
+            merged["tags"] = [*(merged.get("tags") or []), *value]
+        else:
+            merged[key] = value
+    token = _CONTEXT.set(merged)
+    try:
+        yield
+    finally:
+        _CONTEXT.reset(token)
+
+
+def _propagation(task: str, ctx: Mapping[str, Any] | None) -> dict[str, Any]:
+    ctx = ctx or {}
+    meta = {str(k)[:60]: str(v)[:200] for k, v in (ctx.get("metadata") or {}).items() if v not in (None, "")}
+    tags = list(dict.fromkeys([f"task:{task}", *(str(t)[:60] for t in ctx.get("tags") or [])]))
+    out: dict[str, Any] = {"tags": tags, "trace_name": f"llm.{task}"}
+    if meta:
+        out["metadata"] = meta
+    for key in ("session_id", "user_id"):
+        if ctx.get(key):
+            out[key] = str(ctx[key])[:200]
+    return out
+
+
+def _scope(attrs: Mapping[str, Any]) -> Any:
+    """propagate_attributes(...) when the SDK has it, else a no-op context manager."""
+    try:
+        from langfuse import propagate_attributes
+        return propagate_attributes(**attrs)
+    except Exception:  # noqa: BLE001 - observability must never break an LLM call
+        return contextlib.nullcontext()
+
+
+def _review_input(user: str) -> Any:
+    """Root input a human reviewer wants: the question (and options/job), not the whole profile."""
+    try:
+        data = json.loads(user)
+    except ValueError:
+        return _clip(user)
+    if isinstance(data, dict) and "question" in data:
+        return {k: data[k] for k in ("question", "options", "job") if data.get(k)}
+    return _clip(user)
 
 
 def _clip(text: str) -> str:
@@ -87,10 +148,13 @@ class NullTracer:
 
 
 class _Attempt:
-    def __init__(self, observation: Any) -> None:
+    def __init__(self, observation: Any, call: Any = None) -> None:
         self._observation = observation
+        self._call = call
 
     def ok(self, text: str, input_tokens: int, output_tokens: int) -> None:
+        if self._call is not None:
+            self._call.reply = _clip(text)
         self._close(output=_clip(text), usage_details={"input": input_tokens, "output": output_tokens})
 
     def fail(self, outcome: str) -> None:
@@ -107,17 +171,21 @@ class _Attempt:
 class _Call:
     """One router call: a root span plus one generation per provider attempt."""
 
-    def __init__(self, root: Any, system: str, user: str) -> None:
+    def __init__(self, root: Any, system: str, user: str, attrs: Mapping[str, Any] | None = None) -> None:
         self._root = root
+        self._attrs = dict(attrs or {})
+        self.reply: str | None = None
         self._messages = [{"role": "system", "content": _clip(system)}, {"role": "user", "content": _clip(user)}]
         self.trace_id: str | None = getattr(root, "trace_id", None)
         self._done = False
 
     def attempt(self, provider: str, model: str, max_output_tokens: int) -> Any:
         try:
-            return _Attempt(self._root.start_observation(
-                name=provider, as_type="generation", model=model, input=self._messages,
-                model_parameters={"max_output_tokens": max_output_tokens}, metadata={"provider": provider}))
+            with _scope(self._attrs):
+                observation = self._root.start_observation(
+                    name=ATTEMPT_NAME, as_type="generation", model=model, input=self._messages,
+                    model_parameters={"max_output_tokens": max_output_tokens}, metadata={"provider": provider})
+            return _Attempt(observation, self)
         except Exception:
             logger.debug("langfuse_attempt_start_failed", exc_info=True)
             return NullCall()
@@ -130,7 +198,7 @@ class _Call:
         skipped = {"ok", "unconfigured", "excluded"}  # not a failover: never tried or succeeded
         try:
             self._root.update(
-                output={"outcome": outcome, "provider": provider},
+                output=self.reply if self.reply is not None else {"outcome": outcome, "provider": provider},
                 metadata={"outcome": outcome, "provider": provider or "", "chain": ",".join(chain),
                           "failovers": sum(1 for a in attempts if a.get("outcome") not in skipped)},
                 level="DEFAULT" if outcome == "ok" else "ERROR",
@@ -160,10 +228,11 @@ class LangfuseTracer:
 
     def start_call(self, task: str, system: str, user: str) -> Any:
         try:
-            root = self._client.start_observation(
-                name=f"llm.{task}", as_type="span", input={"task": task, "user": _clip(user)},
-                metadata={"task": task})
-            return _Call(root, system, user)
+            attrs = _propagation(task, _CONTEXT.get())
+            with _scope(attrs):
+                root = self._client.start_observation(
+                    name=f"llm.{task}", as_type="span", input=_review_input(user), metadata={"task": task})
+            return _Call(root, system, user, attrs)
         except Exception as exc:  # noqa: BLE001
             self._warn("start_call", exc)
             return NullCall()
