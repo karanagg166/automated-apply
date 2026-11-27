@@ -110,3 +110,13 @@ def test_worker_uses_one_all_roles_query_for_whole_feed_adapters_only() -> None:
     rotating = [ExecutorMixin.next_query(worker, "himalayas", prefs) for _ in range(3)]  # type: ignore[arg-type]
     assert rotating == ["Backend Engineer", "AI Engineer", "Backend Engineer"]
     assert GreenhouseAdapter.whole_feed and not HimalayasAdapter.whole_feed
+
+
+@pytest.mark.parametrize(("label", "key"), [
+    ("What is your Legal Name?", "full_name"), ("Full legal name", "full_name"), ("Legal name", "full_name"),
+    ("Name", "full_name"), ("First name", "first_name"), ("What is your favourite name for a pet?", None),
+])
+def test_identity_labels(label: str, key: str | None) -> None:
+    from backend.app.browser_v2.adapters.shared.form_filler import identity_key
+
+    assert identity_key({"label": label}) == key

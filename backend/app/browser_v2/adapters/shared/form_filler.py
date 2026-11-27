@@ -28,7 +28,8 @@ MAX_COMBOBOX_OPTIONS = 400
 IDENTITY_FIELDS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("first_name", re.compile(r"^(?:legal\s+|preferred\s+)?first\s*name$|^given\s+name$", re.IGNORECASE)),
     ("last_name", re.compile(r"^(?:legal\s+)?last\s*name$|^surname$|^family\s+name$", re.IGNORECASE)),
-    ("full_name", re.compile(r"^(?:your\s+)?(?:full\s+|legal\s+)?name$", re.IGNORECASE)),
+    ("full_name", re.compile(r"^(?:what\s+is\s+)?(?:your\s+)?(?:full\s+|legal\s+|full\s+legal\s+)?name\??$",
+                             re.IGNORECASE)),
     ("email", re.compile(r"^(?:your\s+)?e-?mail(?:\s+address|\s+id)?$", re.IGNORECASE)),
     ("phone", re.compile(r"^(?:your\s+)?(?:phone|mobile|cell|contact)(?:\s+(?:number|no\.?))?$", re.IGNORECASE)),
     ("linkedin_url", re.compile(r"linkedin", re.IGNORECASE)),
