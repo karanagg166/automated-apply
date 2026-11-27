@@ -6,6 +6,7 @@ unquarantine, purge of quarantined/expired rows and a dry-run `explain` lookup (
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -19,9 +20,15 @@ from backend.app.ai_v2.schemas import (
     SemanticCachePage,
 )
 from backend.app.ai_v2.semantic_cache import InvalidCacheEntry, QuestionContext
-from backend.app.api.v1.v2.deps import AIDep
+from backend.app.api.v1.v2.deps import AIDep, StoreDep
+from backend.app.browser_v2.schemas.ops import (
+    SemanticCacheExplainRead,
+    SemanticCachePurgeRead,
+    SemanticCacheStatsRead,
+)
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 CacheStatus = Literal["active", "quarantined", "expired"]
 
 
@@ -105,28 +112,47 @@ async def create_semantic_cache_entry(data: SemanticCacheCreate, ai: AIDep) -> S
 
 
 # --- Phase 4 admin (declared before /{entry_id} so the literal paths win) --------------------
-@router.get("/semantic-cache/stats")
-async def semantic_cache_stats(ai: AIDep) -> dict[str, Any]:
-    """Entry/hit totals, status counts (active/quarantined/expired), thresholds and decision counters."""
-    return await ai.cache.stats()
+@router.get("/semantic-cache/stats", response_model=SemanticCacheStatsRead)
+async def semantic_cache_stats(ai: AIDep, store: StoreDep) -> SemanticCacheStatsRead:
+    """Entry/hit totals, status counts (active/quarantined/expired), thresholds, decision counters and
+    how many factual entries are stale against the current profile hash."""
+    from backend.app.ai_v2.router import load_env
+    from backend.app.browser_v2.cache_stamp import current_profile_hash, stale_count
+
+    stats = SemanticCacheStatsRead.model_validate(await ai.cache.stats())
+    try:
+        digest = await current_profile_hash(store, load_env())
+        stats.stale_entries, stats.profile_hash = await stale_count(ai, digest), digest[:12]
+    except Exception as exc:  # noqa: BLE001 - staleness is advisory; the counters still render
+        logger.info("semantic cache staleness unavailable: %s", type(exc).__name__)
+    return stats
 
 
-@router.post("/semantic-cache/purge")
-async def purge_semantic_cache(data: PurgeRequest, ai: AIDep) -> dict[str, int]:
+@router.post("/semantic-cache/purge", response_model=SemanticCachePurgeRead)
+async def purge_semantic_cache(data: PurgeRequest, ai: AIDep) -> SemanticCachePurgeRead:
     """Delete every quarantined (or expired) entry, optionally of one kind. Active rows are never purged."""
-    return {"deleted": await ai.cache.purge(status=data.status, kind=data.kind)}
+    return SemanticCachePurgeRead(deleted=await ai.cache.purge(status=data.status, kind=data.kind))
 
 
-@router.post("/semantic-cache/explain")
-async def explain_semantic_cache(data: ExplainRequest, ai: AIDep) -> dict[str, Any]:
+@router.post("/semantic-cache/explain", response_model=SemanticCacheExplainRead)
+async def explain_semantic_cache(data: ExplainRequest, ai: AIDep) -> SemanticCacheExplainRead:
     """Dry-run lookup: what the cache WOULD answer for this field (no hit is counted)."""
     context = QuestionContext(field_kind=data.field_kind, options=tuple(data.options), company=data.company)
     query, hit = await ai.cache.explain(data.kind, data.question, context)
-    return {"intent_bucket": query.intent, "field_type": query.field_type, "cache_policy": query.policy,
-            "invalidation_scope": query.invalidation, "entities": query.qualifiers.entities(),
-            "hit": None if hit is None else {"id": hit.entry.id, "match": hit.match,
-                                             "similarity": round(hit.similarity, 4),
-                                             "answer": hit.answer or hit.entry.answer_text}}
+    candidates = await ai.cache.explain_candidates(query)
+    never = query.policy == "never_cache"
+    decision = "never_cache" if never else ("miss" if hit is None else f"{hit.match}_hit")
+    rejected = next((c["decision"] for c in candidates if c["decision"] != "served"), None)
+    reason = ("question is never cached (company motivation / free text)" if never else
+              None if hit is not None else rejected or "no candidate above the threshold")
+    return SemanticCacheExplainRead.model_validate({
+        "decision": decision, "reason": reason, "candidates": candidates,
+        "polarity": sorted(query.qualifiers.polarity), "negation": bool(query.qualifiers.negation),
+        "intent_bucket": query.intent, "field_type": query.field_type, "cache_policy": query.policy,
+        "invalidation_scope": query.invalidation, "entities": query.qualifiers.entities(),
+        "hit": None if hit is None else {"id": hit.entry.id, "match": hit.match,
+                                         "similarity": round(hit.similarity, 4),
+                                         "answer": hit.answer or hit.entry.answer_text}})
 
 
 @router.get("/semantic-cache/{entry_id}", response_model=SemanticCacheEntryDetail,

@@ -20,9 +20,17 @@ from backend.app.browser_v2.adapters.shared.external_handoff import (
     classify_ats,
 )
 from backend.app.browser_v2.adapters.shared.form_filler import HostedFormFiller
+from backend.app.browser_v2.adapters.shared.security_code import (
+    CodeProvider,
+    code_question,
+    needs_security_code,
+    obtain_code,
+    type_code,
+)
 from backend.app.browser_v2.adapters.shared.text import S
 from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.receipts import capture
+from backend.app.browser_v2.submit_marker import mark_submit_attempted
 
 # --- confirmation + submit helpers ----------------------------------------------------------
 CONFIRM_TEXT = (r"thank(?:s| you) for (?:your )?appl(?:ying|ication)|application (?:has been |was )?(?:submitted|received|sent)"
@@ -109,6 +117,8 @@ class HostedAtsApplier:
         self.settle_ms = settle_ms
         self.confirm_timeout_s = confirm_timeout_s
         self.receipts_root = receipts_root
+        self.security_code_provider: CodeProvider | None = None  # read-only mail lookup (Greenhouse codes)
+        self.supported: frozenset[str] = SUPPORTED_ATS  # the Ashby adapter widens this for its own forms
 
     async def shot(self, page: Any, platform: str, job_id: str, label: str) -> str | None:
         return await capture(page, platform, job_id, label, root=self.receipts_root)
@@ -122,7 +132,7 @@ class HostedAtsApplier:
         ats = detail.ats or classify_ats(detail.apply_url)
         url = detail.apply_url or detail.listing.url
         job_id = detail.listing.external_job_id
-        if ats not in SUPPORTED_ATS:
+        if ats not in self.supported:
             return ApplyResult(S.FILTERED_OUT, f"external_unsupported_ats:{urlsplit(url).hostname or 'unknown'}",
                                dry_run)
         try:
@@ -145,9 +155,13 @@ class HostedAtsApplier:
         if redirected is not None:  # the page moved while filling: never click submit elsewhere
             return ApplyResult(S.FAILED, f"ats_redirected_before_submit:{redirected}", False, answers=answers)
         start_url = str(page.url)
+        await self.filler.pacing.before_submit()  # Human Pulse: a short "review" pause before Submit
+        mark_submit_attempted(f"{ats}_submit")
+        submitted_at = datetime.now(UTC)
         await submits[0].click()
         return await self._after_submit(page, outcome, answers, ats=ats, url=url, platform=platform, job_id=job_id,
-                                        start_url=start_url)
+                                        start_url=start_url, company=detail.listing.company,
+                                        submitted_at=submitted_at, hitl_answers=hitl_answers)
 
     async def quarantine_rejected(self, answers: tuple[dict[str, str], ...], errors: list[str]) -> int:
         """A portal rejected values we filled: quarantine the semantic-cache entries behind the fields
@@ -195,21 +209,37 @@ class HostedAtsApplier:
         if outcome.question is not None:
             return ApplyResult(S.WAITING_FOR_USER, "question_requires_owner", dry_run, question=outcome.question,
                                answers=answers, screenshot=await self.shot(page, platform, job_id, "question"))
+        readback = await self.filler.verify(page, outcome, detail=detail, platform=platform, dry_run=dry_run)
+        if readback is not None:  # a required value reverted / the resume never attached: never submit
+            return ApplyResult(S.WAITING_FOR_USER, str(readback.context.get("resolver_reason")), dry_run,
+                               question=readback, answers=answers,
+                               screenshot=await self.shot(page, platform, job_id, "readback"))
         submits = await visible_buttons(page, None, SUBMIT_TEXT)
         if len(submits) != 1:
             return ApplyResult(S.FAILED, f"ats_submit_control_{len(submits)}", dry_run, answers=answers)
         return outcome, submits, answers
 
     async def _after_submit(self, page: Any, outcome: Any, answers: tuple[dict[str, str], ...], *, ats: str,
-                            url: str, platform: str, job_id: str, start_url: str) -> ApplyResult:
+                            url: str, platform: str, job_id: str, start_url: str, company: str | None = None,
+                            submitted_at: datetime | None = None, hitl_answers: dict[str, str] | None = None,
+                            code_source: str | None = None) -> ApplyResult:
         state = await poll_state(page, None, lambda st: bool(
-            confirmation_source(st, start_url) or st.get("errors") or st.get("challenge")), self.confirm_timeout_s)
+            confirmation_source(st, start_url) or st.get("errors") or st.get("challenge")
+            or (code_source is None and needs_security_code(st))), self.confirm_timeout_s)
         source = confirmation_source(state, start_url)
+        if source is None and code_source is None and ats == "greenhouse" and needs_security_code(state):
+            return await self._security_code_step(page, outcome, answers, ats=ats, url=url, platform=platform,
+                                                  job_id=job_id, start_url=start_url, company=company,
+                                                  submitted_at=submitted_at or datetime.now(UTC),
+                                                  hitl_answers=hitl_answers)
         shot = await self.shot(page, platform, job_id, "receipt" if source else "after-submit")
         if source is not None:
             receipt = {"source": source, "url": state.get("url"), "ats": ats, "screenshot": shot,
                        "verified_at": datetime.now(UTC).isoformat(), "answers": list(answers),
-                       "resume": outcome.resume}
+                       "resume": outcome.resume, "resume_variant_used": outcome.resume}
+            if code_source is not None:
+                receipt["security_code"] = code_source  # how it was obtained; the code itself is never kept
+                receipt["url"] = urlsplit(str(state.get("url") or url))._replace(query="", fragment="").geturl()
             return ApplyResult(S.APPLIED, "confirmed", False, clicked_apply=True, receipt=receipt, screenshot=shot,
                                answers=answers)
         if state.get("errors") and state.get("submits") == 1 and not state.get("challenge"):
@@ -221,3 +251,22 @@ class HostedAtsApplier:
                                    state.get("errors") or [])[:300], context={"url": url, "platform": platform}))
         return ApplyResult(S.SUBMISSION_UNKNOWN, "confirmation_ambiguous", False, clicked_apply=True,
                            answers=answers, screenshot=shot)
+
+    async def _security_code_step(self, page: Any, outcome: Any, answers: tuple[dict[str, str], ...], *, ats: str,
+                                  url: str, platform: str, job_id: str, start_url: str, company: str | None,
+                                  submitted_at: datetime, hitl_answers: dict[str, str] | None) -> ApplyResult:
+        """Greenhouse held the application for an emailed security code: email -> owner -> P0 HITL."""
+        code, source = await obtain_code(self.security_code_provider, company, submitted_at, hitl_answers)
+        if code is None or not await type_code(page, code):
+            reason = source if code is None else "security_code_input_not_found"
+            shot = await self.shot(page, platform, job_id, "security-code")
+            return ApplyResult(S.WAITING_FOR_USER, reason, False, clicked_apply=True, answers=answers,
+                               screenshot=shot, question=code_question(company, url, platform, reason))
+        submits = await visible_buttons(page, None, SUBMIT_TEXT)
+        if len(submits) != 1:
+            return ApplyResult(S.SUBMISSION_UNKNOWN, f"security_code_submit_control_{len(submits)}", False,
+                               clicked_apply=True, answers=answers)
+        await submits[0].click()  # Submit #2 (already marked as a submit attempt)
+        return await self._after_submit(page, outcome, answers, ats=ats, url=url, platform=platform, job_id=job_id,
+                                        start_url=start_url, company=company, submitted_at=submitted_at,
+                                        hitl_answers=hitl_answers, code_source=source)

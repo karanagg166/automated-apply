@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import random
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,6 +10,16 @@ from typing import Any
 
 from backend.app.browser_v2.adapters.base import HitlQuestion, JobDetail
 from backend.app.browser_v2.adapters.shared.dom_scripts import OPTIONS_JS, SCAN_JS
+from backend.app.browser_v2.adapters.shared.form_pacing import (
+    FIELD_PAUSE,
+    HumanPulse,
+    type_like_a_human,
+)
+from backend.app.browser_v2.adapters.shared.form_verify import (
+    Expectation,
+    check_readback,
+    field_key,
+)
 from backend.app.browser_v2.adapters.shared.text import (
     COVER_NOTE,
     NoteComposer,
@@ -83,113 +91,163 @@ class FillOutcome:
     question: HitlQuestion | None = None
     resume: str | None = None
     planned_uploads: list[str] = field(default_factory=list)
+    expectations: list[Expectation] = field(default_factory=list)  # read back before Submit
+    passes: int = 0
+
+
+STOP = "stop"
+RESCAN_PASSES = 3  # cascading conditional fields: bounded re-scans after the first pass
 
 
 class HostedFormFiller:
     """Fill one visible form (document or a modal root) deterministically first."""
 
     def __init__(self, *, answerer: ScreeningResolver | None = None, composer: NoteComposer | None = None,
-                 settle_ms: int = 250, jitter: tuple[float, float] = (0.2, 0.6)) -> None:
+                 settle_ms: int = 250, jitter: tuple[float, float] = FIELD_PAUSE,
+                 pacing: HumanPulse | None = None) -> None:
         self.answerer = answerer
         self.composer = composer
         self.settle_ms = settle_ms
         self.jitter = jitter
+        self.pacing = pacing or HumanPulse.from_jitter(jitter)
 
     async def scan(self, page: Any, root: str | None = None) -> list[dict[str, Any]]:
         data = await page.evaluate(SCAN_JS, {"root": root, "maxFields": 80})
         return list(data.get("fields") or [])
 
     async def _pause(self) -> None:
-        if self.jitter[1] > 0:
-            await asyncio.sleep(random.uniform(*self.jitter))
+        await self.pacing.between_fields()
 
     async def fill(self, page: Any, detail: JobDetail, facts: CandidateFacts, *, root: str | None = None,
                    hitl_answers: dict[str, str] | None = None, dry_run: bool = False,
                    platform: str = "") -> FillOutcome:
+        """Pass 1 fills the visible form; up to RESCAN_PASSES re-scans then fill required questions a
+        previous answer revealed (visa follow-ups, referral name ...), each through the same resolver."""
         outcome = FillOutcome()
         choice = pick_resume(facts.resume_files, title=detail.listing.title, description=detail.description,
                              fallback_path=facts.identity.get("resume_path"))
-        for item in await self.scan(page, root):
-            kind = item.get("kind")
-            label = clean_label(item.get("label"))
-            required = bool(item.get("required"))
-            if kind == "file":
-                if RESUME_FIELD.search(label) or RESUME_FIELD.search(item.get("name") or ""):
-                    if choice.path is None:
-                        if required:
-                            outcome.question = self._question(detail, "Resume upload is required but no resume "
-                                                              "PDF is configured (preferences.resume_files)",
-                                                              (), "file", platform, "resume_missing")
-                            return outcome
-                        continue
-                    outcome.resume = choice.label or Path(choice.path).name
-                    if dry_run:
-                        outcome.planned_uploads.append(Path(choice.path).name)
-                        continue
-                    await page.locator(f'[data-aa-field="{item["idx"]}"]').set_input_files(choice.path)
-                    outcome.filled.append({"question": label or "resume", "answer": Path(choice.path).name,
-                                           "source": "resume_picker"})
-                    await page.wait_for_timeout(self.settle_ms)
-                    continue
-                if required:
-                    outcome.question = self._question(detail, label or "File upload", (), "file", platform,
-                                                      "file_upload_required")
+        handled: set[str] = set()
+        for _ in range(1 + RESCAN_PASSES):
+            outcome.passes += 1
+            fresh = [item for item in await self.scan(page, root)
+                     if field_key(item, clean_label(item.get("label"))) not in handled]
+            if outcome.passes > 1 and not any(i.get("required") and not i.get("value_present") for i in fresh):
+                break  # nothing new to answer
+            acted = False
+            for item in fresh:
+                handled.add(field_key(item, clean_label(item.get("label"))))
+                step = await self._fill_item(page, item, outcome, detail, facts, choice, hitl_answers=hitl_answers,
+                                             dry_run=dry_run, platform=platform)
+                if step == STOP:
                     return outcome
-                continue
-            if item.get("value_present"):
-                continue
-            key = identity_key(item) if kind not in ("radio", "checkbox", "select") else None
-            if key is not None:
-                value = facts.identity.get(key)
-                if value is None and key == "full_name" and facts.identity.get("first_name"):
-                    value = " ".join(v for v in (facts.identity.get("first_name"), facts.identity.get("last_name"))
-                                     if v)
-                if value:
-                    if not await self._type_identity(page, item, key, value):
-                        outcome.question = self._question(detail, label, (), "text", platform,
-                                                          "identity_field_not_typable")
-                        return outcome
-                    outcome.filled.append({"question": label, "answer": key, "source": "profile_identity"})
-                    continue
-                if required:
-                    outcome.question = self._question(detail, label, (), "text", platform, "identity_fact_missing")
-                    return outcome
-                continue
-            if not required:
-                continue  # optional unknowns (EEO, referral source, ...) are never guessed
-            options = tuple(o["label"] if isinstance(o, dict) else str(o) for o in item.get("options") or ())
-            if kind == "checkbox" and item.get("single"):
-                options = ("Yes", "No")
-            if kind == "combobox":
-                options = await self._combobox_options(page, item)
-            resolved = await resolve_question_detail(label, options, facts, detail, self.answerer, hitl_answers,
-                                                     field_kind=kind, platform=platform)
-            answer, source, reason = resolved.answer, resolved.source, resolved.reason
-            if answer is None and kind in ("textarea", "text") and COVER_NOTE.search(label) \
-                    and self.composer is not None:
-                answer = await self.composer(detail, facts)
-                source, reason = ("composer", "intro_note") if answer else (source, reason)
-            if answer is None:
-                # Phase 4: the card shows (and the cache later learns) the LOCALIZED question, so an
-                # answer given for an India job is never reused for a US job.
-                outcome.question = self._question(
-                    detail, resolved.prompt, options, "choice" if options else "text", platform, reason,
-                    extra={"field_kind": kind, "role_country": resolved.role_country})
-                return outcome
-            if kind == "checkbox" and item.get("single") and answer.strip().lower() not in ("yes", "y", "true"):
-                outcome.question = self._question(detail, label, ("Yes", "No"), "choice", platform,
-                                                  "required_checkbox_declined")
-                return outcome
-            await self._pause()
-            if not await self._apply_answer(page, item, answer):
-                outcome.question = self._question(detail, label, options, "choice" if options else "text",
-                                                  platform, "answer_not_applicable")
-                return outcome
-            filled = {"question": label, "answer": answer, "source": source}
-            if resolved.cache_entry_id:  # lets the caller quarantine it if the portal rejects the value
-                filled["cache_entry_id"] = resolved.cache_entry_id
-            outcome.filled.append(filled)
+                acted = acted or bool(step)
+            if not acted:
+                break
+            await page.wait_for_timeout(self.settle_ms)  # let conditional blocks render
         return outcome
+
+    async def verify(self, page: Any, outcome: FillOutcome, *, root: str | None = None, detail: JobDetail,
+                     platform: str = "", dry_run: bool = False) -> HitlQuestion | None:
+        """Read back required fields + the resume before Submit; a miss becomes an owner question."""
+        expectations = [e for e in outcome.expectations if not (dry_run and e.resume)]
+        if not expectations:
+            return None
+        failure = check_readback(expectations, await self.scan(page, root), clean_label)
+        if failure is None:
+            return None
+        prompt = (f"The resume did not attach to '{failure.label}' - check the file before applying"
+                  if failure.reason == "resume_not_attached"
+                  else f"'{failure.label}' lost its value before Submit - please review this form")
+        return self._question(detail, prompt, (), "text", platform, failure.reason)
+
+    async def _fill_item(self, page: Any, item: dict[str, Any], outcome: FillOutcome, detail: JobDetail,
+                         facts: CandidateFacts, choice: Any, *, hitl_answers: dict[str, str] | None,
+                         dry_run: bool, platform: str) -> str | bool:
+        """STOP (owner question set), True (filled something), False (left alone)."""
+        kind = item.get("kind")
+        label = clean_label(item.get("label"))
+        required = bool(item.get("required"))
+        key = field_key(item, label)
+        if kind == "file":
+            if RESUME_FIELD.search(label) or RESUME_FIELD.search(item.get("name") or ""):
+                if choice.path is None:
+                    if required:
+                        outcome.question = self._question(detail, "Resume upload is required but no resume "
+                                                                  "PDF is configured (preferences.resume_files)",
+                                                          (), "file", platform, "resume_missing")
+                        return STOP
+                    return False
+                outcome.resume = choice.label or Path(choice.path).name
+                if dry_run:
+                    outcome.planned_uploads.append(Path(choice.path).name)
+                    return False
+                await page.locator(f'[data-aa-field="{item["idx"]}"]').set_input_files(choice.path)
+                outcome.filled.append({"question": label or "resume", "answer": Path(choice.path).name,
+                                       "source": "resume_picker", "variant": outcome.resume})
+                outcome.expectations.append(Expectation(key, label or "Resume", "file", resume=True))
+                await page.wait_for_timeout(self.settle_ms)
+                return True
+            if required:
+                outcome.question = self._question(detail, label or "File upload", (), "file", platform,
+                                                  "file_upload_required")
+                return STOP
+            return False
+        if item.get("value_present"):
+            return False
+        ident = identity_key(item) if kind not in ("radio", "checkbox", "select") else None
+        if ident is not None:
+            value = facts.identity.get(ident)
+            if value is None and ident == "full_name" and facts.identity.get("first_name"):
+                value = " ".join(v for v in (facts.identity.get("first_name"), facts.identity.get("last_name")) if v)
+            if value:
+                await self._pause()
+                if not await self._type_identity(page, item, ident, value):
+                    outcome.question = self._question(detail, label, (), "text", platform,
+                                                      "identity_field_not_typable")
+                    return STOP
+                outcome.filled.append({"question": label, "answer": ident, "source": "profile_identity"})
+                if required:
+                    outcome.expectations.append(Expectation(key, label, str(kind)))
+                return True
+            if required:
+                outcome.question = self._question(detail, label, (), "text", platform, "identity_fact_missing")
+                return STOP
+            return False
+        if not required:
+            return False  # optional unknowns (EEO, referral source, ...) are never guessed
+        options = tuple(o["label"] if isinstance(o, dict) else str(o) for o in item.get("options") or ())
+        if kind == "checkbox" and item.get("single"):
+            options = ("Yes", "No")
+        if kind == "combobox":
+            options = await self._combobox_options(page, item)
+        resolved = await resolve_question_detail(label, options, facts, detail, self.answerer, hitl_answers,
+                                                 field_kind=kind, platform=platform)
+        answer, source, reason = resolved.answer, resolved.source, resolved.reason
+        if answer is None and kind in ("textarea", "text") and COVER_NOTE.search(label) and self.composer is not None:
+            answer = await self.composer(detail, facts)
+            source, reason = ("composer", "intro_note") if answer else (source, reason)
+        if answer is None:
+            # Phase 4: the card shows (and the cache later learns) the LOCALIZED question, so an
+            # answer given for an India job is never reused for a US job.
+            outcome.question = self._question(
+                detail, resolved.prompt, options, "choice" if options else "text", platform, reason,
+                extra={"field_kind": kind, "role_country": resolved.role_country})
+            return STOP
+        if kind == "checkbox" and item.get("single") and answer.strip().lower() not in ("yes", "y", "true"):
+            outcome.question = self._question(detail, label, ("Yes", "No"), "choice", platform,
+                                              "required_checkbox_declined")
+            return STOP
+        await self._pause()
+        if not await self._apply_answer(page, item, answer):
+            outcome.question = self._question(detail, label, options, "choice" if options else "text",
+                                              platform, "answer_not_applicable")
+            return STOP
+        filled = {"question": label, "answer": answer, "source": source}
+        if resolved.cache_entry_id:  # lets the caller quarantine it if the portal rejects the value
+            filled["cache_entry_id"] = resolved.cache_entry_id
+        outcome.filled.append(filled)
+        outcome.expectations.append(Expectation(key, label, str(kind)))
+        return True
 
     def _question(self, detail: JobDetail, prompt: str, options: tuple[str, ...], input_kind: str,
                   platform: str, reason: str, extra: dict[str, Any] | None = None) -> HitlQuestion:
@@ -212,7 +270,10 @@ class HostedFormFiller:
 
     async def _type(self, page: Any, item: dict[str, Any], value: str) -> None:
         locator = page.locator(f'[data-aa-field="{item["idx"]}"]')
-        await locator.fill(value)
+        if item.get("kind") == "combobox":
+            await locator.fill(value)
+        else:
+            await type_like_a_human(locator, value, self.pacing, timeout_ms=ACTION_TIMEOUT_MS)
         if item.get("kind") == "combobox":
             await page.wait_for_timeout(self.settle_ms)
             await locator.press("Enter")
@@ -281,5 +342,5 @@ class HostedFormFiller:
             else:
                 await locator.press("Enter", timeout=ACTION_TIMEOUT_MS)
             return True
-        await locator.fill(answer, timeout=ACTION_TIMEOUT_MS)
+        await type_like_a_human(locator, answer, self.pacing, timeout_ms=ACTION_TIMEOUT_MS)
         return True

@@ -16,6 +16,7 @@ from urllib.parse import quote, urlsplit
 from backend.app.browser_v2.adapters.common import classify_ats, html_to_text
 from backend.app.browser_v2.adapters.feed_clients.greenhouse import GreenhouseClient
 from backend.app.browser_v2.adapters.feeds import FeedAdapter, FeedJob, fetch_all_pages
+from backend.app.browser_v2.adapters.watchlist import active_boards
 
 TOKEN = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 MAX_BOARDS = 25
@@ -72,6 +73,7 @@ class GreenhouseAdapter(FeedAdapter):
         except Exception:  # noqa: BLE001, S110 - settings are optional for the v2 worker
             pass
         boards |= board_map(prefs.get("greenhouse_boards"))
+        boards = active_boards("greenhouse", boards, prefs)  # Milestone 2: owner-paused boards are skipped
         self.boards = dict(list(boards.items())[:MAX_BOARDS])
 
     async def fetch_board(self, token: str, company: str | None) -> list[FeedJob]:

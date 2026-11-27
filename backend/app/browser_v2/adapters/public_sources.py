@@ -46,6 +46,7 @@ from backend.app.browser_v2.adapters.feeds import (
     fetch_all_pages,
 )
 from backend.app.browser_v2.adapters.greenhouse import MAX_BOARDS, board_map
+from backend.app.browser_v2.adapters.watchlist import active_boards
 from backend.app.browser_v2.store.phase9_records import WatcherState
 
 DAY_SEC = 24 * 3600
@@ -294,6 +295,7 @@ class _BoardSource(SourceFeedAdapter):
         except Exception:  # noqa: BLE001, S110 - settings are optional for the v2 worker
             pass
         boards |= board_map(prefs.get(self.preference))
+        boards = active_boards(self.preference.removesuffix("_boards"), boards, prefs)  # Milestone 2: paused
         self.boards = dict(list(boards.items())[:MAX_BOARDS])
 
     def source(self, client: Any) -> Any:

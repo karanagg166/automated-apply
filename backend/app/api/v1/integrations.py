@@ -241,6 +241,5 @@ from backend.app.integrations.gmail.mailboxes_router import (
 
 router.include_router(local_mailboxes_router)
 
-from backend.app.local_agent.apple_mail_router import router as apple_mail_router
-
-router.include_router(apple_mail_router)
+# Milestone 2: the /integrations/apple-mail/* routes were removed (no dashboard caller); the AppleMail
+# service stays for `backend/scripts/local_mail.py` and the v2 Mail.app draft bridge.

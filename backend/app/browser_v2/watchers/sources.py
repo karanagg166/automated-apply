@@ -49,6 +49,7 @@ from backend.app.browser_v2.adapters.himalayas import SEARCH_URL as HIMALAYAS_UR
 from backend.app.browser_v2.adapters.himalayas import parse_jobs as parse_himalayas
 from backend.app.browser_v2.adapters.lever import created_at
 from backend.app.browser_v2.adapters.public_sources import employer_link, to_feed_job
+from backend.app.browser_v2.adapters.watchlist import active_boards
 from backend.app.browser_v2.adapters.we_work_remotely import MAX_BYTES as WWR_MAX_BYTES
 from backend.app.browser_v2.adapters.we_work_remotely import parse_rss
 from backend.app.browser_v2.watchers.models import Fetched, Fetcher
@@ -67,6 +68,7 @@ def configured_boards(setting: str, preference: str, prefs: Mapping[str, Any]) -
     except Exception:  # noqa: BLE001, S110 - settings are optional for the v2 worker
         pass
     boards |= board_map(prefs.get(preference))
+    boards = active_boards(preference.removesuffix("_boards"), boards, prefs)  # Milestone 2: owner-paused boards
     return dict(list(boards.items())[:MAX_BOARDS])
 
 

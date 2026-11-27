@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any
 
 from backend.app.browser_v2.adapters.base import ApplyResult, JobDetail
 from backend.app.browser_v2.adapters.naukri.base import NaukriAdapterBase
-from backend.app.browser_v2.answers import CandidateFacts, hitl_override, resolve_answer
+from backend.app.browser_v2.adapters.shared.text import (
+    ResolvedField,
+    resolve_question_detail,
+)
+from backend.app.browser_v2.answers import CandidateFacts
 from backend.app.browser_v2.state import ApplicationState
+
+logger = logging.getLogger(__name__)
 
 
 class NaukriQuestionnaireMixin(NaukriAdapterBase):
@@ -62,17 +69,32 @@ class NaukriQuestionnaireMixin(NaukriAdapterBase):
         await send.first.click()
 
     async def _resolve(self, question: str, options: tuple[str, ...], facts: CandidateFacts,
-                       detail: JobDetail, hitl_answers: dict[str, str] | None = None
-                       ) -> tuple[str | None, str, str]:
-        owner = hitl_override(question, options, hitl_answers)
-        if owner is not None:  # Phase 4: resolved via Telegram/dashboard (incl. /once answers)
-            return owner, "human_hitl", "hitl_owner_answer"
-        if self.answerer is None:
-            answer = resolve_answer(question, options, facts)
-            return answer, "profile" if answer is not None else "human", "deterministic_only"
-        resolved = await self.answerer.resolve(question, options, facts, {
-            "title": detail.listing.title, "company": detail.listing.company})
+                       detail: JobDetail, hitl_answers: dict[str, str] | None = None, *,
+                       field_kind: str | None = None) -> tuple[str | None, str, str]:
+        resolved = await self._resolve_field(question, options, facts, detail, hitl_answers, field_kind=field_kind)
         return resolved.answer, resolved.source, resolved.reason
+
+    async def _resolve_field(self, question: str, options: tuple[str, ...], facts: CandidateFacts,
+                             detail: JobDetail, hitl_answers: dict[str, str] | None = None, *,
+                             field_kind: str | None = None) -> ResolvedField:
+        """Milestone 2: the same 4-tier cascade + metadata as the hosted-ATS filler (owner HITL answer,
+        deterministic facts, semantic cache v2 keyed by company/portal/field_type/options, LLM)."""
+        return await resolve_question_detail(question, options, facts, detail, self.answerer, hitl_answers,
+                                             field_kind=field_kind, platform="naukri")
+
+    async def _quarantine_rejected(self, entry_id: str | None) -> bool:
+        """Naukri refused the value a cached answer filled (the drawer re-asked the same question):
+        quarantine that semantic-cache entry so it never poisons another application."""
+        cache = getattr(self.answerer, "cache", None)
+        record = getattr(cache, "record_form_validation_error", None)
+        if not entry_id or record is None:
+            return False
+        try:
+            await record(entry_id)
+        except Exception as exc:  # noqa: BLE001 - quarantine is best effort; the outcome still stands
+            logger.info("naukri cache quarantine of %s failed: %s", entry_id, type(exc).__name__)
+            return False
+        return True
 
     def _result(self, state: ApplicationState, reason: str, dry_run: bool, **extra: Any) -> ApplyResult:
         return ApplyResult(state=state, reason=reason, dry_run=dry_run, **extra)

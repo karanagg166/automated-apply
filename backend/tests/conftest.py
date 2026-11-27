@@ -19,6 +19,8 @@ import tempfile as _tempfile  # noqa: E402
 os.environ["AUTOMATED_APPLY_LOCK_DIR"] = _tempfile.mkdtemp(prefix="aa-test-locks-")
 # Never query/refocus real macOS apps from tests (browser background mode).
 os.environ["AUTOMATED_APPLY_BROWSER_BACKGROUND"] = "0"
+# Milestone 2: Human Pulse pacing (inter-field / pre-submit pauses, key-by-key typing) is off in tests.
+os.environ["AUTOMATED_APPLY_HUMAN_PULSE"] = "0"
 
 # Force testing environment before importing app settings
 os.environ["ENVIRONMENT"] = "testing"

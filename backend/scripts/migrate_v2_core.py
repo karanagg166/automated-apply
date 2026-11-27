@@ -16,6 +16,7 @@ Usage (repo root):
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply --expected-fences 3
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-phase9
     backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-followup 007   # then 006
+    backend/venv/bin/python -m backend.scripts.migrate_v2_core apply-followup 008   # Milestone 2 mail funnel
 """
 
 from __future__ import annotations
@@ -380,7 +381,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("command", choices=("check", "apply", "apply-phase9", "apply-followup"), nargs="?",
                         default="check")
-    parser.add_argument("followup", nargs="?", help="apply-followup: 006 | 007")
+    parser.add_argument("followup", nargs="?", help="apply-followup: 006 | 007 | 008")
     parser.add_argument("--expected-fences", type=int)
     parser.add_argument("--sql-applied", action="store_true",
                         help="004 was already run in the Supabase SQL Editor: no admin password needed")

@@ -29,7 +29,7 @@ pytestmark = pytest.mark.skipif(PG_BIN is None or os.environ.get("SKIP_DISPOSABL
 def database(tmp_path_factory):
     tmp = tmp_path_factory.mktemp("pgnotify")
     data, port = tmp / "pg", free_port()
-    subprocess.run([str(PG_BIN / "initdb"), "-D", str(data), "-U", "postgres", "--auth=trust"],
+    subprocess.run([str(PG_BIN / "initdb"), "-D", str(data), "-E", "UTF8", "--locale=C", "-U", "postgres", "--auth=trust"],
                    check=True, capture_output=True)
     server = subprocess.Popen([str(PG_BIN / "postgres"), "-D", str(data), "-p", str(port), "-k", "",
                                "-c", "listen_addresses=127.0.0.1"],

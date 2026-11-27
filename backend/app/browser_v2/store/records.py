@@ -119,7 +119,9 @@ class ApplicationRecord:
                 "created_at": self.created_at, "updated_at": self.updated_at,
                 "priority": self.priority, "posted_at": self.posted_at,
                 "posted_precision": self.posted_precision, "priority_reason": self.priority_reason,
-                "discovered_via": self.discovered_via}
+                "discovered_via": self.discovered_via,
+                "funnel_stage": (self.receipt or {}).get("funnel_stage"),
+                "email_verified": bool((self.receipt or {}).get("email_verified"))}
 
 
 @dataclass

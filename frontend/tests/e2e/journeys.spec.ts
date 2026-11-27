@@ -45,7 +45,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     const csrfFailure = await page.evaluate(
       async () =>
         (
-          await fetch("/api/backend/dashboard/automation/run", {
+          await fetch("/api/backend/v2/worker/run-once", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

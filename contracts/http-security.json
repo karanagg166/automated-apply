@@ -68,7 +68,47 @@
     },
     {
       "pattern": "^v2\\/semantic-cache\\/[a-f0-9-]{36}$",
-      "methods": ["DELETE"]
+      "methods": ["GET", "DELETE"]
+    },
+    {
+      "pattern": "^v2\\/(events\\/stream|worker\\/telemetry)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/(worker\\/dry-run|telegram\\/mute|rules\\/explain)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/portal-rules\\/[a-z][a-z0-9_]{1,39}\\/breaker\\/reset$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/semantic-cache\\/stats$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/semantic-cache\\/(explain|purge|stamp-profile)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/semantic-cache\\/[a-f0-9-]{36}\\/(quarantine|unquarantine)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/portals\\/watchers$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^v2\\/portals\\/watchers\\/probe$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/applications\\/[a-f0-9-]{36}\\/proof$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/applications\\/[a-f0-9-]{36}\\/reconcile$",
+      "methods": ["POST"]
     },
     {
       "pattern": "^v2\\/(telegram\\/status|hitl)$",
@@ -124,18 +164,6 @@
     },
     {
       "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/job-alerts\\/sync$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^integrations\\/apple-mail\\/accounts$",
-      "methods": ["GET"]
-    },
-    {
-      "pattern": "^integrations\\/apple-mail\\/accounts\\/[A-Za-z0-9-]{1,128}\\/(search|drafts)$",
-      "methods": ["POST"]
-    },
-    {
-      "pattern": "^integrations\\/apple-mail\\/accounts\\/[A-Za-z0-9-]{1,128}\\/messages\\/[0-9]+\\/read$",
       "methods": ["POST"]
     },
     {
@@ -247,7 +275,7 @@
       "methods": ["GET"]
     },
     {
-      "pattern": "^dashboard\\/automation\\/(preview|run)$",
+      "pattern": "^dashboard\\/automation\\/preview$",
       "methods": ["POST"]
     },
     {

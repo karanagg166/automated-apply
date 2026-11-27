@@ -107,11 +107,24 @@ def _start_profile_sync(service: Any, worker: Any, out: Phase9Services) -> None:
             bus.subscribe("profile.updated", on_profile_updated)
 
 
+def _start_outreach(service: Any, worker: Any, env: dict[str, str]) -> None:
+    """Milestone 2: opt-in high-score outreach DRAFTS (default off; never sends)."""
+    from backend.app.browser_v2.worker.outreach import OutreachHandoff
+
+    handoff = OutreachHandoff.from_env(service.store, getattr(worker, "quota", None), env,
+                                       publish=getattr(service, "publish", None))
+    worker.outreach = handoff
+    bus = getattr(service, "event_bus", None)
+    if handoff.enabled and bus is not None:
+        bus.subscribe("job.applied", handoff.on_applied)
+
+
 async def start_phase9_services(service: Any, worker: Any, env: dict[str, str], stop: asyncio.Event, *,
                                 watchers: bool = True, telegram: bool = True, client: Any = None) -> Phase9Services:
     out = Phase9Services()
     steps: list[tuple[str, Callable[[], None]]] = [
         ("profile_sync", lambda: _start_profile_sync(service, worker, out)),
+        ("outreach_drafts", lambda: _start_outreach(service, worker, env)),
     ]
     if telegram:
         steps.append(("notification_router", lambda: _start_notifier(service, worker, env, out, client)))

@@ -17,8 +17,10 @@ from backend.app.browser_v2.state import (
 from backend.app.browser_v2.store.memory_agent import MemoryAgentMixin
 from backend.app.browser_v2.store.memory_base import MemoryBase
 from backend.app.browser_v2.store.memory_drafts import MemoryDraftsMixin
+from backend.app.browser_v2.store.memory_funnel import MemoryFunnelMixin
 from backend.app.browser_v2.store.memory_hitl import MemoryHitlMixin
 from backend.app.browser_v2.store.memory_notify import MemoryNotifyMixin
+from backend.app.browser_v2.store.memory_ops import MemoryOpsMixin
 from backend.app.browser_v2.store.memory_priority import (
     MemoryPriorityMixin,
     queue_sort_key,
@@ -36,7 +38,7 @@ from backend.app.browser_v2.store.records import (
 )
 
 
-class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, MemoryHitlMixin, MemoryDraftsMixin,
+class MemoryStore(MemoryOpsMixin, MemoryFunnelMixin, MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, MemoryHitlMixin, MemoryDraftsMixin,
                   MemoryNotifyMixin, MemoryBase):
     async def get_rules(self, platform: str) -> PortalRules:
         return self.rules.get(platform, PortalRules(platform=platform))
@@ -70,7 +72,7 @@ class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, Mem
         current = self.records[(record.platform, record.external_job_id)]
         if current.version != record.version:
             raise InvalidTransition("stale_version")
-        check_transition(current.state, target)
+        check_transition(current.state, target, reason)
         self.events.append({"application_id": current.id, "from": current.state, "to": target,
                             "reason": reason, "payload": payload or {}, "created_at": _now()})
         current.state, current.reason = ApplicationState(target), reason
@@ -118,8 +120,11 @@ class MemoryStore(MemoryAgentMixin, MemoryPriorityMixin, MemoryWatcherMixin, Mem
     async def ambiguous_submits_since(self, platform: str, since: datetime) -> int:
         ids = {r.id for (p, _), r in self.records.items()
                if p == platform and r.state != ApplicationState.APPLIED}
+        released = {e["application_id"]: e["created_at"] for e in self.events
+                    if e.get("reason") == "owner_verified_not_submitted"}  # owner release frees the quota slot
         return len({e["application_id"] for e in self.events if e["application_id"] in ids
-                    and e["to"] == ApplicationState.SUBMISSION_UNKNOWN and e["created_at"] >= since})
+                    and e["to"] == ApplicationState.SUBMISSION_UNKNOWN and e["created_at"] >= since
+                    and not (e["application_id"] in released and released[e["application_id"]] >= e["created_at"])})
 
     async def stale_applying(self, older_than: datetime, limit: int = 20) -> list[ApplicationRecord]:
         rows = [replace(r) for r in self.records.values() if r.state == ApplicationState.APPLYING

@@ -21,6 +21,10 @@ _PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
                 r"passwd|sig|signature|code|otp|session|auth)=)[^&#\s]+"), r"\1[REDACTED]"),
     (re.compile(r"(?i)\b((?:api[_-]?key|secret|password|passwd|token)\s*[=:]\s*)[^\s,;'\"]{6,}"),
      r"\1[REDACTED]"),
+    # Milestone 2: emailed security / verification / one-time codes (e.g. Greenhouse's 8-char code).
+    (re.compile(r"(?i)\b((?:security|verification|one[- ]time|confirmation|otp)\s+code"
+                r"(?:\s+(?:is|was))?\s*[:=]?\s*)(?-i:(?=[A-Za-z0-9]*(?:\d|[A-Z][A-Za-z0-9]*[A-Z]))[A-Za-z0-9]{4,10})\b"),
+     r"\1[REDACTED]"),
 )
 
 

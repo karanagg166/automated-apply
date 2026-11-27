@@ -14,6 +14,12 @@ import { Notifications, Settings } from "@/features/notifications";
 import { ProfileWizard } from "@/features/profile";
 import { UnansweredQuestionsQueue } from "@/features/unanswered-questions";
 import { CandidateKnowledge } from "@/features/candidate-knowledge";
+import { Overview } from "@/features/overview";
+import { HitlInboxPage } from "@/features/hitl-inbox";
+import { CacheStudio } from "@/features/cache-studio";
+import { PipelineBoard } from "@/features/pipeline-board";
+import { Watchlist } from "@/features/watchlist";
+import { RulesStudio } from "@/features/rules-studio";
 export default async function Page({
   params,
   searchParams,
@@ -37,6 +43,18 @@ export default async function Page({
     notFound();
   }
   switch (section) {
+    case "hitl":
+      return <HitlInboxPage />;
+    case "cache":
+      return <CacheStudio />;
+    case "pipeline":
+      return <PipelineBoard />;
+    case "watchlist":
+      return <Watchlist />;
+    case "rules":
+      return <RulesStudio />;
+    case "journey":
+      return <Overview />;
     case "applied":
       return <Applied />;
     case "autopilot":

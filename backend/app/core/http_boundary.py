@@ -99,7 +99,9 @@ async def private_discovery_boundary(request: Request, call_next):
         request._body = b"".join(chunks)
     response = await call_next(request)
     if private:
-        response.headers["Cache-Control"] = "no-store"
+        # SSE (v2/events/stream): no-transform keeps compressing proxies from buffering the stream.
+        streaming = response.headers.get("content-type", "").startswith("text/event-stream")
+        response.headers["Cache-Control"] = "no-store, no-transform" if streaming else "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
     return response
 

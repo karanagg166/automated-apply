@@ -22,8 +22,14 @@ from backend.app.browser_v2.service.handoff import HandoffMixin
 from backend.app.browser_v2.service.helpers import S, apply_env_profile, plain
 from backend.app.browser_v2.service.registry import job_id_from_url
 from backend.app.browser_v2.state import ReplayRefused, guard_apply
+from backend.app.browser_v2.submit_marker import (
+    pre_submit_failure_reason,
+    submit_scope,
+    tracks_submit,
+)
 
 logger = logging.getLogger(__name__)
+MAX_PRE_SUBMIT_ATTEMPTS = 3  # APPLYING reservations (attempts) before a hanging job stops being retried
 
 
 class ApplyMixin(HandoffMixin):
@@ -140,11 +146,17 @@ class ApplyMixin(HandoffMixin):
             record = await self.store.transition(record, S.APPLYING, "apply_started", count_attempt=True)
             started_at = datetime.now(UTC)
             try:
-                result = await adapter.apply_job(page, detail, facts, dry_run=False,
-                                                 existing_state=S.DISCOVERED.value,
-                                                 hitl_answers=hitl_answers)
+                with submit_scope() as marker:
+                    result = await adapter.apply_job(page, detail, facts, dry_run=False,
+                                                     existing_state=S.DISCOVERED.value,
+                                                     hitl_answers=hitl_answers)
             except BaseException as exc:  # incl. CancelledError (SIGTERM): never leave APPLYING behind
-                await self.reservation_unknown(record, "exception_after_reservation:" + type(exc).__name__)
+                if tracks_submit(adapter) and not marker.attempted:
+                    # Milestone 2: the hang/crash happened BEFORE the submit click (nothing reached the
+                    # employer): retryable FAILED_TIMEOUT that never burns the daily quota.
+                    await self.reservation_failed(record, pre_submit_failure_reason(exc))
+                else:
+                    await self.reservation_unknown(record, "exception_after_reservation:" + type(exc).__name__)
                 raise
             try:
                 after_click = self.after_click_handoff(platform, detail, result)
@@ -182,6 +194,21 @@ class ApplyMixin(HandoffMixin):
                                                    "external_job_id": job_id})
         await self.manager.maybe_recycle_between_jobs()
         return summary | plain(result) | {"hitl_request_id": hitl_id}
+
+    async def reservation_failed(self, record: Any, reason: str) -> None:
+        """APPLYING -> FAILED for a failure proven to precede the submit click (retry-eligible).
+
+        A job that keeps hanging before submit is parked as FILTERED_OUT after MAX_PRE_SUBMIT_ATTEMPTS
+        (the owner can re-score it) instead of being re-opened on every rediscovery."""
+        exhausted = int(getattr(record, "attempts", 0) or 0) >= MAX_PRE_SUBMIT_ATTEMPTS
+        target, why = (S.FILTERED_OUT, "pre_submit_failures_exhausted") if exhausted else (S.FAILED, reason)
+        try:
+            await self.store.transition(record, target, why[:80], payload={"submit_attempted": False,
+                                                                            "last_failure": reason[:80]})
+        except Exception as exc:  # noqa: BLE001 - fall back to the never-replay fence
+            logger.warning("could not mark %s FAILED (%s): %s", getattr(record, "id", "?"), reason,
+                           type(exc).__name__)
+            await self.reservation_unknown(record, reason)
 
     async def reservation_unknown(self, record: Any, reason: str) -> None:
         """Best effort APPLYING -> SUBMISSION_UNKNOWN (never-replay); the stale-APPLYING sweep

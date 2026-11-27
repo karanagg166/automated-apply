@@ -8,8 +8,11 @@ from backend.app.browser_v2.adapters.base import PortalAdapter
 from backend.app.browser_v2.adapters.naukri import NaukriAdapter, external_job_id
 
 
-def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
-    """All 10 Phase 6A adapters (each portal still runs only when enabled in portal_rules)."""
+def default_adapters(*, otp_provider: Any = None, security_code_provider: Any = None) -> dict[str, PortalAdapter]:
+    """All Phase 6A adapters + the Milestone 2 Ashby applier (each portal still runs only when enabled
+    in portal_rules). `security_code_provider` lets hosted Greenhouse forms read their post-submit
+    email security code (read-only mail)."""
+    from backend.app.browser_v2.adapters.ashby import AshbyAdapter
     from backend.app.browser_v2.adapters.greenhouse import GreenhouseAdapter
     from backend.app.browser_v2.adapters.himalayas import HimalayasAdapter
     from backend.app.browser_v2.adapters.hiringcafe import HiringCafeAdapter
@@ -18,7 +21,6 @@ def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
     from backend.app.browser_v2.adapters.lever import LeverAdapter
     from backend.app.browser_v2.adapters.public_sources import (
         ArbeitnowAdapter,
-        AshbyAdapter,
         HackerNewsAdapter,
         RemotiveAdapter,
         SmartRecruitersAdapter,
@@ -32,6 +34,10 @@ def default_adapters(*, otp_provider: Any = None) -> dict[str, PortalAdapter]:
         WeWorkRemotelyAdapter(), HiringCafeAdapter(), InstahyreAdapter(), InternshalaAdapter(), WellfoundAdapter(),
         WorkAtAStartupAdapter(), AshbyAdapter(), SmartRecruitersAdapter(), RemotiveAdapter(), ArbeitnowAdapter(),
         HackerNewsAdapter()]
+    for adapter in adapters:
+        applier = getattr(adapter, "applier", None)
+        if applier is not None and security_code_provider is not None:
+            applier.security_code_provider = security_code_provider
     return {adapter.platform: adapter for adapter in adapters}
 
 

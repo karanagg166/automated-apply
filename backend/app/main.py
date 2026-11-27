@@ -37,7 +37,13 @@ async def lifespan(app: FastAPI):
         close_db_engine=close_db_engine,
         drain_readiness=drain_readiness,
     ):
-        yield
+        try:
+            yield
+        finally:
+            # Milestone 2: end every open SSE stream and stop the ops EventHub poller on shutdown.
+            from backend.app.api.v1.v2.routers.events import close_event_hub
+
+            await close_event_hub()
 
 
 async def drain_readiness():

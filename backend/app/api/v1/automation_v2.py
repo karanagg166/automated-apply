@@ -39,10 +39,14 @@ from backend.app.api.v1.v2.routers import (
     agent,
     ai_cache,
     applications,
+    events,
     hitl,
     mail,
+    ops,
     portals,
     profile,
+    proof,
+    watchers,
     worker,
 )
 from backend.app.api.v1.v2.routers.agent import agent_chat, events_status
@@ -155,6 +159,8 @@ __all__ = [
 router = APIRouter(prefix="/api/v1/v2", tags=["Automation v2"], dependencies=[Depends(require_api_token)])
 # Original registration order: /mail/replies came after the Phase 6A agent routes.
 for _sub in (portals.router, profile.router, applications.router, worker.router, ai_cache.router, hitl.router,
-             mail.router, agent.router, mail.replies_router):
+             mail.router, agent.router, mail.replies_router,
+             # Milestone 2: ops command center surface.
+             ops.router, events.router, watchers.router, proof.router):
     router.include_router(_sub)
 del _sub

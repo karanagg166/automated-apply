@@ -22,7 +22,7 @@ async def open_store(*, require_db: bool, env_file: str | None = None) -> tuple[
 
     try:
         return await PostgresStore.connect(load_settings(env_file)), "postgres"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - any DB outage degrades to the memory store (or refuses live)
         if require_db:
             raise RuntimeError(f"database_required_for_live_apply:{describe_exception(exc)}") from None
         return MemoryStore(), f"memory ({describe_exception(exc)})"
@@ -45,12 +45,15 @@ async def build_service(*, require_db: bool, env_file: str | None = None) -> tup
     from backend.app.browser_v2.auth import AutoLogin
     from backend.app.events_v2.bus import build_event_bus
     from backend.app.mail_v2.reader import MailEventStore, MailReadService
+    from backend.app.mail_v2.security_codes import security_code_provider
 
     env = load_env(env_file)
     connection = getattr(store, "connection", None)
     events = MailEventStore(connection if connection is not None and await MailEventStore.ready(connection) else None)
     reader = MailReadService.from_env(env, events=events)
-    adapters = default_adapters(otp_provider=reader.fetch_recent_otp if reader.any_configured else None)
+    adapters = default_adapters(otp_provider=reader.fetch_recent_otp if reader.any_configured else None,
+                                security_code_provider=security_code_provider(reader, env)
+                                if reader.any_configured else None)
     service = BrowserService(BraveBrowserManager(), store, adapters, ai=await build_ai(store, env_file))
     service.mail_reader = reader
     profile, _ = await store.load_profile()

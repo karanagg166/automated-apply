@@ -84,7 +84,7 @@ def test_phase9_status_is_pure() -> None:
 def test_phase9_applies_twice_after_004_as_non_superuser(tmp_path) -> None:
     assert PG_BIN is not None
     data, port = tmp_path / "pg", free_port()
-    subprocess.run([str(PG_BIN / "initdb"), "-D", str(data), "-U", "admin", "--auth=trust"],
+    subprocess.run([str(PG_BIN / "initdb"), "-D", str(data), "-E", "UTF8", "--locale=C", "-U", "admin", "--auth=trust"],
                    check=True, capture_output=True)
     server = subprocess.Popen([str(PG_BIN / "postgres"), "-D", str(data), "-p", str(port), "-k", "",
                                "-c", "listen_addresses=127.0.0.1"],

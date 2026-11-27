@@ -7,12 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.automation.models import AutomationExecution
-from backend.app.automation.schemas import ManualRun, ScheduleUpdate
+from backend.app.automation.schemas import ScheduleUpdate
 from backend.app.automation.store import (
     configuration,
     current_matches,
     execution_output,
-    manual_run,
     preview,
     schedule,
     status,
@@ -47,11 +46,6 @@ async def configure(
 @router.post("/preview")
 async def plan(session: AsyncSession = Depends(get_db_session)):
     return await preview(session, get_settings())
-
-
-@router.post("/run", status_code=202)
-async def run(data: ManualRun, session: AsyncSession = Depends(get_db_session)):
-    return await manual_run(session, data, get_settings())
 
 
 @router.get("/history")

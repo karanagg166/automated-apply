@@ -138,7 +138,9 @@ it("pauses existing notification preferences", async () => {
 });
 it("allows only explicit automation methods through the owner BFF", () => {
   expect(permittedRoute("dashboard/automation", "PUT")).toBe(true);
-  expect(permittedRoute("dashboard/automation/run", "POST")).toBe(true);
+  // Milestone 2: the dead v1 run queue is gone; Run Now asks the v2 worker for one cycle.
+  expect(permittedRoute("dashboard/automation/run", "POST")).toBe(false);
+  expect(permittedRoute("v2/worker/run-once", "POST")).toBe(true);
   expect(permittedRoute("dashboard/automation/run", "GET")).toBe(false);
   expect(permittedRoute("dashboard/automation/history", "DELETE")).toBe(false);
   expect(permittedRoute("dashboard/automation/activate-provider", "POST")).toBe(
@@ -146,7 +148,7 @@ it("allows only explicit automation methods through the owner BFF", () => {
   );
 });
 
-it("reuses the same Run Now key across repeated requests", async () => {
+it("Run Now requests one v2 worker cycle", async () => {
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async (path, options) =>
     path === "dashboard/automation"
@@ -162,14 +164,11 @@ it("reuses the same Run Now key across repeated requests", async () => {
         }
       : original(path, options),
   );
-  vi.mocked(post).mockResolvedValue({ status: "queued_or_already_recorded" });
+  vi.mocked(post).mockResolvedValue({ desired_state: "RUNNING" });
   mount();
   await screen.findByRole("heading", { name: "Discovery automation" });
   await userEvent.click(screen.getByRole("button", { name: "Run Now" }));
-  await screen.findByText(/Run request recorded/);
-  await userEvent.click(screen.getByRole("button", { name: "Run Now" }));
-  await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+  await screen.findByText(/Run-once requested from the v2 worker/);
   const calls = vi.mocked(post).mock.calls;
-  expect(calls[0][1]).toEqual(calls[1][1]);
-  expect(calls[0][0]).toBe("dashboard/automation/run");
+  expect(calls[0][0]).toBe("v2/worker/run-once");
 });

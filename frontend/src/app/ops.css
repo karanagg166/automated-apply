@@ -1,0 +1,392 @@
+/* Milestone 2 ops command center: status bar, overview, HITL inbox and copilot (tokens from globals.css). */
+.ops-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 9px 38px;
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.ops-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ops-badge,
+.ops-pill,
+.ops-stream,
+.ops-hitl {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 560;
+  white-space: nowrap;
+}
+.ops-badge.green {
+  background: var(--green-soft);
+  color: var(--green);
+  border-color: transparent;
+}
+.ops-badge.amber {
+  background: var(--amber-soft);
+  color: var(--amber);
+  border-color: transparent;
+}
+.ops-badge.red {
+  color: var(--red);
+  border-color: var(--red);
+}
+.ops-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ops-pill {
+  max-width: min(460px, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ops-pill.muted {
+  color: var(--muted);
+}
+.ops-stream {
+  color: var(--muted);
+}
+.ops-stream.live {
+  color: var(--green);
+}
+.ops-hitl {
+  text-decoration: none;
+}
+.ops-hitl.pending {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--surface);
+}
+.ops-chip {
+  min-height: 26px;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  cursor: pointer;
+}
+.ops-chip:hover,
+.ops-chip:focus-visible {
+  color: var(--ink);
+}
+.button.ops-mini {
+  min-height: 26px;
+  padding: 2px 10px;
+  font-size: 12px;
+}
+.ops-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  padding: 2px 10px 2px 4px;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ops-switch > span {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--line);
+  transition: background 160ms ease-out;
+}
+.ops-switch > span::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 160ms ease-out;
+}
+.ops-switch.on > span {
+  background: var(--amber);
+}
+.ops-switch.on > span::after {
+  transform: translateX(12px);
+}
+.ops-dots {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ops-health {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.ops-health.green {
+  background: var(--green);
+}
+.ops-health.amber {
+  background: var(--amber);
+}
+.ops-health.red {
+  background: var(--red);
+}
+.ops-tooltip {
+  max-width: 280px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 11px;
+}
+.ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+.ops-kpis .metric strong {
+  font-size: 26px;
+}
+.ops-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 16px;
+  align-items: start;
+}
+.ops-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 520px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.ops-feed li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.ops-feed time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.ops-portal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.ops-portal.red {
+  border-color: var(--red);
+}
+.ops-portal h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hitl-split {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.hitl-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 72vh;
+  overflow-y: auto;
+}
+.hitl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.hitl-row.active {
+  border-color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.hitl-row-q {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+}
+.hitl-detail {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.hitl-shot {
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.copilot-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(440px, 100vw);
+  padding: 18px;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.copilot-drawer .dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.copilot-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.copilot-you {
+  align-self: flex-end;
+  margin: 0;
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--surface);
+}
+.copilot-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.copilot-reply {
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
+.copilot-reply p {
+  margin: 0 0 6px;
+}
+.copilot-trace summary {
+  cursor: pointer;
+  list-style: none;
+}
+.copilot-trace dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 6px 0 0;
+}
+.copilot-confirm {
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.copilot-form {
+  display: flex;
+  gap: 8px;
+}
+.copilot-form .input {
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .ops-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ops-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  .ops-bar {
+    padding: 8px 16px;
+  }
+  .ops-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hitl-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hitl-queue {
+    max-height: 36vh;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-switch > span,
+  .ops-switch > span::after {
+    transition: none;
+  }
+}
+/* Application proof drawer: right-side panel (radix Dialog.Content). */
+.dialog-content.proof-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  z-index: 60;
+  width: min(720px, 100vw);
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  overflow-y: auto;
+  transform: none;
+  border-radius: 0;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+@media (max-width: 640px) {
+  .dialog-content.proof-drawer {
+    width: 100vw;
+    border-left: 0;
+  }
+}

@@ -177,19 +177,6 @@ async def enqueue(session, row, request_key, trigger, now):
         )
 
 
-async def manual_run(session, data, settings):
-    row = await schedule(session, lock=True)
-    if data.expected_version != row.version:
-        raise HTTPException(409, "Schedule changed; reload before running")
-    config = configuration(row)
-    if not row.enabled or blockers(config, settings):
-        raise HTTPException(409, "Automation is disabled or awaiting configuration")
-    await enqueue(
-        session, row, "manual_" + data.idempotency_key, "manual", await instant(session)
-    )
-    return {"status": "queued_or_already_recorded", "provider_calls": 0}
-
-
 async def preview(session, settings):
     row = await schedule(session)
     config = configuration(row)

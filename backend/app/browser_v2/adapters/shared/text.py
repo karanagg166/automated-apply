@@ -93,7 +93,7 @@ async def resolve_question_detail(question: str, options: tuple[str, ...], facts
                                   hitl_answers: dict[str, str] | None, *, field_kind: str | None = None,
                                   platform: str | None = None) -> ResolvedField:
     owner = hitl_override(question, options, hitl_answers)
-    country = job_country(detail.location, platform)
+    country = job_country(getattr(detail, "location", None), platform)
     localized = localize_question(question, country)
     if owner is None and localized != question:
         owner = hitl_override(localized, options, hitl_answers)  # the HITL card showed the localized text
