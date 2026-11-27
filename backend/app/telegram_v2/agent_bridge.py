@@ -19,6 +19,8 @@ from backend.app.telegram_v2.base import MAX_AGENT_TASKS, TelegramBotBase, logge
 from backend.app.telegram_v2.client import redact
 
 BUSY = "⏳ The control agent is still working on your earlier messages; try again in a moment."
+TYPING_AFTER_SEC = 2.0  # zero-LLM fast-path replies land well before this; only slow agent turns show it
+TYPING_EVERY_SEC = 4.5  # Telegram clears the indicator after ~5 s
 
 
 def confirmation_markup(token: str) -> dict[str, Any]:
@@ -73,12 +75,27 @@ class AgentBridgeMixin(TelegramBotBase):
                     return
                 await self.reply("🤖 " + html.escape(str(result.get("reply") or ""), quote=False), message_id)
                 return
-            result = await run_chat(text, chat_key=self.agent_chat_key, source="telegram")
+            typing = asyncio.create_task(self._typing_while_slow(), name="telegram-agent-typing")
+            try:
+                result = await run_chat(text, chat_key=self.agent_chat_key, source="telegram")
+            finally:
+                typing.cancel()
             await self._deliver_agent(result, message_id)
         except Exception as exc:  # noqa: BLE001 - the agent must never break polling
             logger.warning("telegram_v2 agent failed: %s", type(exc).__name__)
             with contextlib.suppress(Exception):
                 await self.reply("⚠️ The control agent hit an error; nothing was changed.", message_id)
+
+    async def _typing_while_slow(self) -> None:
+        """Best effort: after TYPING_AFTER_SEC without a reply, keep 'typing…' visible until cancelled."""
+        await asyncio.sleep(TYPING_AFTER_SEC)
+        while self.client is not None:
+            try:
+                await self.client.send_chat_action(self.chat_id, "typing")
+            except Exception as exc:  # noqa: BLE001 - an indicator must never affect the reply
+                logger.info("telegram_v2 typing indicator failed: %s", redact(type(exc).__name__))
+                return
+            await asyncio.sleep(TYPING_EVERY_SEC)
 
     async def _deliver_agent(self, result: dict[str, Any], message_id: int | None) -> None:
         for resolution in result.get("hitl_resolutions") or []:

@@ -130,12 +130,13 @@ def test_rendered_plists_are_valid_and_wire_caffeinate_loopback_and_v2_backend(w
     worker = rendered["com.automated-apply.worker-v2"]
     assert worker["ProgramArguments"][:3] == ["/usr/bin/caffeinate", "-i", "--"]
     assert worker["ProgramArguments"][3:] == [str(paths.python), "-m", "backend.app.browser_v2.cli", "worker"]
-    assert worker["ThrottleInterval"] == 30 and worker["KeepAlive"] == {"SuccessfulExit": False, "Crashed": True}
+    # 2026-11-27: restart on ANY exit (a clean SIGTERM exit 0 left the worker + Telegram dead for 7 hours).
+    assert worker["ThrottleInterval"] == 10 and worker["KeepAlive"] is True
     # Live 2026-11-27: a "Background" worker throttled Brave until Naukri never rendered (session UNKNOWN).
     assert worker["ProcessType"] == "Interactive"
     api = rendered["com.automated-apply.api-v2"]
     assert api["ProgramArguments"] == [str(paths.python), "-m", "backend.app.browser_v2.api_launcher"]
-    assert api["ThrottleInterval"] == 15 and api["ProcessType"] == "Background"
+    assert api["ThrottleInterval"] == 10 and api["KeepAlive"] is True and api["ProcessType"] == "Background"
     argv = api_launcher.uvicorn_argv("/x/phase1.private.env")
     assert argv[argv.index("--host") + 1] == "127.0.0.1" and argv[argv.index("--port") + 1] == "8000"
     assert argv[argv.index("--env-file") + 1] == "/x/phase1.private.env"
