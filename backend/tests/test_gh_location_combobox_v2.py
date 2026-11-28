@@ -140,3 +140,44 @@ async def test_other_is_never_picked_for_non_education_questions(web):
     await filler._apply_answer(page, {"idx": 0, "kind": "combobox", "label": "How did you hear about us?*"},
                                "LinkedIn")
     assert await picked(page) == ""
+
+
+def test_degree_aliases_map_indian_degrees_to_ats_levels():
+    from backend.app.browser_v2.adapters.shared.combobox import degree_aliases
+
+    assert degree_aliases("B.Tech")[0] == "Bachelor's Degree"
+    assert degree_aliases("BTech CSE")[0] == "Bachelor's Degree"
+    assert degree_aliases("B.E.")[0] == "Bachelor's Degree"
+    assert degree_aliases("MCA")[0] == "Master's Degree"
+    assert degree_aliases("M.Tech")[0] == "Master's Degree"
+    assert degree_aliases("MBA")[0].startswith("Master of Business Administration")
+    assert degree_aliases("Diploma") == ()
+
+
+DEGREE = html("""
+  <label for="deg">Degree*</label>
+  <input id="deg" role="combobox" data-aa-field="0" aria-controls="deg-listbox" autocomplete="off">
+  <div id="deg-listbox" role="listbox"></div>
+  <input type="hidden" id="picked">
+  <script>
+    const input = document.getElementById("deg"), box = document.getElementById("deg-listbox");
+    const LEVELS = ["Associate's Degree", "Bachelor's Degree", "Engineer's Degree", "Master's Degree", "Other"];
+    input.addEventListener("input", () => {
+      box.innerHTML = "";
+      for (const s of LEVELS.filter(s => s.toLowerCase().includes(input.value.toLowerCase()))) {
+        const li = document.createElement("div");
+        li.setAttribute("role", "option"); li.textContent = s;
+        li.addEventListener("click", () => { document.getElementById("picked").value = s; });
+        box.appendChild(li);
+      }
+    });
+  </script>""")
+
+
+async def test_btech_picks_bachelors_degree_level(web):
+    page, site = web
+    site.add(URL, DEGREE)
+    await page.goto(URL)
+    filler = HostedFormFiller(jitter=(0, 0))
+    assert await filler._apply_answer(page, {"idx": 0, "kind": "combobox", "label": "Degree*"}, "B.Tech")
+    assert await picked(page) == "Bachelor's Degree"

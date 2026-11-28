@@ -70,3 +70,36 @@ async def pick_other_education(page: Any, locator: Any, label: str) -> bool:
         return False
     await type_into_combobox(page, locator, "Other")
     return await pick_combobox_option(page, locator, "Other", exact=True, wait_ms=ASYNC_OPTION_WAIT_MS)
+
+
+# Live 2026-11-28 Stripe: "Degree" lists generic levels ("Bachelor's Degree", "Master's Degree");
+# the profile's "B.Tech" matched nothing -> "Degree is required".
+DEGREE_LABEL = re.compile(r"\bdegree\b", re.IGNORECASE)
+_DEGREE_LEVELS: tuple[tuple[re.Pattern[str], tuple[str, ...]], ...] = (
+    (re.compile(r"^(?:b\.?\s?tech|b\.?\s?e|b\.?\s?sc|bca|b\.?\s?s|b\.?\s?a|bachelor)", re.IGNORECASE),
+     ("Bachelor's Degree", "Bachelor's", "Bachelors", "Bachelor of Technology", "Bachelor of Engineering")),
+    (re.compile(r"^(?:m\.?\s?tech|m\.?\s?e|m\.?\s?sc|mca|m\.?\s?s|master)", re.IGNORECASE),
+     ("Master's Degree", "Master's", "Masters")),
+    (re.compile(r"^(?:mba|m\.b\.a)", re.IGNORECASE), ("Master of Business Administration (M.B.A.)", "MBA")),
+    (re.compile(r"^(?:ph\.?\s?d|doctor)", re.IGNORECASE), ("Doctor of Philosophy (Ph.D.)", "PhD")),
+)
+
+
+def degree_aliases(answer: str) -> tuple[str, ...]:
+    """Generic ATS level names for a concrete degree ("B.Tech" -> "Bachelor's Degree", ...)."""
+    text = answer.strip()
+    for pattern, names in _DEGREE_LEVELS:
+        if pattern.match(text):
+            return names
+    return ()
+
+
+async def pick_degree_level(page: Any, locator: Any, label: str, answer: str) -> bool:
+    """Degree pickers that list levels instead of degree names: choose the matching level."""
+    if not DEGREE_LABEL.search(label or ""):
+        return False
+    for name in degree_aliases(answer):
+        await type_into_combobox(page, locator, name)
+        if await pick_combobox_option(page, locator, name, exact=True, wait_ms=STATIC_OPTION_WAIT_MS):
+            return True
+    return False

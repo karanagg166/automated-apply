@@ -14,6 +14,7 @@ from backend.app.browser_v2.adapters.shared.combobox import (
     EDUCATION_LABEL,
     STATIC_OPTION_WAIT_MS,
     pick_combobox_option,
+    pick_degree_level,
     pick_other_education,
     type_into_combobox,
 )
@@ -340,6 +341,8 @@ class HostedFormFiller:
             await type_into_combobox(page, locator, answer)
             wait = ASYNC_OPTION_WAIT_MS if EDUCATION_LABEL.search(label) else STATIC_OPTION_WAIT_MS
             if await pick_combobox_option(page, locator, answer, exact=True, wait_ms=wait):
+                return True
+            if await pick_degree_level(page, locator, label, answer):
                 return True
             if await pick_other_education(page, locator, label):
                 return True
