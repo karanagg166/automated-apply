@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 
 from backend.app.browser_v2.adapters.common import HostedFormFiller
-from backend.app.browser_v2.adapters.shared.form_filler import pick_combobox_option
+from backend.app.browser_v2.adapters.shared.combobox import pick_combobox_option
 from backend.tests.phase6a_fixtures import (  # noqa: F401
     chromium_fixture,
     html,
@@ -71,3 +71,72 @@ async def test_exact_answer_still_picks_an_exact_option(web):
     await locator.fill("Pune")
     assert await pick_combobox_option(page, locator, "Pune, Haryana, India", exact=True, wait_ms=1500)
     assert await picked(page) == "Pune, Haryana, India"
+
+
+# Live 2026-11-28 Stripe: react-select only opens its menu after a pointer press; fill() alone
+# left aria-expanded=false, so no suggestion ever rendered.
+CLICK_TO_OPEN = html("""
+  <input id="loc" role="combobox" data-aa-field="0" aria-expanded="false" autocomplete="off">
+  <div id="loc-listbox" role="listbox"></div>
+  <input type="hidden" id="picked">
+  <script>
+    const input = document.getElementById("loc"), box = document.getElementById("loc-listbox");
+    input.addEventListener("mousedown", () => {
+      input.setAttribute("aria-expanded", "true"); input.setAttribute("aria-controls", "loc-listbox"); });
+    input.addEventListener("input", () => {
+      box.innerHTML = "";
+      if (input.getAttribute("aria-expanded") !== "true") return;
+      const li = document.createElement("div");
+      li.setAttribute("role", "option"); li.textContent = input.value + ", Haryana, India";
+      li.addEventListener("click", () => { document.getElementById("picked").value = li.textContent; });
+      setTimeout(() => box.appendChild(li), 300);
+    });
+  </script>""")
+
+SCHOOL = html("""
+  <label for="school">School*</label>
+  <input id="school" role="combobox" data-aa-field="0" aria-controls="school-listbox" autocomplete="off">
+  <div id="school-listbox" role="listbox"></div>
+  <input type="hidden" id="picked">
+  <script>
+    const input = document.getElementById("school"), box = document.getElementById("school-listbox");
+    const SCHOOLS = ["Indian Institute of Technology Delhi (IITD)", "Other"];
+    input.addEventListener("input", () => {
+      box.innerHTML = "";
+      setTimeout(() => {
+        for (const s of SCHOOLS.filter(s => s.toLowerCase().includes(input.value.toLowerCase()))) {
+          const li = document.createElement("div");
+          li.setAttribute("role", "option"); li.textContent = s;
+          li.addEventListener("click", () => { document.getElementById("picked").value = s; });
+          box.appendChild(li);
+        }
+      }, 400);
+    });
+  </script>""")
+
+
+async def test_combobox_menu_that_opens_only_on_click_still_gets_the_city(web):
+    page, site = web
+    site.add(URL, CLICK_TO_OPEN)
+    await page.goto(URL)
+    await HostedFormFiller(jitter=(0, 0))._type(page, {"idx": 0, "kind": "combobox"}, "Faridabad")
+    assert await picked(page) == "Faridabad, Haryana, India"
+
+
+async def test_unlisted_college_picks_the_school_lists_own_other(web):
+    page, site = web
+    site.add(URL, SCHOOL)
+    await page.goto(URL)
+    filler = HostedFormFiller(jitter=(0, 0))
+    assert await filler._apply_answer(page, {"idx": 0, "kind": "combobox", "label": "School*"}, "IIITDM Jabalpur")
+    assert await picked(page) == "Other"
+
+
+async def test_other_is_never_picked_for_non_education_questions(web):
+    page, site = web
+    site.add(URL, SCHOOL.replace("School*", "How did you hear about us?*"))
+    await page.goto(URL)
+    filler = HostedFormFiller(jitter=(0, 0))
+    await filler._apply_answer(page, {"idx": 0, "kind": "combobox", "label": "How did you hear about us?*"},
+                               "LinkedIn")
+    assert await picked(page) == ""
