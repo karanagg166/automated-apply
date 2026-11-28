@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Any, Self
 
@@ -15,6 +16,22 @@ from backend.app.browser_v2.store.records import (
     EmailDraftRecord,
     HitlRecord,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _broken_connection_errors() -> tuple[type[BaseException], ...]:
+    errors: list[type[BaseException]] = [TimeoutError, ConnectionError, OSError]
+    try:
+        import asyncpg
+
+        errors += [asyncpg.exceptions.ConnectionDoesNotExistError, asyncpg.exceptions.InterfaceError]
+    except ImportError:  # pragma: no cover - asyncpg ships with the backend
+        pass
+    return tuple(errors)
+
+
+_BROKEN_CONNECTION_ERRORS = _broken_connection_errors()
 
 
 def _json(value: Any) -> Any:
@@ -51,10 +68,43 @@ class SerializedConnection:
     it, so statements inside `async with transaction()` do not deadlock.
     """
 
-    def __init__(self, connection: Any) -> None:
+    def __init__(self, connection: Any, reconnect: Callable[[], Awaitable[Any]] | None = None) -> None:
         self._connection = connection
+        self._reconnect = reconnect
         self._lock = asyncio.Lock()
         self._owner: asyncio.Task[Any] | None = None
+        self.reconnects = 0
+
+    def _is_closed(self) -> bool:
+        probe = getattr(self._connection, "is_closed", None)
+        try:
+            return bool(probe()) if callable(probe) else False
+        except Exception:  # noqa: BLE001 - an unreadable connection is a dead one
+            return True
+
+    async def _ensure_open(self) -> None:
+        """Replace a dead connection (laptop sleep, network drop, Supabase restart).
+
+        Runs before a query is sent, so nothing is ever executed twice. A failed
+        reconnect raises; the caller's cycle fails and the next one tries again.
+        """
+        if self._reconnect is None or not self._is_closed():
+            return
+        fresh = await self._reconnect()
+        self._connection = fresh
+        self.reconnects += 1
+        logger.warning("postgres connection was closed; reconnected (count=%d)", self.reconnects)
+
+    def _drop_if_broken(self, exc: BaseException) -> None:
+        """A timed-out / reset socket can still report open: terminate it so the next call reconnects."""
+        if self._reconnect is None or not isinstance(exc, _BROKEN_CONNECTION_ERRORS):
+            return
+        terminate = getattr(self._connection, "terminate", None)
+        if callable(terminate):
+            try:
+                terminate()
+            except Exception:
+                logger.debug("terminate of a broken connection failed", exc_info=True)
 
     @asynccontextmanager
     async def _hold(self) -> AsyncIterator[None]:
@@ -65,7 +115,12 @@ class SerializedConnection:
         async with self._lock:
             self._owner = task
             try:
-                yield
+                await self._ensure_open()
+                try:
+                    yield
+                except BaseException as exc:
+                    self._drop_if_broken(exc)
+                    raise
             finally:
                 self._owner = None
 
@@ -163,11 +218,15 @@ class PostgresBase:
         from backend.app.db.safety import database_connect_args
 
         url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
-        connection = await asyncpg.connect(url, **database_connect_args(settings))
+
+        async def open_connection() -> Any:
+            return await asyncpg.connect(url, **database_connect_args(settings))
+
+        connection = await open_connection()
         if not await cls.schema_ready(connection):
             await connection.close()
             raise RuntimeError("v2_schema_missing: run backend.scripts.migrate_v2_core apply first")
-        return cls(SerializedConnection(connection))
+        return cls(SerializedConnection(connection, reconnect=open_connection))
 
     @classmethod
     async def borrowed(cls, connection: Any) -> Self:

@@ -165,8 +165,14 @@ class ApplyMixin(HandoffMixin):
                 receipt = result.receipt
                 if result.state == S.APPLIED:
                     receipt = (receipt or {}) | first_mover_timing(record, started_at, datetime.now(UTC))
+                target_state, target_reason = result.state, result.reason
+                if (result.state == S.FAILED and not result.clicked_apply
+                        and int(getattr(record, "attempts", 0) or 0) >= MAX_PRE_SUBMIT_ATTEMPTS):
+                    # The same job failing before submit on every rediscovery (Twilio: 24 retries, each
+                    # re-opening the portal breaker) is parked; the owner can re-score it.
+                    target_state, target_reason = S.FILTERED_OUT, ("failures_exhausted:" + result.reason)[:80]
                 record = await self.store.transition(
-                    record, result.state, result.reason, receipt=receipt,
+                    record, target_state, target_reason, receipt=receipt,
                     payload={"answers": list(result.answers), "clicked_apply": result.clicked_apply,
                              "screenshot": result.screenshot})
             except BaseException as exc:
