@@ -84,8 +84,11 @@ FORM_STATE_JS = r"""
   const errors = [...scope.querySelectorAll("[aria-invalid='true'], .field-error, .error-message, [class*='error']:not(form):not(body)")]
     .filter(visible).map(text).filter(t => t && t.length < 200).slice(0, 5);
   const sub = new RegExp(submitRe, "i");
-  const submits = [...scope.querySelectorAll("button, input[type=submit], [role=button]")].filter(visible)
-    .filter(b => sub.test((text(b) || b.value || "").trim())).length;
+  const matched = [...scope.querySelectorAll("button, input[type=submit], [role=button]")].filter(visible)
+    .filter(b => sub.test((text(b) || b.value || "").trim()));
+  // Greenhouse job-boards show a page-level "Apply" (scroll-to-form) beside the form's own submit.
+  const inForm = matched.filter(b => b.type === "submit" || !!b.closest("form"));
+  const submits = (matched.length > 1 && inForm.length >= 1 ? inForm : matched).length;
   return {url: location.href, body, errors, submits,
           confirmed: new RegExp(confirmRe, "i").test(body),
           challenge: challengeNodes() || challengeTitle() || /verify (?:that )?you are (?:a )?human|unusual traffic|press and hold/i.test(body)};

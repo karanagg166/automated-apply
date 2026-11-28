@@ -84,6 +84,29 @@ async def visible_buttons(page: Any, root: str | None, pattern: str) -> Any:
     return visible
 
 
+_IN_FORM_JS = "e => e.type === 'submit' || !!e.closest('form')"
+
+
+async def form_submit_buttons(page: Any, root: str | None, pattern: str) -> Any:
+    """Visible submit controls, narrowed to the form's own when the page adds look-alikes.
+
+    Greenhouse job-boards render a page-level "Apply" button (it only scrolls to the
+    form) next to the form's real "Submit application"; counting both made every
+    hosted Greenhouse form fail with ats_submit_control_2.
+    """
+    buttons = await visible_buttons(page, root, pattern)
+    if len(buttons) <= 1:
+        return buttons
+    narrowed = []
+    for item in buttons:
+        try:
+            if await item.evaluate(_IN_FORM_JS):
+                narrowed.append(item)
+        except Exception:  # noqa: BLE001, S112 - a detached node is simply not a candidate
+            continue
+    return narrowed or buttons
+
+
 async def poll_state(page: Any, root: str | None, done: Callable[[dict[str, Any]], bool], timeout_s: float,
                      **kwargs: Any) -> dict[str, Any]:
     loop = asyncio.get_running_loop()
@@ -214,7 +237,7 @@ class HostedAtsApplier:
             return ApplyResult(S.WAITING_FOR_USER, str(readback.context.get("resolver_reason")), dry_run,
                                question=readback, answers=answers,
                                screenshot=await self.shot(page, platform, job_id, "readback"))
-        submits = await visible_buttons(page, None, SUBMIT_TEXT)
+        submits = await form_submit_buttons(page, None, SUBMIT_TEXT)
         if len(submits) != 1:
             return ApplyResult(S.FAILED, f"ats_submit_control_{len(submits)}", dry_run, answers=answers)
         return outcome, submits, answers
@@ -262,7 +285,7 @@ class HostedAtsApplier:
             shot = await self.shot(page, platform, job_id, "security-code")
             return ApplyResult(S.WAITING_FOR_USER, reason, False, clicked_apply=True, answers=answers,
                                screenshot=shot, question=code_question(company, url, platform, reason))
-        submits = await visible_buttons(page, None, SUBMIT_TEXT)
+        submits = await form_submit_buttons(page, None, SUBMIT_TEXT)
         if len(submits) != 1:
             return ApplyResult(S.SUBMISSION_UNKNOWN, f"security_code_submit_control_{len(submits)}", False,
                                clicked_apply=True, answers=answers)
