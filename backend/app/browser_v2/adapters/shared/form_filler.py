@@ -9,6 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from backend.app.browser_v2.adapters.base import HitlQuestion, JobDetail
+from backend.app.browser_v2.adapters.shared.combobox import (
+    ASYNC_OPTION_WAIT_MS,
+    EDUCATION_LABEL,
+    STATIC_OPTION_WAIT_MS,
+    pick_combobox_option,
+    pick_other_education,
+    type_into_combobox,
+)
 from backend.app.browser_v2.adapters.shared.dom_scripts import OPTIONS_JS, SCAN_JS
 from backend.app.browser_v2.adapters.shared.form_pacing import (
     FIELD_PAUSE,
@@ -43,46 +51,6 @@ def input_value(kind: str | None, key: str | None, value: str) -> str:
 
 ACTION_TIMEOUT_MS = 8_000  # one form widget never blocks the apply for 30 s
 MAX_COMBOBOX_OPTIONS = 400
-# Live 2026-11-28 Twilio: Greenhouse's "Location (City)" react-select loads geo suggestions
-# asynchronously (~0.5-1.5 s); pressing Enter after the short settle selected nothing and the
-# form was rejected with "Please enter your location".
-ASYNC_OPTION_WAIT_MS = 6_000
-STATIC_OPTION_WAIT_MS = 1_500
-OPTION_POLL_MS = 250
-
-
-def _norm(text: str) -> str:
-    return " ".join(text.split()).casefold()
-
-
-async def pick_combobox_option(page: Any, locator: Any, value: str, *, exact: bool, wait_ms: int) -> bool:
-    """Click THIS combobox's option for `value` once it renders; False when none appears in time.
-
-    exact=False (typed identity values such as a city) also accepts the first option that starts
-    with the value ("Faridabad" -> "Faridabad, Haryana, India"), but only inside the field's own
-    listbox, never a page-wide list (the phone country-code picker is always in the DOM).
-    """
-    wanted, waited = _norm(value), 0
-    while True:
-        listbox = ((await locator.get_attribute("aria-controls")) or (await locator.get_attribute("aria-owns"))
-                   or "").split(" ")[0]
-        scope = page.locator(f'[id="{listbox}"]') if listbox else page
-        options = scope.locator("[role=option]").filter(visible=True)
-        best = None
-        for index in range(min(await options.count(), 50)):
-            text = _norm(await options.nth(index).inner_text())
-            if text == wanted:
-                best = index
-                break
-            if best is None and not exact and listbox and text.startswith(wanted):
-                best = index
-        if best is not None:
-            await options.nth(best).click(timeout=ACTION_TIMEOUT_MS)
-            return True
-        if waited >= wait_ms:
-            return False
-        await page.wait_for_timeout(OPTION_POLL_MS)
-        waited += OPTION_POLL_MS
 
 # --- hosted form scanning + filling ---------------------------------------------------------
 IDENTITY_FIELDS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -313,8 +281,7 @@ class HostedFormFiller:
         if item.get("kind") != "combobox":
             await type_like_a_human(locator, value, self.pacing, timeout_ms=ACTION_TIMEOUT_MS)
             return
-        await locator.fill(value)
-        await page.wait_for_timeout(self.settle_ms)
+        await type_into_combobox(page, locator, value)
         if not await pick_combobox_option(page, locator, value, exact=False, wait_ms=ASYNC_OPTION_WAIT_MS):
             await locator.press("Enter")
 
@@ -369,11 +336,14 @@ class HostedFormFiller:
             await locator.select_option(label=answer, timeout=ACTION_TIMEOUT_MS)
             return True
         if kind == "combobox":
-            await locator.click(timeout=ACTION_TIMEOUT_MS)
-            await locator.fill(answer, timeout=ACTION_TIMEOUT_MS)
-            await page.wait_for_timeout(self.settle_ms)
-            if not await pick_combobox_option(page, locator, answer, exact=True, wait_ms=STATIC_OPTION_WAIT_MS):
-                await locator.press("Enter", timeout=ACTION_TIMEOUT_MS)
+            label = str(item.get("label") or "")
+            await type_into_combobox(page, locator, answer)
+            wait = ASYNC_OPTION_WAIT_MS if EDUCATION_LABEL.search(label) else STATIC_OPTION_WAIT_MS
+            if await pick_combobox_option(page, locator, answer, exact=True, wait_ms=wait):
+                return True
+            if await pick_other_education(page, locator, label):
+                return True
+            await locator.press("Enter", timeout=ACTION_TIMEOUT_MS)
             return True
         await type_like_a_human(locator, answer, self.pacing, timeout_ms=ACTION_TIMEOUT_MS)
         return True
